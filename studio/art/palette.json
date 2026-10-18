@@ -1,0 +1,16 @@
+{
+  "ink": "#07090C",
+  "skyNight": "#0B1220",
+  "fogHaze": "#2A3440",
+  "concrete": "#8A8B86",
+  "concreteDark": "#4A4C4B",
+  "wallPaint": "#6F8277",
+  "metal": "#5B6670",
+  "hazardYellow": "#E8B820",
+  "hazardBlack": "#16181A",
+  "rust": "#8C4A2A",
+  "sodium": "#FF9A3C",
+  "emergencyRed": "#D62828",
+  "ruptureTeal": "#2FE0C8",
+  "hudAmber": "#FFB000"
+}

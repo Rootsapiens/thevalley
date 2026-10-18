@@ -1,0 +1,12 @@
+# Rajaie: village barn slice "Arrival" (2026-10-18, compass per decisions-noor.md)
+- Built: `src/village.ts` (pure: layout, collision, 12 examinables ar+en, hoofprint trail, zones), `villageScene.ts` (procedural set; per-vertex sky-occlusion/bounce bake on indirect light only; sun-aware fog; static 4096 shadow map with BackSide casters), `villageAudio.ts`, `villageMain.ts` (F3 dev overlay). Default start is the village; `?level=nightshift` keeps Night Shift.
+- Noor's compass: sun 240°/4°, warm orange (~2,000 K); mountain and cave at 45°; cold blue sky and fog. The hoofprints leave the barn and cross the pasture at 45° to the wall gap at x 22–28, so fence and barn shadows (pointing 60°) run along them. In the opening shot the snowy face is the brightest surface. The barn stays 20×20 m with 22 stalls.
+- Draw calls per view (`__game.info()`): 7–15. Triangles in view: about 306k. Programs: 16, all compiled before the first frame.
+- Frame time, headless Chromium on Iris Xe (D3D11, vsync): idle and walking each 361 frames at p50 16.7 / p95 16.7 / p99 16.8 ms (60.0 fps), CPU per frame p95 1.5 ms. The full-route walk: 600 frames at p95 16.8 ms.
+- Before → after: precompiling shaders took first-look p95 from 83 to 16.8 ms. Moving dust to the GPU took CPU per frame from p95 15.6 to 1.5 ms.
+- Audio: offline render through the limiter, worst case (all voices at once) peaks at 0.507; single voices 0.05–0.19.
+- Tests: `npm run check` → 0, 44/44 unit. New this round: the 15 m rule (longest stretch of the route without an examinable or hoofprint ≤ 15 m) and shadows aligned with the tracks (within 30°), plus the trail-to-45° and the 20–40 s headless walk. `npm run build` → 0. `tests/e2e/boot.spec.ts` → 2/2.
+- Flow script: 12/12 examined, the end zone fires, the title card shows, Night Shift boots, 0 console errors, warnings or 4xx/5xx responses.
+- Bytes: `villageMain` 66.8 kB (27.2 kB gzip). Only one texture: `public/art/wall-painted.png` (363,800 B). No teal and no banned terms (grep → 0).
+- Stills: `studio/stills/village-1-arrival.png`, `-2-barn.png` (the mountain framed in the north door), `-3-examine.png`, `-4-mountain.png`.
+- Commands: `node scratchpad/flow.mjs`, `node scratchpad/perf.mjs`, `node scratchpad/shot.mjs` (CDP + `window.__game`), `npx playwright test tests/e2e/boot.spec.ts`.

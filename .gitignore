@@ -1,0 +1,17 @@
+node_modules
+dist
+reference
+
+# Unreal Engine trial (unreal/): engine-generated caches and local build output
+unreal/OmegaValley/Binaries/
+unreal/OmegaValley/Intermediate/
+unreal/OmegaValley/Saved/
+unreal/OmegaValley/DerivedDataCache/
+unreal/OmegaValley/.vs/
+unreal/OmegaValley/*.sln
+unreal/build/
+test-results
+playwright-report
+art-src
+art-incoming/*.png
+*.zip

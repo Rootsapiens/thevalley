@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Omega Valley</title>
+  <link rel="icon" href="data:," />
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #07090C; font-family: "Consolas", monospace; user-select: none; }
+    #app canvas { display: block; }
+    #crosshair { position: fixed; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px; background: #FFB000; pointer-events: none; }
+    #hud { position: fixed; left: 24px; bottom: 20px; color: #FFB000; font-size: 20px; letter-spacing: 2px; text-shadow: 0 0 6px #07090C; pointer-events: none; }
+    #overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: rgba(7,9,12,.75); color: #e8e2d0; cursor: pointer; text-align: center; z-index: 10; }
+    #overlay h1 { color: #FFB000; letter-spacing: 8px; margin: 0 0 12px; }
+    #overlay p { margin: 4px; opacity: .85; }
+    #overlay .ar { font-family: "Segoe UI", Tahoma, "Noto Naskh Arabic", "Noto Sans Arabic", sans-serif; font-size: 20px; }
+    /* HUD text stays hudAmber (style guide); low health blinks instead of turning red. */
+    #hud .low { color: #FFB000; animation: low-blink .5s steps(2) infinite; }
+    @keyframes low-blink { 50% { opacity: .35; } }
+    #ammo { position: fixed; right: 24px; bottom: 20px; color: #FFB000; font-size: 20px; letter-spacing: 2px; text-shadow: 0 0 6px #07090C; pointer-events: none; }
+    #ammo b { font-size: 30px; }
+    #toast { position: fixed; top: 22%; width: 100%; text-align: center; color: #FFB000; letter-spacing: 4px; transition: opacity .3s; opacity: 0; pointer-events: none; }
+    #hurt { position: fixed; inset: 0; background: radial-gradient(transparent 40%, #D62828); opacity: 0; pointer-events: none; }
+    #death { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; background: rgba(54,10,10,.6); color: #e8e2d0; pointer-events: none; }
+    #sub { position: fixed; left: 50%; bottom: 8%; transform: translateX(-50%); width: min(900px, 86vw); text-align: center; color: #efe9da;
+      text-shadow: 0 0 8px rgba(7,9,12,.95), 0 1px 2px #07090C; transition: opacity .45s; opacity: 0; pointer-events: none; }
+    #sub-ar { font-family: "Segoe UI", Tahoma, "Noto Naskh Arabic", "Noto Sans Arabic", sans-serif; font-size: 25px; line-height: 1.5; }
+    #sub-en { font-family: "Segoe UI", system-ui, sans-serif; font-size: 16px; line-height: 1.45; opacity: .82; margin-top: 2px; }
+    #sub-ar:empty { display: none; }
+    #end { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; background: rgba(7,9,12,.88); color: #e8e2d0; }
+    #end h1 { color: #FFB000; letter-spacing: 10px; margin: 0; }
+    #death h2 { color: #FFB000; letter-spacing: 6px; }
+
+    /* Village slice: Lorenzo's camera. Subtle: a viewfinder, a REC dot and timecode, a soft vignette. */
+    body.village #crosshair { width: 3px; height: 3px; margin: -1.5px; opacity: .55; border-radius: 50%; }
+    #vignette { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 58%, rgba(7,9,12,.5) 100%); }
+    #frame { position: fixed; inset: 26px; pointer-events: none; opacity: .3; }
+    #frame i { position: absolute; width: 26px; height: 18px; border: 0 solid #efe9da; }
+    #frame i:nth-child(1) { left: 0; top: 0; border-left-width: 1px; border-top-width: 1px; }
+    #frame i:nth-child(2) { right: 0; top: 0; border-right-width: 1px; border-top-width: 1px; }
+    #frame i:nth-child(3) { left: 0; bottom: 0; border-left-width: 1px; border-bottom-width: 1px; }
+    #frame i:nth-child(4) { right: 0; bottom: 0; border-right-width: 1px; border-bottom-width: 1px; }
+    #rec { position: fixed; left: 42px; top: 36px; color: #FFB000; font-size: 13px; letter-spacing: 2px; opacity: .78; pointer-events: none;
+      text-shadow: 0 0 5px #07090C; display: flex; align-items: center; gap: 9px; }
+    #rec i { width: 9px; height: 9px; border-radius: 50%; background: #D62828; box-shadow: 0 0 6px rgba(214,40,40,.6); }
+    #rec.blink i { opacity: .25; }
+    #rec.stopped i { visibility: hidden; }
+    #rec.stopped b::after { content: ' ‖'; }
+    #rec b { font-weight: normal; }
+    #clips { margin-left: 10px; opacity: .8; }
+    #clips::before { content: '▣ '; }
+    #clips.pulse { animation: clip-pulse .9s ease-out; }
+    @keyframes clip-pulse { 0% { opacity: 1; text-shadow: 0 0 10px #FFB000; } 100% { opacity: .8; } }
+    #prompt { position: fixed; left: 50%; top: calc(50% + 34px); transform: translateX(-50%); text-align: center; pointer-events: none;
+      opacity: 0; transition: opacity .15s; color: #efe9da; text-shadow: 0 0 6px #07090C, 0 1px 2px #07090C; white-space: nowrap; }
+    #prompt.show { opacity: .95; }
+    #prompt kbd { display: inline-block; min-width: 18px; padding: 1px 5px; margin-right: 8px; border: 1px solid #FFB000; border-radius: 3px;
+      color: #FFB000; font: 13px "Consolas", monospace; background: rgba(7,9,12,.45); }
+    #prompt-ar { font-family: "Segoe UI", Tahoma, "Noto Naskh Arabic", sans-serif; font-size: 17px; }
+    #prompt-en { font-family: "Segoe UI", system-ui, sans-serif; font-size: 13px; opacity: .75; margin-left: 8px; }
+    #prompt.seen #prompt-en::after { content: ' ✓'; color: #FFB000; }
+    #fade { position: fixed; inset: 0; background: #07090C; opacity: 0; transition: opacity 1.6s ease-in; pointer-events: none; }
+    #title { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none;
+      opacity: 0; transition: opacity 2.4s ease-out; color: #efe9da; text-align: center; }
+    #title.show { opacity: 1; }
+    #title h1 { color: #FFB000; font: 300 54px "Segoe UI", system-ui, sans-serif; letter-spacing: 18px; margin: 0 0 6px 18px; }
+    #title h2 { font: 400 30px "Segoe UI", Tahoma, "Noto Naskh Arabic", sans-serif; margin: 0 0 26px; opacity: .9; }
+    #title p { margin: 3px; font: 14px "Segoe UI", system-ui, sans-serif; letter-spacing: 2px; opacity: .7; }
+    #title .ar { font-family: "Segoe UI", Tahoma, "Noto Naskh Arabic", sans-serif; font-size: 16px; letter-spacing: 0; }
+    #title .again { margin-top: 28px; opacity: .5; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="vignette"></div>
+  <div id="frame"><i></i><i></i><i></i><i></i></div>
+  <div id="crosshair"></div>
+  <div id="rec"><i></i><b>REC</b><span id="tc">16:41:12:00</span><span id="clips">0/12</span></div>
+  <div id="prompt"><kbd>E</kbd><span id="prompt-ar" lang="ar" dir="rtl"></span><span id="prompt-en"></span></div>
+  <div id="hud"></div>
+  <div id="ammo"></div>
+  <div id="toast"></div>
+  <div id="hurt"></div>
+  <div id="sub"><div id="sub-ar" lang="ar" dir="rtl"></div><div id="sub-en"></div></div>
+  <div id="end"><h1>NIGHT SHIFT</h1><h2>CHAPTER 1 COMPLETE</h2><p></p><p>R play again</p></div>
+  <div id="death"><h2>YOU DIED</h2><p>R restart · F9 quick load</p></div>
+  <div id="fade"></div>
+  <div id="title">
+    <h1>OMEGA VALLEY</h1>
+    <h2 lang="ar" dir="rtl">وادي أوميغا</h2>
+    <p class="ar" lang="ar" dir="rtl">الفصل الأول — الوصول</p>
+    <p>CHAPTER 1 — ARRIVAL</p>
+    <p id="title-stats"></p>
+    <p class="again">R — play again</p>
+  </div>
+  <div id="overlay">
+    <h1>OMEGA VALLEY</h1>
+    <p class="ar" lang="ar" dir="rtl">الفصل الأول — الوصول · لورينزو</p>
+    <p>Chapter 1: Arrival — Lorenzo · Day 1, dusk — click to play</p>
+    <p>WASD walk · Mouse look · Shift jog · E examine · Esc release mouse</p>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
