@@ -10,7 +10,7 @@ import {
 } from './villageMap';
 import { townBlocked } from './villageMap';
 export { townBlocked, slicePineKept } from './villageMap';
-import { USABLES, WALL_T, doorRect, doorSteps, BARN, FARMHOUSE, HOUSES, H3, NORTH_WALL_Z, GAP, rng, type Usable } from './village';
+import { USABLES, WALL_T, doorRect, doorSteps, BARN, FARMHOUSE, HOUSES, H3, NORTH_WALL_Z, GAP, rng, churchLayout, COLUMN_R, type Usable } from './village';
 import type { Kit } from './villageScene';
 
 const smooth = (a: number, b: number, x: number) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -70,6 +70,24 @@ export function townInteriors(x: number, y: number, z: number): ((x: number, y: 
     }
   }
   return null;
+}
+
+// ---------- Warm light inside the church (bake: the bounce channel) ----------
+const CHURCH = BUILDINGS.find(b => b.kind === 'church')!, CHURCH_L = churchLayout(CHURCH);
+/** The priest is in tonight: a low warm fill, the altar candles' glow (falls off over ~2 m) and each picture lamp's
+ *  pool on its wall. Baked into the vertices like the barn's sun bounce (villageScene bakeAt), so it costs nothing. */
+export function townWarm(x: number, y: number, z: number, nx: number, ny: number, nz: number): number {
+  const B = CHURCH, L = CHURCH_L;
+  if (!(x > B.x0 && x < B.x1 && z > B.z0 && z < B.z1)) return 0;
+  const vx = (L.altar.x0 + L.altar.x1) / 2 - x, vy = B.floor + 1.4 - y, vz = L.cz - z, d = Math.hypot(vx, vy, vz) || 1;
+  let w = 0.2 + 1.5 * (0.35 + 0.65 * Math.max(0, (nx * vx + ny * vy + nz * vz) / d)) * Math.exp(-d / 2.2);
+  for (const p of L.pictures) {
+    const out = (z - p.zWall) * p.nz;
+    if (out < -0.01 || out > 0.3 || nz * p.nz < 0.5) continue;   // the wall around the picture and the faces on it
+    const dx = (x - p.x) / (p.w * 0.8), dy = (y - p.y - p.h * 0.25) / (p.h * 1.1);
+    w += 0.8 * Math.exp(-(dx * dx + dy * dy));
+  }
+  return w;
 }
 
 // ---------- Windows of a building (shared by the bake and the builder) ----------
@@ -175,12 +193,18 @@ export function sunHeightMap(sunElevDeg: number): SunHeights {
 }
 
 // ---------- The town builder ----------
-export interface TownScene { leaves: { id: string; obj: THREE.Object3D }[]; waterTime: { value: number } }
+/** A framed picture's lit face: centre, size and facing (+1 faces south, -1 north). */
+export interface Picture { name: string; x: number; y: number; z: number; w: number; h: number; nz: number }
+export interface TownScene { leaves: { id: string; obj: THREE.Object3D }[]; waterTime: { value: number }; pictures: Picture[] }
 
 export function buildTown(k: Kit, scene: THREE.Scene, leafMat: THREE.Material): TownScene {
   const { put, boxG, boxMM, cylG, COL, mix, P } = k;
   const rr = k.rr, R = k.R;
   const cS = (c: THREE.Color, s: number) => c.clone().multiplyScalar(s);
+  const pictures: Picture[] = [];
+  // Stained glass (palette only): amber, red, a deep blue from the night sky, a sea green.
+  const GLASS = [P('hudAmber'), P('emergencyRed'), P('skyNight').multiplyScalar(40), mix('ruptureTeal', 'wallPaint', 0.5)];
+  let glassN = 0;
 
   // ----- Buildings -----
   for (const b of BUILDINGS) {
@@ -216,6 +240,7 @@ export function buildTown(k: Kit, scene: THREE.Scene, leafMat: THREE.Material): 
   function windows(b: Building) {
     for (const w of windowsOf(b)) {
       k.windowAt(w.face, w.x, w.z, w.y, w.w, w.h, w.light, b.kind !== 'church' && b.kind !== 'cafe');
+      if (b.kind === 'church') { stainedGlass(w); continue; }
       if (b.hollow) {   // the inside face of the pane, so the room reads from within
         const t = WALL_T + 0.02, ix = w.x - w.o[0] * t, iz = w.z - w.o[1] * t;
         // From inside, the glass shows the dusk outside: a cool, dim blue, brighter toward the sunset side.
@@ -223,6 +248,19 @@ export function buildTown(k: Kit, scene: THREE.Scene, leafMat: THREE.Material): 
           mix('skyNight', 'fogHaze', 0.55, w.face === 's' || w.face === 'w' ? 2.6 : 1.9));
       }
     }
+  }
+  /** A church window seen from inside: 3 x 6 panes of glass glowing with the dusk behind them (one main colour per
+   *  window, a few panes of the next colours), and the lead cames standing 2 cm proud of the glass. Long walls only. */
+  function stainedGlass(w: Win) {
+    const iz = w.z - w.o[1] * (WALL_T + 0.02), into = -w.o[1], r = rng(Math.round(w.x * 97 + w.z * 13) >>> 0);
+    const main = glassN++ % 4, pw = w.w / 3, ph = w.h / 6, x0 = w.x - w.w / 2;
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 6; j++) {
+      const a = r(), c = a < 0.25 ? GLASS[(main + 1 + Math.floor(a * 12)) % 4] : GLASS[main];
+      put('glow', boxG(x0 + (i + 0.5) * pw, w.y + (j + 0.5) * ph, iz, pw, ph, 0.02), cS(c, (j === 5 ? 1.25 : 0.85 + 0.3 * r()) * 1.1));
+    }
+    const lead = cS(COL.iron, 0.5), cz = iz + into * 0.02;
+    for (let i = 0; i <= 3; i++) put('lit', boxG(x0 + i * pw, w.y + w.h / 2, cz, 0.03, w.h + 0.03, 0.015), lead);
+    for (let j = 0; j <= 6; j++) put('lit', boxG(w.x, w.y + j * ph, cz, w.w + 0.03, 0.03, 0.015), lead);
   }
   /** Plank door with frame, lintel and sill at the building's floor (static: locked doors and the usable doors' frames). */
   function doorStatic(b: Building, face: Face, at: number, w: number, h: number, leaf: boolean) {
@@ -290,59 +328,69 @@ export function buildTown(k: Kit, scene: THREE.Scene, leafMat: THREE.Material): 
     windows(b);
     for (const d of b.doors) doorStatic(b, d.face, d.at, d.w, d.h, false);
     steps(b);
-    // Interior: flagstones, two blocks of pews facing east, the altar and its candles (the priest is in tonight).
-    const cz = (b.z0 + b.z1) / 2;
-    for (let i = 0; i < 6; i++) for (const s of [-1, 1]) {
-      const x = b.x0 + 3.2 + i * 1.7, z0 = cz + s * 0.9, z1 = cz + s * 3.4;
-      put('lit', boxMM(x, b.floor + 0.42, Math.min(z0, z1), x + 0.42, b.floor + 0.48, Math.max(z0, z1), 1), cS(COL.timber, 0.75));
-      put('lit', boxMM(x + 0.36, b.floor + 0.48, Math.min(z0, z1), x + 0.44, b.floor + 1.0, Math.max(z0, z1), 1), cS(COL.timberDark, 1));
-      for (const e of [z0, z1]) put('lit', boxMM(x - 0.02, b.floor, e - 0.04, x + 0.46, b.floor + 0.9, e + 0.04, 1), COL.timberDark);
+    // Interior (churchLayout, village.ts, shared with the collision): pews either side of the aisle facing the altar,
+    // engaged columns at the window piers, the altar with its gilded frontal, candles and gold cross, and a framed
+    // picture under each lower window, each under a small brass picture lamp. The priest is in tonight.
+    const L = churchLayout(b), cz = L.cz, f = b.floor;
+    const gilt = mix('hudAmber', 'concrete', 0.3, 0.95), giltDeep = mix('hudAmber', 'rust', 0.35, 0.8), brass = mix('hudAmber', 'metal', 0.5, 0.8), gold = mix('hudAmber', 'concrete', 0.3, 1.6);
+    for (const p of L.pews) {
+      const x = p.x0 + 0.02, z0 = p.z0 + 0.04, z1 = p.z1 - 0.04;
+      put('lit', boxMM(x, f + 0.42, z0, x + 0.42, f + 0.48, z1, 1), cS(COL.timber, 0.75));                   // seat
+      put('lit', boxMM(x - 0.02, f + 0.48, z0, x + 0.06, f + 1.0, z1, 1), cS(COL.timberDark, 1));             // back, west edge
+      for (const e of [z0, z1]) put('lit', boxMM(x - 0.02, f, e - 0.04, x + 0.46, f + 0.9, e + 0.04, 1), COL.timberDark);
     }
-    put('stone', boxMM(b.x1 - 2.6, b.floor, cz - 1.2, b.x1 - 1.6, b.floor + 1.05, cz + 1.2, 0.8), cS(COL.stone, 1.1));
-    put('lit', boxMM(b.x1 - 2.66, b.floor + 1.05, cz - 1.3, b.x1 - 1.54, b.floor + 1.08, cz + 1.3, 1), cS(COL.candle, 0.9));
+    for (const c of L.columns) {
+      const top = f + b.eave - 0.45;
+      put('stone', cylG(c.x, f + 0.3, c.z, c.x, top, c.z, COLUMN_R, COLUMN_R - 0.03, 12), cS(COL.stone, 1.05));
+      put('lit', boxMM(c.x - 0.38, f, c.z - 0.38, c.x + 0.38, f + 0.3, c.z + 0.38, 1), COL.stoneDry);         // base
+      put('lit', boxMM(c.x - 0.36, top, c.z - 0.36, c.x + 0.36, top + 0.2, c.z + 0.36, 1), gilt);              // gilded capital
+      put('stone', boxMM(c.x - 0.4, top + 0.2, c.z - 0.4, c.x + 0.4, f + b.eave, c.z + 0.4, 1), cS(COL.stone, 0.95));
+    }
+    const A = L.altar, ax = (A.x0 + A.x1) / 2;
+    put('stone', boxMM(A.x0, f, A.z0, A.x1, f + 1.05, A.z1, 0.8), cS(COL.stone, 1.1));
+    put('lit', boxMM(A.x0 - 0.06, f + 1.05, A.z0 - 0.1, A.x1 + 0.06, f + 1.08, A.z1 + 0.1, 1), cS(COL.candle, 0.9));   // cloth
+    put('lit', boxMM(A.x0 - 0.05, f + 0.08, A.z0 + 0.1, A.x0, f + 1.0, A.z1 - 0.1, 1), gilt);                          // gilded frontal,
+    for (const [y0, y1, z0, z1] of [[0.08, 0.14, A.z0 + 0.1, A.z1 - 0.1], [0.94, 1.0, A.z0 + 0.1, A.z1 - 0.1], [0.14, 0.94, A.z0 + 0.1, A.z0 + 0.16],
+      [0.14, 0.94, A.z1 - 0.16, A.z1 - 0.1], [0.3, 0.86, cz - 0.04, cz + 0.04], [0.62, 0.7, cz - 0.24, cz + 0.24]]) {   // its border and cross
+      put('lit', boxMM(A.x0 - 0.065, f + y0, z0, A.x0 - 0.04, f + y1, z1, 1), giltDeep);
+    }
     for (const dz of [-0.9, -0.45, 0.45, 0.9]) {
-      put('lit', cylG(b.x1 - 2.1, b.floor + 1.08, cz + dz, b.x1 - 2.1, b.floor + 1.32, cz + dz, 0.025, 0.025, 6), COL.candle);
-      put('glow', boxG(b.x1 - 2.1, b.floor + 1.37, cz + dz, 0.03, 0.07, 0.03), COL.windowWarm);
+      put('lit', cylG(ax, f + 1.08, cz + dz, ax, f + 1.32, cz + dz, 0.025, 0.025, 6), COL.candle);
+      put('glow', boxG(ax, f + 1.37, cz + dz, 0.03, 0.07, 0.03), COL.windowWarm);
     }
-    put('lit', boxMM(b.x1 - 0.55, b.floor + 2.2, cz - 0.05, b.x1 - 0.48, b.floor + 4.4, cz + 0.05, 1), COL.timberDark);   // cross on the east wall
-    put('lit', boxMM(b.x1 - 0.55, b.floor + 3.6, cz - 0.6, b.x1 - 0.48, b.floor + 3.72, cz + 0.6, 1), COL.timberDark);
-    // Colourful stained glass high on both side walls: warm amber, red, blue and green panes.
-    const glass = [0xffb000, 0xd62828, 0x2f6fd6, 0x3a9a55];
-    for (let i = 0; i < 4; i++) {
-      const x = b.x0 + 2.4 + i * 2.2, col = new THREE.Color(glass[i]);
-      for (const z of [b.z0 + 0.12, b.z1 - 0.12]) {
-        const g = new THREE.PlaneGeometry(0.8, 1.6);
-        g.translate(x, b.floor + 2.9, z);
-        if (z > cz) g.rotateY(Math.PI);
-        const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.8, side: THREE.DoubleSide, toneMapped: false }));
-        scene.add(m);
+    put('lit', boxG(ax, f + 1.1, cz, 0.16, 0.04, 0.16), gilt);                       // gold cross on the altar: foot,
+    put('glow', boxG(ax, f + 1.47, cz, 0.05, 0.74, 0.05), gold);                     // upright,
+    put('glow', boxG(ax, f + 1.62, cz, 0.05, 0.05, 0.38), gold);                     // arms (across the nave)
+    put('lit', boxMM(b.x1 - 0.55, f + 2.2, cz - 0.05, b.x1 - 0.48, f + 4.4, cz + 0.05, 1), COL.timberDark);   // cross on the east wall
+    put('lit', boxMM(b.x1 - 0.55, f + 3.6, cz - 0.6, b.x1 - 0.48, f + 3.72, cz + 0.6, 1), COL.timberDark);
+    // Pictures: backing board, a moulding standing 2 cm proud of the picture (no coplanar faces), the picture lamp.
+    // The picture is unlit (MeshBasic) and tinted by the lamp: warm, brighter at the top.
+    for (const pic of L.pictures) {
+      const { x, y, w, h, nz } = pic, d = (t: number) => pic.zWall + nz * t, m = 0.07, fb = pic.gilt ? 'lit' : 'wood';
+      const frame = pic.gilt ? gilt : cS(COL.timberDark, 1);
+      put('lit', boxMM(x - w / 2 - 0.03, y - h / 2 - 0.03, d(0), x + w / 2 + 0.03, y + h / 2 + 0.03, d(0.02), 1), cS(COL.timberDark, 0.6));
+      put(fb, boxMM(x - w / 2 - m, y + h / 2 - 0.01, d(0), x + w / 2 + m, y + h / 2 + m, d(0.05), 1), frame);
+      put(fb, boxMM(x - w / 2 - m, y - h / 2 - m, d(0), x + w / 2 + m, y - h / 2 + 0.01, d(0.05), 1), frame);
+      put(fb, boxMM(x - w / 2 - m, y - h / 2 + 0.01, d(0), x - w / 2 + 0.01, y + h / 2 - 0.01, d(0.05), 1), frame);
+      put(fb, boxMM(x + w / 2 - 0.01, y - h / 2 + 0.01, d(0), x + w / 2 + m, y + h / 2 - 0.01, d(0.05), 1), frame);
+      const ly = y + h / 2 + m + 0.05;
+      put('lit', boxMM(x - 0.02, ly, d(0), x + 0.02, ly + 0.03, d(0.2), 1), brass);                                 // arm
+      put('lit', boxMM(x - w * 0.3, ly, d(0.15), x + w * 0.3, ly + 0.07, d(0.25), 1), brass);                       // hood
+      put('glow', boxMM(x - w * 0.28, ly - 0.006, d(0.16), x + w * 0.28, ly, d(0.24), 1), COL.windowWarm);          // its light
+      const g = new THREE.PlaneGeometry(w, h);
+      if (nz < 0) g.rotateY(Math.PI);   // rotate about its own centre first, then place: faces into the nave, image the right way round
+      g.translate(x, y, d(0.03));
+      const pos = g.getAttribute('position'), col = new Float32Array(pos.count * 3);
+      for (let i = 0; i < pos.count; i++) {
+        const t = 0.74 + 0.26 * (pos.getY(i) - (y - h / 2)) / h;
+        col[i * 3] = t; col[i * 3 + 1] = t * 0.96; col[i * 3 + 2] = t * 0.88;
       }
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      const mesh = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: k.texture(`${import.meta.env.BASE_URL}art/photos/${pic.name}.jpg`), vertexColors: true }));
+      mesh.matrixAutoUpdate = false;
+      scene.add(mesh);
+      pictures.push({ name: pic.name, x, y, z: d(0.03), w, h, nz });
     }
-    // Nave: two rows of stone pillars with gilded capitals, like a grand cathedral's aisles.
-    for (let i = 0; i < 4; i++) {
-      const x = b.x0 + 2.6 + i * 2.2;
-      for (const z of [b.z0 + 1.1, b.z1 - 1.1]) {
-        put('stone', cylG(x, b.floor, z, x, b.floor + b.eave * 0.7, z, 0.28, 0.3, 12), cS(COL.stone, 1.05));
-        put('lit', boxMM(x - 0.36, b.floor + b.eave * 0.7, z - 0.36, x + 0.36, b.floor + b.eave * 0.7 + 0.14, z + 0.36, 1), cS(COL.candle, 1.1));
-      }
-    }
-    // Gilded altar frontal with a gold cross, in front of the stone altar.
-    put('lit', boxMM(b.x1 - 3.0, b.floor, cz - 1.4, b.x1 - 2.92, b.floor + 1.2, cz + 1.4, 1), new THREE.Color(0xc9a23a));
-    put('glow', boxG(b.x1 - 2.6, b.floor + 2.6, cz, 0.12, 0.5, 0.12), new THREE.Color(0xffd27a));
-    // Framed photos (from the Joseph game) on the north wall, between the pews and the altar.
-    const loader = new THREE.TextureLoader();
-    const framed = (name: string, x: number, y: number, z: number, facing: number) => {
-      put('wood', boxMM(x - 0.6, y - 0.5, z - 0.02, x + 0.6, y + 0.5, z, 1), cS(COL.timberDark, 1));
-      const g = new THREE.PlaneGeometry(1.0, 0.56);
-      g.rotateY(facing);
-      g.translate(x + Math.sin(facing) * 0.02, y, z + Math.cos(facing) * 0.02);
-      scene.add(new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: loader.load(`${import.meta.env.BASE_URL}art/photos/${name}.jpg`) })));
-    };
-    // North wall: Joseph game stills.
-    ['church_steps', 'great_hall', 'yard'].forEach((name, i) => framed(name, b.x0 + 3.3 + i * 2.2, b.floor + 1.7, b.z0 + 0.1, 0));
-    // South wall: Michelangelo drawings (public domain): the Pietà study (Mary) and the Crucifixion.
-    framed('mary', b.x0 + 4.4, b.floor + 1.7, b.z1 - 0.1, Math.PI);
-    framed('crucifixion', b.x0 + 6.6, b.floor + 1.7, b.z1 - 0.1, Math.PI);
   }
   function tower(b: Building) {
     const tone = 0.95, shaft = b.floor + b.eave, cx = (b.x0 + b.x1) / 2, cz = (b.z0 + b.z1) / 2;
@@ -718,5 +766,5 @@ export function buildTown(k: Kit, scene: THREE.Scene, leafMat: THREE.Material): 
     if (townBlocked(x, z) || Math.abs(x - streamX(z)) < streamHalf(z) + 1.2) continue;
     k.tuft(x, z, rr(0.7, 1.3), cS(mix('wallPaint', 'rust', 0.38, 0.5).lerp(mix('wallPaint', 'hudAmber', 0.3, 0.46), R()), 1.25));
   }
-  return { leaves, waterTime };
+  return { leaves, waterTime, pictures };
 }

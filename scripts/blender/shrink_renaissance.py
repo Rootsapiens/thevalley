@@ -6,7 +6,9 @@ SRC = os.path.join(ROOT, "art-src", "renaissance")
 OUT = os.path.join(ROOT, "public", "art", "photos")
 for src, name in [("pieta-study.jpg", "mary"), ("crucifixion.jpg", "crucifixion")]:
     img = bpy.data.images.load(os.path.join(SRC, src))
-    img.scale(640, 360)
+    w, h = img.size
+    s = min(640 / w, 720 / h)   # keep the drawing's aspect: 768x615 -> 640x512, 512x768 -> 480x720
+    img.scale(round(w * s), round(h * s))
     img.filepath_raw = os.path.join(OUT, name + ".jpg")
     img.file_format = "JPEG"
     img.save()

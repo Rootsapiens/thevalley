@@ -18,3 +18,8 @@ public/art/stone-wall.jpg | Blender procedural, scripts/blender/village_textures
 public/art/stone-wall_normal.jpg | Blender procedural, scripts/blender/village_textures.py, 2026-10-18 | studio/art/prompts/village-textures.md | Aktham
 public/art/hay.jpg | Blender procedural, scripts/blender/village_textures.py, 2026-10-18 | studio/art/prompts/village-textures.md | Aktham
 public/art/fence-wood.jpg | Blender procedural, scripts/blender/village_textures.py, 2026-10-18 | studio/art/prompts/village-textures.md | Aktham
+public/art/photos/church_steps.jpg | Joseph game still (reference/omega-valley-joseph/rooms), shrunk with scripts/blender/shrink_photos.py, 2026-10-18 | studio/art/church-interior.md | owner
+public/art/photos/great_hall.jpg | Joseph game still (reference/omega-valley-joseph/rooms), shrunk with scripts/blender/shrink_photos.py, 2026-10-18 | studio/art/church-interior.md | owner
+public/art/photos/yard.jpg | Joseph game still (reference/omega-valley-joseph/rooms), shrunk with scripts/blender/shrink_photos.py, 2026-10-18 | studio/art/church-interior.md | owner
+public/art/photos/mary.jpg | Michelangelo, Pietà study drawing, public domain (Wikimedia Commons, art-src/renaissance/pieta-study.jpg), resized to 640x513 keeping its aspect, 2026-10-19 | studio/art/church-interior.md | Michelangelo (PD); Aktham, Rajaie
+public/art/photos/crucifixion.jpg | Michelangelo, Crucifixion drawing, public domain (Wikimedia Commons, art-src/renaissance/crucifixion.jpg), resized to 480x720 keeping its aspect, 2026-10-19 | studio/art/church-interior.md | Michelangelo (PD); Aktham, Rajaie

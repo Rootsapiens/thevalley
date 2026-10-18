@@ -123,18 +123,16 @@ const eyeV = { x: 0, y: 0, z: 0 }, dirV = { x: 0, y: 0, z: 0 };
 
 // ---------- Input ----------
 const keys = new Set<string>();
-// Secret word: type "sinafly" to get the flying carpet (type it again to land).
+// Secret word: type "sinafly" to ride the flying carpet (V.carpet), type it again to land. The rider sits: eye 0.95 m
+// above the rug, which reaches 2 m ahead, so its front edge and tassels show at the bottom of the frame.
 let typed = '', flying = false;
-const carpet = new THREE.Group();
-{
-  const rug = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.04, 2.4), new THREE.MeshLambertMaterial({ color: 0x8a2b2b, flatShading: true }));
-  const edge = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.05, 2.5), new THREE.MeshLambertMaterial({ color: 0xc9a23a }));
-  edge.position.y = -0.005; carpet.add(edge, rug);
-  for (let i = -0.7; i <= 0.7; i += 0.35) for (const z of [-1.25, 1.25]) {
-    const t = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 0.14), new THREE.MeshLambertMaterial({ color: 0xc9a23a }));
-    t.position.set(i, 0, z); carpet.add(t);
-  }
-  carpet.visible = false; scene.add(carpet);
+const flyV = { x: 0, y: 0, z: 0 }, CARPET_EYE = 0.95, CARPET_AHEAD = 0.75;
+function setFlying(on: boolean) {
+  flying = on;
+  if (on) { flyV.x = player.vel.x; flyV.y = Math.max(0, player.vel.y); flyV.z = player.vel.z; }
+  else { player.vel.x = flyV.x; player.vel.y = flyV.y; player.vel.z = flyV.z; }   // glide off, then fall
+  V.carpet.mesh.visible = on;
+  showToast(on ? 'FLY MODE ON' : 'FLY MODE OFF');
 }
 addEventListener('keydown', e => {
   if (e.code.startsWith('Control') || e.code === 'Space') e.preventDefault();
@@ -142,7 +140,7 @@ addEventListener('keydown', e => {
   keys.add(e.code);
   if (e.key && e.key.length === 1) {
     typed = (typed + e.key.toLowerCase()).slice(-12);
-    if (typed.endsWith('sinafly')) { flying = !flying; typed = ''; showToast(flying ? 'FLY MODE ON' : 'FLY MODE OFF'); }
+    if (typed.endsWith('sinafly')) { typed = ''; if (endT < 0) setFlying(!flying); }
   }
   if (e.code === 'KeyE') examine();
   if (e.code === 'KeyR' && endT > 9) restart();
@@ -235,17 +233,18 @@ function tick(input: Input) {
     } else if (!leafSolid[u] && !overlaps(pb, leafBoxes[u])) leafSolid[u] = 1;
   }
   if (flying) {
-    // Carpet flight: WASD steers in the look direction, Space climbs, Ctrl descends. No walls while flying.
-    const sp = 7 * DT, sn = Math.sin(input.yaw), cs = Math.cos(input.yaw);
-    player.pos.x += (-sn * input.forward + cs * input.strafe) * sp;
-    player.pos.z += (-cs * input.forward - sn * input.strafe) * sp;
-    player.pos.y += ((keys.has('Space') ? 1 : 0) - (keys.has('ControlLeft') || keys.has('KeyC') ? 1 : 0)) * 4 * DT;
-    player.pos.y = Math.max(groundY(player.pos.x, player.pos.z), player.pos.y);
+    // Carpet flight: WASD steers in the look direction (7 m/s), Space climbs, Ctrl or C descends (4 m/s); speed eases in
+    // and out over about half a second. No walls while flying; the terrain is the floor.
+    const sn = Math.sin(input.yaw), cs = Math.cos(input.yaw), k = Math.min(1, DT * 2.5);
+    const up = (input.jump ? 1 : 0) - (keys.has('ControlLeft') || keys.has('KeyC') ? 1 : 0);
+    flyV.x += ((-sn * input.forward + cs * input.strafe) * 7 - flyV.x) * k;
+    flyV.z += ((-cs * input.forward - sn * input.strafe) * 7 - flyV.z) * k;
+    flyV.y += (up * 4 - flyV.y) * k;
+    player.pos.x += flyV.x * DT; player.pos.y += flyV.y * DT; player.pos.z += flyV.z * DT;
+    const g = groundY(player.pos.x, player.pos.z);
+    if (player.pos.y < g) { player.pos.y = g; flyV.y = Math.max(0, flyV.y); }
     player.vel.x = player.vel.y = player.vel.z = 0; player.onGround = false;
   } else step(player, input, nearWorld(player.pos.x, player.pos.z), DT, groundY);
-  carpet.visible = flying;
-  carpet.position.set(player.pos.x, player.pos.y - 0.25, player.pos.z);
-  carpet.rotation.set(0, input.yaw, 0);
   const r = TUNING.radius, h = height(player);
   pb.min.x = player.pos.x - r; pb.min.y = player.pos.y; pb.min.z = player.pos.z - r;
   pb.max.x = player.pos.x + r; pb.max.y = player.pos.y + h; pb.max.z = player.pos.z + r;
@@ -270,6 +269,7 @@ function startEnd() {
 function restart() {
   player = newPlayer(SPAWN); vs = newVillageState();
   yaw = SPAWN_YAW; pitch = -0.03; storyTime = 0; endT = -1; introDone = false; turnbackCD = 0; zoomT = 0; subTime = 0; lockT = 0;
+  flying = false; V.carpet.mesh.visible = false; flyV.x = flyV.y = flyV.z = 0;   // a restart lands without a glide
   END.yaw1 = Math.atan2(-cave.x, -cave.z);
   fade.style.opacity = '0'; title.classList.remove('show'); rec.classList.remove('stopped');
   playing = false; overlay.style.display = 'flex';
@@ -351,11 +351,15 @@ function frame(now: number) {
   fov += (fovTarget - fov) * Math.min(1, dt * (endT >= 0 ? 6 : 3));
   if (Math.abs(camera.fov - fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
 
-  const eyeY = eyeHeight(player);
+  const ride = flying ? 0.035 * Math.sin(t * 1.3) : 0, eyeY = flying ? CARPET_EYE + ride : eyeHeight(player);
   camera.rotation.set(pitch + swayP, yaw + swayY, -bobX * 0.15);
   const cy = Math.cos(yaw), sy = Math.sin(yaw);
   camera.position.set(player.pos.x + cy * bobX, player.pos.y + eyeY + bobY - bobAmp * 0.5 - landDip, player.pos.z - sy * bobX);
   V.sky.position.copy(camera.position);
+  if (flying) {   // the rug under the rider: banks into strafes, noses up when climbing
+    const right = flyV.x * cy - flyV.z * sy;
+    V.carpet.place(player.pos.x - sy * CARPET_AHEAD, player.pos.y + ride + 0.02, player.pos.z - cy * CARPET_AHEAD, yaw, -right * 0.025, flyV.y * 0.03, t);
+  }
 
   // Look target (logical eye and view, without bob), highlight fade.
   eyeV.x = player.pos.x; eyeV.y = player.pos.y + eyeY; eyeV.z = player.pos.z;
@@ -480,6 +484,13 @@ window.__game = {
   examinables: () => EXAMINABLES.map(e => ({ id: e.id, pos: e.pos, from: e.from })),
   usables: () => USABLES.map((u, i) => ({ id: u.id, kind: u.kind, locked: u.locked, pos: u.pos, from: u.from, open: openT[i], solid: !!leafSolid[i] })),
   useTarget: () => (useTarget >= 0 ? USABLES[useTarget].id : null),
+  pictures: () => V.pictures,
+  carpet: () => { const c = V.carpet.mesh; return { flying, visible: c.visible, x: c.position.x, y: c.position.y, z: c.position.z, yaw: c.rotation.y }; },
+  /** World point to CSS pixels (x right, y down) and NDC depth, through the last rendered camera. */
+  project: (x: number, y: number, z: number) => {
+    const v = new THREE.Vector3(x, y, z).project(camera);
+    return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight, z: v.z };
+  },
   ground: (x: number, z: number) => groundY(x, z),
   audioPeaks: () => measureVillagePeaks(),
   press: (code: string) => keys.add(code),

@@ -11,9 +11,9 @@ import { VILLAGE_TEX, NORMAL_Y } from './villageTextures';
 import {
   BARN, STALLS, POSTS_Z, LOFT, FARMHOUSE, HOUSES, TROUGH, KENNEL, SHRINE, FENCES, NORTH_WALL_Z, GAP, SOUTH_WALL_Z,
   TRACK, SUN, MOUNTAIN, EXAMINABLES, TRAIL_CTRL, TREES, trailPoints, rng, bearingDir, fencesNow, H3, groundY, SLICE_PINES,
+  LAMPS, LANTERN_SIDE,
 } from './village';
-import { TRANSFORMER } from './villageMap';
-import { townFootprints, townFenceRuns, townInteriors, buildTown, townBlocked, slicePineKept, townGroundColor, sunHeightMap, type TownScene } from './villageTown';
+import { townFootprints, townFenceRuns, townInteriors, townWarm, buildTown, townBlocked, slicePineKept, townGroundColor, sunHeightMap, type TownScene } from './villageTown';
 
 const deg = Math.PI / 180;
 const P = (t: Token) => new THREE.Color(palette[t]);
@@ -128,6 +128,7 @@ export function bakeAt(x: number, y: number, z: number, nx: number, ny: number, 
   const room = inBarn ? null : townInteriors(x, y, z);
   if (room) {
     ao = room(x, y, z, nx, ny, nz);
+    bounce = townWarm(x, y, z, nx, ny, nz);
   } else if (inBarn) {
     const open = (cx: number, cy: number, cz: number, A: number, facing: number) => {
       const vx = cx - x, vy = cy - y, vz = cz - z, d = Math.hypot(vx, vy, vz) || 1;
@@ -739,8 +740,7 @@ function buildBarn() {
     if (z !== 3.2) put('lit', new THREE.TorusGeometry(0.22, 0.03, 5, 12).rotateY(Math.PI / 2).translate(9.68, 1.8, z), z === 2 ? COL.rope : COL.leather);
   }
   put('lit', cylG(0, B.eave - 0.15, -4, 0, 3.0, -4, 0.008, 0.008, 3), COL.rope);
-  put('lit', boxG(0, 2.85, -4, 0.18, 0.28, 0.18), COL.iron);
-  put('lit', boxG(0, 2.74, -4, 0.14, 0.12, 0.14), P('ink').multiplyScalar(2));
+  // The lantern on the rope's end is built lit with the other lamps (buildVillage, LAMPS[0]).
 }
 
 function doorLeaf(side: -1 | 1) {
@@ -1239,6 +1239,67 @@ function patchBake(m: THREE.MeshStandardMaterial): THREE.MeshStandardMaterial {
   return m;
 }
 
+// ---------- Flying carpet ("sinafly"): one mesh, a woven pattern in vertex colours, rippled on the CPU ----------
+export interface Carpet {
+  mesh: THREE.Mesh;
+  /** Places the carpet (centre at x, y, z, heading yaw), banks it and runs the ripple. No allocation. */
+  place: (x: number, y: number, z: number, yaw: number, roll: number, tilt: number, t: number) => void;
+}
+const CARPET_W = 1.5, CARPET_L = 2.5;
+function makeCarpet(env: THREE.Texture, renderer: THREE.WebGLRenderer, aniso: number): Carpet {
+  const W = CARPET_W, L = CARPET_L;
+  const rug = new THREE.PlaneGeometry(W, L, 24, 40);
+  rug.rotateX(-Math.PI / 2);   // flat, length along z
+  const parts: THREE.BufferGeometry[] = [rug];
+  for (let i = 0; i < 9; i++) for (const s of [-1, 1]) {
+    const t = new THREE.BoxGeometry(0.035, 0.012, 0.13).translate(-W / 2 + 0.11 + i * (W - 0.22) / 8, 0, s * (L / 2 + 0.06));
+    const uv = t.getAttribute('uv');
+    for (let k = 0; k < uv.count; k++) uv.setXY(k, 0.01, 0.01);   // tassels sample the gold border
+    parts.push(t);
+  }
+  const g = mergeGeometries(parts)!;
+  const pos = g.getAttribute('position'), base = Float32Array.from(pos.array as Float32Array);
+  // The weave, drawn once: gold border, navy rules, a red-and-gold zigzag band, a red field with a gold lattice and
+  // a navy medallion with a gold star (palette colours; CSS hex is sRGB, as getHexString returns).
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 512;
+  const c2 = cv.getContext('2d')!, hex = (c: THREE.Color) => '#' + c.getHexString();
+  const RED = hex(P('emergencyRed').multiplyScalar(0.55)), GOLD = hex(mix('hudAmber', 'hazardYellow', 0.4, 0.8)), NAVY = hex(P('skyNight').multiplyScalar(26)), CREAM = hex(P('concrete').multiplyScalar(1.1));
+  const rect = (i: number, col: string) => { c2.fillStyle = col; c2.fillRect(i, i, 256 - 2 * i, 512 - 2 * i); };
+  const diamond = (x: number, y: number, w: number, h: number, col: string) => { c2.fillStyle = col; c2.beginPath(); c2.moveTo(x, y - h); c2.lineTo(x + w, y); c2.lineTo(x, y + h); c2.lineTo(x - w, y); c2.closePath(); c2.fill(); };
+  rect(0, GOLD); rect(9, NAVY); rect(13, RED);
+  c2.fillStyle = GOLD;   // zigzag band between 13 and 37 px from the edge
+  for (let k = 0; k < 2; k++) for (let u = 13; u < (k ? 499 : 243); u += 16) {
+    const tri = (ax: number, ay: number, bx: number, by: number, cx: number, cy: number) => { c2.beginPath(); c2.moveTo(ax, ay); c2.lineTo(bx, by); c2.lineTo(cx, cy); c2.fill(); };
+    if (k === 0) { tri(u, 13, u + 8, 37, u + 16, 13); tri(u, 499, u + 8, 475, u + 16, 499); }
+    else { tri(13, u, 37, u + 8, 13, u + 16); tri(243, u, 219, u + 8, 243, u + 16); }
+  }
+  rect(37, NAVY); rect(41, RED);
+  for (let y = 60; y < 460; y += 34) for (let x = 60; x < 200; x += 34) diamond(x + ((y / 34) & 1) * 17, y, 4, 6, GOLD);
+  diamond(128, 256, 70, 130, CREAM); diamond(128, 256, 64, 120, NAVY); diamond(128, 256, 38, 70, GOLD); diamond(128, 256, 16, 30, RED);
+  for (const [x, y] of [[41, 41], [215, 41], [41, 471], [215, 471]]) diamond(x, y, 26, 40, NAVY);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = aniso;
+  renderer.initTexture(tex);
+  const m = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.92, metalness: 0, side: THREE.DoubleSide, envMap: env, envMapIntensity: 2.2 });
+  const mesh = new THREE.Mesh(g, m);
+  mesh.rotation.order = 'YXZ';
+  mesh.visible = false;
+  const arr = pos.array as Float32Array;
+  return {
+    mesh,
+    place(x, y, z, yaw, roll, tilt, t) {
+      mesh.position.set(x, y, z);
+      mesh.rotation.set(tilt, yaw, roll);
+      // A slow travelling wave down the length, stronger toward the back and the edges.
+      for (let i = 0; i < arr.length; i += 3) {
+        const bx = base[i], bz = base[i + 2];
+        arr[i + 1] = base[i + 1] + 0.035 * Math.sin(t * 2.4 + bz * 2.6) * (0.4 + 0.6 * (bz / L + 0.5)) + 0.012 * Math.sin(t * 3.1 + bx * 4.0);
+      }
+      pos.needsUpdate = true;
+    },
+  };
+}
+
 // ---------- Public build ----------
 let tvWindow: THREE.BufferGeometry | null = null;
 
@@ -1259,8 +1320,13 @@ export interface VillageScene {
   /** Valley sides and the mountain: moved each frame by the parallax field (see villageMain). */
   nearRing: THREE.Object3D;
   farRing: THREE.Object3D;
-  /** Resolves (never rejects) once the stone and wood texture sets have loaded or failed (null), after their binds ran. */
+  /** Resolves (never rejects) once the stone and wood texture sets have loaded or failed (null), after their binds ran,
+   *  and every kit texture (the church pictures) has loaded and been uploaded, or failed. */
   texturesReady: Promise<void>;
+  /** The church pictures' faces (tests and stills). */
+  pictures: TownScene['pictures'];
+  /** The "sinafly" carpet: in the scene (hidden) from the start, so its program compiles in the warm-up. */
+  carpet: Carpet;
 }
 
 /** The scene's geometry kit, handed to the town builders (villageTown.ts) at build time. */
@@ -1272,6 +1338,8 @@ export interface Kit {
   R: () => number; rr: (a: number, b: number) => number;
   redirect: (to: THREE.BufferGeometry[] | null) => void;
   merge: (g: THREE.BufferGeometry[]) => THREE.BufferGeometry;
+  /** An sRGB colour texture, mipmapped and anisotropic, uploaded as soon as it loads; texturesReady waits for it. */
+  texture: (url: string) => THREE.Texture;
   waterMaterial: (m: THREE.MeshStandardMaterial) => void;
 }
 
@@ -1302,26 +1370,40 @@ export function buildVillage(scene: THREE.Scene, renderer: THREE.WebGLRenderer):
   // The full village around the barn corner (villageTown.ts), on its own random numbers after every slice builder.
   R = rng(9001);
   let waterMat: THREE.MeshStandardMaterial | null = null;
+  const kitTex: Promise<void>[] = [], texLoader = new THREE.TextureLoader();
+  const texture = (url: string) => {
+    let done!: () => void;
+    kitTex.push(new Promise<void>(r => { done = r; }));
+    const t = texLoader.load(url, tex => { renderer.initTexture(tex); done(); }, undefined, () => done());
+    t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = maxAniso;
+    return t;
+  };
   const kit: Kit = {
     put, boxG, boxMM, cylG, tubeG, ellipseG, gableG, slateRoof, windowAt, chimney, railFence, pine, tuft, boards, COL, mix, P,
-    R: () => R(), rr, redirect: to => { redirect = to; }, merge: g => mergeGeometries(g)!, waterMaterial: m => { waterMat = m; },
+    R: () => R(), rr, redirect: to => { redirect = to; }, merge: g => mergeGeometries(g)!, waterMaterial: m => { waterMat = m; }, texture,
   };
   const town = buildTown(kit, scene, lit);
   mark('town');
-  // Visible light sources: lanterns in the barn, the street lamp at the transformer, and a lit lamp in the village.
-  const lanterns: [number, number, number, number][] = [
-    [0, 3.4, 0, 9],                       // barn: hanging lantern in the middle of the hall
-    [-7, 2.6, -6, 5],                     // barn: stall lantern
-    [7, 2.6, -6, 5],
-    [TRANSFORMER.x, 5.6, TRANSFORMER.z, 10], // street lamp on the transformer pole [9]
-  ];
-  for (const [x, y, z, d] of lanterns) {
-    const pl = new THREE.PointLight(0xffb060, 6, d, 1.6);
-    pl.position.set(x, y, z);
+  // Lit lamps (owner request): the barn's hanging lantern (its glass now glows), two lanterns on brackets at the z = 0
+  // posts, and the street lamp's head on the transformer pole [9]. Fixtures go into the merged buckets (no extra draw
+  // calls); each has one point light (no shadows) at its glass. Positions are pinned by tests/village.test.ts.
+  const lantern = (x: number, y: number, z: number) => {
+    put('glow', boxG(x, y, z, 0.12, 0.2, 0.12), COL.windowWarm);
+    for (const [dx, dz] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) put('lit', boxG(x + dx * 0.068, y, z + dz * 0.068, 0.016, 0.26, 0.016), COL.iron);
+    put('lit', boxG(x, y + 0.15, z, 0.17, 0.05, 0.17), COL.iron);
+    put('lit', boxG(x, y - 0.12, z, 0.17, 0.04, 0.17), COL.iron);
+    put('lit', cylG(x, y + 0.175, z, x, y + 0.3, z, 0.008, 0.008, 3), COL.iron);
+  };
+  lantern(LAMPS[0].x, LAMPS[0].y, LAMPS[0].z);   // on the rope from the z = -4 tie beam
+  for (const s of [-1, 1]) {
+    const x = s * LANTERN_SIDE.x, y = LANTERN_SIDE.y;
+    lantern(x, y, LANTERN_SIDE.z);
+    put('lit', boxMM(s * 6.02, y + 0.3, LANTERN_SIDE.z - 0.02, x - s * 0.02, y + 0.33, LANTERN_SIDE.z + 0.02, 1), COL.iron);   // bracket
+  }
+  for (const L of LAMPS) {
+    const pl = new THREE.PointLight(L.street ? P('sodium') : mix('sodium', 'hudAmber', 0.5), L.intensity, L.range, 2);
+    pl.position.set(L.x, L.y, L.z);
     scene.add(pl);
-    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffd08a, toneMapped: false }));
-    bulb.position.set(x, y, z);
-    scene.add(bulb);
   }
   const ground = new THREE.Mesh(groundGeo!, lit);
   ground.receiveShadow = true; ground.matrixAutoUpdate = false;
@@ -1360,7 +1442,7 @@ export function buildVillage(scene: THREE.Scene, renderer: THREE.WebGLRenderer):
     wood.map = set.map; wood.normalMap = set.normal; wood.normalScale.y = NORMAL_Y; wood.color.setRGB(1, 1, 1); wood.needsUpdate = true;
   });
   // Same shared promises, subscribed after the two binds above, so both binds have run by the time this resolves.
-  const texturesReady = Promise.all([villageSet('stone-wall'), villageSet('wood-planks-barn')]).then(() => {});
+  const texturesReady = Promise.all([villageSet('stone-wall'), villageSet('wood-planks-barn'), ...kitTex]).then(() => {});
   const wet = patchBake(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.06, metalness: 0, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 }));
   const foliage = patchBake(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0, side: THREE.DoubleSide }));
   const chalkTex = chalkTexture(maxAniso);
@@ -1395,6 +1477,8 @@ export function buildVillage(scene: THREE.Scene, renderer: THREE.WebGLRenderer):
   if (wm) { wm.envMap = env; wm.envMapIntensity = 2.6; }
   pm.dispose();
   mark('envmap');
+  const carpet = makeCarpet(env, renderer, maxAniso);
+  scene.add(carpet.mesh);
   const stats: Record<string, number> = { ...phase };
   const mk = (id: BucketId, m: THREE.Material, cast: boolean, receive: boolean) => {
     if (!buckets[id].length) return null;
@@ -1535,5 +1619,5 @@ export function buildVillage(scene: THREE.Scene, renderer: THREE.WebGLRenderer):
   dust.frustumCulled = false;
   scene.add(dust);
 
-  return { sun, sky, highlights, eastLeaf: leaf, tvMat, flameMat, flame, mastMat, dustTime, stats, leaves: town.leaves, waterTime: town.waterTime, nearRing, farRing, texturesReady };
+  return { sun, sky, highlights, eastLeaf: leaf, tvMat, flameMat, flame, mastMat, dustTime, stats, leaves: town.leaves, waterTime: town.waterTime, nearRing, farRing, texturesReady, pictures: town.pictures, carpet };
 }

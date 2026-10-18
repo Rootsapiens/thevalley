@@ -203,6 +203,51 @@ export function doorSteps(b: Building, d: DoorSpec): Tread[] {
   return out;
 }
 
+// ---------- Lit lamps (villageScene builds the fixtures and one point light per lamp) ----------
+/** The two bracket lanterns hang on the barn's z = 0 posts, over the mangers. */
+export const LANTERN_SIDE = { x: 5.6, y: 2.45, z: 0 };
+export interface Lamp { x: number; y: number; z: number; intensity: number; range: number; street?: boolean }
+/** [0] the barn's hanging lantern (rope from the z = -4 tie beam, ends at y = 3.0), [1-2] the bracket lanterns,
+ *  [3] the street lamp's head on the transformer pole [9] (villageTown: arm to x - 1.35, z - 0.42, glass at +5.48). */
+export const LAMPS: Lamp[] = [
+  { x: 0, y: 2.7, z: -4, intensity: 5, range: 8 },
+  { x: -LANTERN_SIDE.x, y: LANTERN_SIDE.y, z: LANTERN_SIDE.z, intensity: 3, range: 7 },
+  { x: LANTERN_SIDE.x, y: LANTERN_SIDE.y, z: LANTERN_SIDE.z, intensity: 3, range: 7 },
+  { x: TRANSFORMER.x - 1.35, y: groundY(TRANSFORMER.x, TRANSFORMER.z) + 5.3, z: TRANSFORMER.z - 0.42, intensity: 36, range: 12, street: true },
+];
+
+// ---------- Church interior (shared by the builder in villageTown.ts and the collision below) ----------
+export interface ChurchPicture { name: string; x: number; y: number; zWall: number; nz: 1 | -1; w: number; h: number; gilt: boolean }
+export interface ChurchLayout { cz: number; pews: Rect[]; columns: { x: number; z: number }[]; altar: Rect; pictures: ChurchPicture[] }
+export const COLUMN_R = 0.3;
+/** Church windows sit at x0 + len * (i + 0.5) / 4 on both long walls (villageTown windowsOf); the south door takes the
+ *  west window's place. Pews stand either side of a 1.8 m aisle and face the altar at the east end; the engaged columns
+ *  stand at the piers between the windows (none in front of the door); a framed picture hangs under each lower window:
+ *  the three Joseph stills on the north wall, the two Michelangelo drawings (aspect kept) on the south wall. */
+export function churchLayout(b: Building): ChurchLayout {
+  const cz = (b.z0 + b.z1) / 2, zn = b.z0 + WALL_T, zs = b.z1 - WALL_T, door = b.doors[0];
+  const win = (i: number) => b.x0 + (b.x1 - b.x0) * (i + 0.5) / 4;
+  const pews: Rect[] = [];
+  for (let i = 0; i < 6; i++) for (const s of [-1, 1]) {
+    const x = b.x0 + 3.2 + i * 1.7, za = cz + s * 0.9, zb = cz + s * 2.65;
+    pews.push({ x0: x - 0.02, x1: x + 0.46, z0: Math.min(za, zb) - 0.04, z1: Math.max(za, zb) + 0.04 });
+  }
+  const columns: { x: number; z: number }[] = [];
+  for (let i = 0; i < 3; i++) {
+    const x = (win(i) + win(i + 1)) / 2;
+    columns.push({ x, z: zn + 0.65 });
+    if (Math.abs(x - door.at) > door.w / 2 + 0.6) columns.push({ x, z: zs - 0.65 });
+  }
+  // Centre at eye level (floor + 1.65), lowered if the frame (7 cm) and the lamp above it (12 cm) would reach the window.
+  const y = (h: number) => Math.min(b.floor + 1.65, b.floor + 2.4 - 0.23 - h / 2);
+  const pictures: ChurchPicture[] = [
+    ...['church_steps', 'great_hall', 'yard'].map((name, i) => ({ name, x: win(i), y: y(0.9), zWall: zn, nz: 1 as const, w: 1.6, h: 0.9, gilt: false })),
+    { name: 'mary', x: win(1), y: y(0.96), zWall: zs, nz: -1, w: 1.2, h: 0.96, gilt: true },              // 768 x 615 source
+    { name: 'crucifixion', x: win(2), y: y(1.1), zWall: zs, nz: -1, w: 1.1 * 2 / 3, h: 1.1, gilt: true }, // 512 x 768 source
+  ];
+  return { cz, pews, columns, altar: { x0: b.x1 - 2.6, x1: b.x1 - 1.6, z0: cz - 1.2, z1: cz + 1.2 }, pictures };
+}
+
 export function townSolids(s: Solid[]) {
   // Buildings: solid blocks; the enterable ones are shells with an interior floor and door gaps (doors fill them).
   for (const b of BUILDINGS) {
@@ -225,6 +270,12 @@ export function townSolids(s: Solid[]) {
       s.push({ box: yb(b.x0 + t, b.z0 + t, b.x1 - t, b.z1 - t, b.base, b.floor) });                 // interior floor
       s.push({ box: yb(b.x0, b.z0, b.x1, b.z1, b.floor + b.eave - 0.25, top + 0.5) });               // ceiling
       for (const g of gaps) s.push({ box: yb(g.x0, g.z0, g.x1, g.z1, b.base, b.floor) });            // sills
+      if (b.kind === 'church') {   // pews, columns and the altar are solid
+        const L = churchLayout(b);
+        for (const p of L.pews) s.push({ box: yb(p.x0, p.z0, p.x1, p.z1, b.floor, b.floor + 1.0) });
+        for (const c of L.columns) s.push({ box: yb(c.x - COLUMN_R, c.z - COLUMN_R, c.x + COLUMN_R, c.z + COLUMN_R, b.floor, b.floor + b.eave) });
+        s.push({ box: yb(L.altar.x0 - 0.06, L.altar.z0 - 0.1, L.altar.x1 + 0.06, L.altar.z1 + 0.1, b.floor, b.floor + 1.08) });   // with cloth and frontal
+      }
     }
     for (const d of b.doors) for (const st of doorSteps(b, d)) s.push({ box: yb(st.x0, st.z0, st.x1, st.z1, st.top - 1.5, st.top) });
   }
