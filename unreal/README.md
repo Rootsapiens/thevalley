@@ -45,6 +45,17 @@ Useful switches:
 - `-Scalability 2` measures only one level.
 - `-ScreenPercentage 67` renders at 67% and upscales with TSR.
 - `-Package` also runs `RunUAT BuildCookRun` to get the shipping build size. The output goes to `unreal/build/`, which is gitignored.
+- `-Npcs` also places the village NPCs (step 2b below) before the game runs.
+
+## 2b. Village NPCs (one command)
+```powershell
+powershell -ExecutionPolicy Bypass -File unreal\scripts\run_npcs.ps1
+```
+1. `node scripts/export-npcs.ts` reads `src/npcData.ts` and writes `unreal/data/village-npcs.json` (15 NPCs, game metres).
+2. `UnrealEditor-Cmd ... -run=pythonscript -script=place_npcs.py` places one placeholder (BasicShapes Cylinder, 50 x 50 x 180 cm) per NPC in BarnSlice, building the level first if it is missing.
+   Label = NPC id, outliner folder `NPCs`, tags `OV_NPC`, `spawnDay:<n>`, `cuffed:<bool>`, `floorKnown:<bool>`. NPCs whose floor is not decided stand at Z = 0 with the tag `floor_to_confirm`.
+   Re-runs replace the actors tagged `OV_NPC`; a barn rebuild does not touch them. Result: `Saved/ov_npcs_result.json`.
+3. Without the engine: `python unreal/scripts/test_place_npcs.py` checks the JSON and the conversion.
 
 **Expect this on this laptop (Intel Iris Xe, 16 GB):**
 - The first shader compile takes about 20–40 minutes. The warm-up has a 40-minute cap.
@@ -63,6 +74,7 @@ Useful switches:
 | `scripts/make_opening_dolly.py` | Sequencer stub: 8 s at 30 fps, a 3 m dolly with a 6° pan toward the cave mouth, plus a camera-cut track |
 | `scripts/import_art.py` | Imports `public/art/*` and `public/models/*.glb` into `/Game/OmegaValley/Art`. Only files logged in `CREDITS.md` are imported. Nanite is turned on for meshes. |
 | `scripts/find_engine.ps1`, `scripts/run_trial.ps1` | Engine discovery and the one-command trial |
+| `data/village-npcs.json`, `scripts/place_npcs.py`, `scripts/run_npcs.ps1`, `scripts/test_place_npcs.py` | Village NPCs: data exported from `src/npcData.ts`, the placer, its one-command runner and its pure test |
 
 ## 4. Rules this project keeps
 - **Units:** the game uses metres with +Y up. UE uses centimetres with +Z up. Only `ov_units.py` converts between them.

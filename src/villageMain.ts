@@ -70,15 +70,30 @@ const leafObj = USABLES.map(u => V.leaves.find(l => l.id === u.id)?.obj ?? null)
 for (let u = 0; u < USABLES.length; u++) leafSolid[u] = USABLES[u].locked ? 0 : 1;
 const easeIO = (t: number) => t * t * (3 - 2 * t);
 const HOLLOW = BUILDINGS.filter(b => b.hollow);
+/** compileAsync skips the sun's shadow pass, which draws every caster with three's internal MeshDepthMaterial. This
+ *  stand-in has the same program key (BackSide from shadowSide, no map, no fog, one shadowed directional light, linear
+ *  output into a render target), so frame 1 takes the linked program from the cache. It needs no textures, so it
+ *  links during the texture wait. Never dispose it: that would release the shared program. */
+function compileShadowDepth(): Promise<unknown> {
+  const s = new THREE.Scene(), light = new THREE.DirectionalLight(), rt = new THREE.WebGLRenderTarget(1, 1);
+  light.castShadow = true;
+  s.add(light, new THREE.Mesh(new THREE.PlaneGeometry(), new THREE.MeshDepthMaterial({ side: THREE.BackSide })));
+  renderer.setRenderTarget(rt);
+  const p = renderer.compileAsync(s, camera);
+  renderer.setRenderTarget(null);
+  rt.dispose();
+  return p;
+}
+const depthReady = compileShadowDepth();
 // Stone and wood texture sets first (4 s at most), so their programs compile here with the maps bound, not in frame 1.
 const tTex0 = performance.now();
 await Promise.race([V.texturesReady, new Promise(r => setTimeout(r, 4000))]);
 V.stats['ms:tex'] = Math.round(performance.now() - tTex0);
-// Every program (outlines included) compiles before the first frame. Async: the driver links in parallel
-// (KHR_parallel_shader_compile) and the page stays responsive meanwhile.
+// Every program (outlines and the shadow depth pass included) compiles before the first frame. Async: the driver
+// links in parallel (KHR_parallel_shader_compile) and the page stays responsive meanwhile.
 for (const h of V.highlights) h.group.visible = true;
 const tCompile0 = performance.now();
-await renderer.compileAsync(scene, camera);
+await Promise.all([renderer.compileAsync(scene, camera), depthReady]);
 V.stats['ms:compile'] = Math.round(performance.now() - tCompile0);
 for (const h of V.highlights) h.group.visible = false;
 

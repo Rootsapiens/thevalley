@@ -1,0 +1,415 @@
+{
+ "source": {
+  "file": "src/npcData.ts",
+  "sha256": "55c43a7a5e15051c",
+  "exporter": "scripts/export-npcs.ts"
+ },
+ "units": "game metres, x east, y up, z south; yaw radians, 0 = north, + = left",
+ "order": [
+  "Cafe and raven activity",
+  "Root attack and gang turns",
+  "Omar escapes, loses memory",
+  "Found near the mountain (Day 1)",
+  "Taken to post [6] in handcuffs",
+  "Moreno assigns Elia the cover mission",
+  "Elia appears on the cafe balcony (Day 2)"
+ ],
+ "npcs": [
+  {
+   "id": "npc_maryam",
+   "role": "Joseph's mother",
+   "spawnDay": 1,
+   "position": {
+    "x": 74,
+    "y": -3.88,
+    "z": 12
+   },
+   "yaw": 0,
+   "floorKnown": true,
+   "cuffed": false,
+   "triggers": [
+    {
+     "id": "maryam_door",
+     "line": "Have you seen my son? He had the cow's rope with him.",
+     "status": "proposed"
+    },
+    {
+     "id": "maryam_posters",
+     "line": "I put those up myself. Nobody has called.",
+     "status": "proposed"
+    },
+    {
+     "id": "maryam_gate",
+     "line": "I am not leaving until he comes back.",
+     "status": "proposed"
+    }
+   ]
+  },
+  {
+   "id": "npc_omar",
+   "role": "Former Raven leader, memory lost",
+   "spawnDay": 1,
+   "position": {
+    "x": -15,
+    "y": 0,
+    "z": 47.5
+   },
+   "yaw": 0,
+   "floorKnown": false,
+   "cuffed": true,
+   "triggers": [
+    {
+     "id": "omar_mountain",
+     "line": "They say I know this mountain. I don't even know my name the way they say it.",
+     "status": "proposed"
+    },
+    {
+     "id": "omar_watcher",
+     "line": "Who is that woman who keeps looking at me?",
+     "status": "proposed"
+    }
+   ]
+  },
+  {
+   "id": "npc_elia",
+   "role": "Undercover officer, Omar's cover girlfriend",
+   "spawnDay": 2,
+   "position": {
+    "x": 9,
+    "y": 0,
+    "z": 60.3
+   },
+   "yaw": 0,
+   "floorKnown": false,
+   "cuffed": false,
+   "triggers": [
+    {
+     "id": "elia_rest",
+     "line": "He's resting. Please come back later.",
+     "status": "proposed"
+    },
+    {
+     "id": "elia_photos",
+     "line": "Are you the one putting up the photos?",
+     "status": "proposed"
+    },
+    {
+     "id": "elia_remember",
+     "line": "Tell me what you remember, even something small. I'm here.",
+     "status": "proposed"
+    }
+   ]
+  },
+  {
+   "id": "npc_moreno",
+   "role": "Police chief, post [6]",
+   "spawnDay": 1,
+   "position": {
+    "x": -15.5,
+    "y": 0,
+    "z": 45
+   },
+   "yaw": 0,
+   "floorKnown": false,
+   "cuffed": false,
+   "triggers": [
+    {
+     "id": "moreno_reporter",
+     "line": "You're the reporter who was asking about Joseph. What do you want from me?",
+     "status": "proposed"
+    },
+    {
+     "id": "moreno_said",
+     "line": "Did he say anything when they brought him in?",
+     "status": "proposed"
+    },
+    {
+     "id": "moreno_report",
+     "line": "There are people inside. Write that in your report.",
+     "status": "proposed"
+    }
+   ]
+  },
+  {
+   "id": "npc_officer_1",
+   "role": "Police officer, guards the car (unnamed)",
+   "spawnDay": 1,
+   "position": {
+    "x": -8,
+    "y": 0,
+    "z": 44.6
+   },
+   "yaw": 0,
+   "floorKnown": true,
+   "cuffed": false,
+   "triggers": [
+    {
+     "id": "officer_1_car",
+     "line": "Step back from the car, please.",
+     "status": "proposed"
+    }
+   ]
+  },
+  {
+   "id": "npc_officer_2",
+   "role": "Police officer, school doorway (unnamed)",
+   "spawnDay": 1,
+   "position": {
+    "x": -11.5,
+    "y": 0,
+    "z": 47.5
+   },
+   "yaw": 0,
+   "floorKnown": false,
+   "cuffed": false,
+   "triggers": [
+    {
+     "id": "officer_2_door",
+     "line": "The chief is busy. Wait out here.",
+     "status": "proposed"
+    }
+   ]
+  },
+  {
+   "id": "npc_priest",
+   "role": "Village priest (unnamed)",
+   "spawnDay": 1,
+   "position": {
+    "x": 14.5,
+    "y": 0,
+    "z": 28.5
+   },
+   "yaw": 0,
+   "floorKnown": true,
+   "cuffed": false,
+   "triggers": [
+    {
+     "id": "priest_altar",
+     "line": "Go home. And stay away from the mountain.",
+     "status": "canon"
+    },
+    {
+     "id": "priest_ladder",
+     "line": "The ladder is old. Mind the fourth flight.",
+     "status": "proposed"
+    },
+    {
+     "id": "priest_mother",
+     "line": "The boy's mother came in this morning. She did not sit down.",
+     "status": "proposed"
+    }
+   ]
+  },
+  {
+   "id": "npc_farmer",
+   "role": "Farmer, barn [1] and farmhouse [2] (unnamed)",
+   "spawnDay": 1,
+   "position": {
+    "x": -12.5,
+    "y": 0,
+    "z": 8.5
+   },
+   "yaw": 0,
+   "floorKnown": true,
+   "cuffed": false,
+   "triggers": [
+    {
+     "id": "farmer_light",
+     "line": "My wife keeps the light on for me. I'm going back out.",
+     "status": "proposed"
+    }
+   ]
+  },
+  {
+   "id": "npc_farmers_wife",
+   "role": "Farmer's wife (unnamed)",
+   "spawnDay": 1,
+   "position": {
+    "x": -21,
+    "y": 0,
+    "z": 0
+   },
+   "yaw": 0,
+   "floorKnown": false,
+   "cuffed": false,
+   "triggers": [
+    {
+     "id": "wife_back",
+     "line": "He'll come back. He always does.",
+     "status": "proposed"
+    },
+    {
+     "id": "wife_cow",
+     "line": "The cow was the first one to go. She walked up the hill.",
+     "status": "proposed"
+    }
+   ]
+  },
+  {
+   "id": "npc_square_villager_1",
+   "role": "Square villager (unnamed)",
+   "spawnDay": 1,
+   "position": {
+    "x": 19,
+    "y": 0,
+    "z": 46
+   },
+   "yaw": 0,
+   "floorKnown": true,
+   "cuffed": false,
+   "triggers": [
+    {
+     "id": "npc_square_villager_1_animals",
+     "line": "Have you seen the animals? They just walked up the hill.",
+     "status": "proposed"
+    },
+    {
+     "id": "npc_square_villager_1_omar",
+     "line": "Is that him? The one from the Ravens?",
+     "status": "proposed"
+    }
+   ]
+  },
+  {
+   "id": "npc_square_villager_2",
+   "role": "Square villager (unnamed)",
+   "spawnDay": 1,
+   "position": {
+    "x": 26,
+    "y": 0,
+    "z": 46
+   },
+   "yaw": 0,
+   "floorKnown": true,
+   "cuffed": false,
+   "triggers": [
+    {
+     "id": "npc_square_villager_2_animals",
+     "line": "Have you seen the animals? They just walked up the hill.",
+     "status": "proposed"
+    },
+    {
+     "id": "npc_square_villager_2_omar",
+     "line": "Is that him? The one from the Ravens?",
+     "status": "proposed"
+    }
+   ]
+  },
+  {
+   "id": "npc_square_villager_3",
+   "role": "Square villager (unnamed)",
+   "spawnDay": 1,
+   "position": {
+    "x": 21,
+    "y": 0,
+    "z": 52.5
+   },
+   "yaw": 0,
+   "floorKnown": true,
+   "cuffed": false,
+   "triggers": [
+    {
+     "id": "npc_square_villager_3_animals",
+     "line": "Have you seen the animals? They just walked up the hill.",
+     "status": "proposed"
+    },
+    {
+     "id": "npc_square_villager_3_omar",
+     "line": "Is that him? The one from the Ravens?",
+     "status": "proposed"
+    }
+   ]
+  },
+  {
+   "id": "npc_square_villager_4",
+   "role": "Square villager (unnamed)",
+   "spawnDay": 1,
+   "position": {
+    "x": 24.5,
+    "y": 0,
+    "z": 53
+   },
+   "yaw": 0,
+   "floorKnown": true,
+   "cuffed": false,
+   "triggers": [
+    {
+     "id": "npc_square_villager_4_animals",
+     "line": "Have you seen the animals? They just walked up the hill.",
+     "status": "proposed"
+    },
+    {
+     "id": "npc_square_villager_4_omar",
+     "line": "Is that him? The one from the Ravens?",
+     "status": "proposed"
+    }
+   ]
+  },
+  {
+   "id": "npc_square_villager_5",
+   "role": "Square villager (unnamed)",
+   "spawnDay": 1,
+   "position": {
+    "x": 6,
+    "y": 0,
+    "z": 58
+   },
+   "yaw": 0,
+   "floorKnown": true,
+   "cuffed": false,
+   "triggers": [
+    {
+     "id": "npc_square_villager_5_animals",
+     "line": "Have you seen the animals? They just walked up the hill.",
+     "status": "proposed"
+    },
+    {
+     "id": "npc_square_villager_5_omar",
+     "line": "Is that him? The one from the Ravens?",
+     "status": "proposed"
+    }
+   ]
+  },
+  {
+   "id": "npc_square_villager_6",
+   "role": "Square villager (unnamed)",
+   "spawnDay": 1,
+   "position": {
+    "x": -3,
+    "y": 0,
+    "z": 42
+   },
+   "yaw": 0,
+   "floorKnown": true,
+   "cuffed": false,
+   "triggers": [
+    {
+     "id": "npc_square_villager_6_animals",
+     "line": "Have you seen the animals? They just walked up the hill.",
+     "status": "proposed"
+    },
+    {
+     "id": "npc_square_villager_6_omar",
+     "line": "Is that him? The one from the Ravens?",
+     "status": "proposed"
+    }
+   ]
+  }
+ ],
+ "checks": {
+  "count": 15,
+  "sample": {
+   "id": "npc_farmer",
+   "game": {
+    "x": -12.5,
+    "y": 0,
+    "z": 8.5
+   },
+   "ueCm": {
+    "x": -1250,
+    "y": 850,
+    "z": 0
+   }
+  }
+ }
+}

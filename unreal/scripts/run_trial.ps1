@@ -10,11 +10,13 @@
   4. Warm-up game run (compiles and caches shaders), then one measured run per scalability level:
      -game, VSync off, -csvCaptureFrames, -ExecCmds "stat unit, HighResShot". It looks through OV_OpeningCam.
   5. Writes the report (numbers only, <= 12 lines) and copies the screenshot to studio\stills\ue-trial-barn-dusk.png.
+  Optional -Npcs: after step 3, runs run_npcs.ps1 (export-npcs.ts + place_npcs.py) so the NPCs are in the level.
   Never installs, signs in or accepts licences. Touches nothing outside unreal\, studio\reports, studio\stills.
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File unreal\scripts\run_trial.ps1
   powershell -ExecutionPolicy Bypass -File unreal\scripts\run_trial.ps1 -SkipBuild -Scalability 2 -ScreenPercentage 67
   powershell -ExecutionPolicy Bypass -File unreal\scripts\run_trial.ps1 -Package     # also cook + package, for build size
+  powershell -ExecutionPolicy Bypass -File unreal\scripts\run_trial.ps1 -Npcs        # also place the village NPCs
 #>
 [CmdletBinding()]
 param(
@@ -29,6 +31,7 @@ param(
   [switch]$SkipBuild,
   [switch]$SkipWarmup,
   [switch]$Package,
+  [switch]$Npcs,                     # also place the village NPCs (run_npcs.ps1) before the game runs
   [ValidateSet('Commandlet', 'Editor')][string]$BuildMode = 'Commandlet'
 )
 $ErrorActionPreference = 'Stop'
@@ -111,6 +114,13 @@ if (-not $SkipBuild) {
   }
   if (-not $build -or -not $build.ok) { throw "Level build failed. Logs: $Saved\Logs\ov_build_*.log" }
   Say ("level built: {0} actors, {1} s in script, {2} s wall ({3})" -f $build.actors, $build.seconds, $build.WallSeconds, $build.Mode)
+}
+
+# ---------- 3b. Optional: village NPCs ----------
+if ($Npcs) {
+  $npcArgs = @{ TimeoutSec = $TimeoutSec; BuildMode = $BuildMode }
+  if ($SkipExport) { $npcArgs.SkipExport = $true }
+  & (Join-Path $PSScriptRoot 'run_npcs.ps1') @npcArgs
 }
 
 # ---------- 4. Warm-up + measured runs ----------

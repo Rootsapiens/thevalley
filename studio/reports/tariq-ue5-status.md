@@ -1,0 +1,11 @@
+# Tariq: UE5 resume status (2026-10-18)
+- Status: PAUSED (studio/decisions.md line 7, "undo: resume Tariq's trial"). Resuming needs the owner's go-ahead.
+- Engine: NOT installed. No UnrealEditor-Cmd.exe found in C:\Program Files\Epic Games (only Launcher, DirectXRedist, GameInputRedist). LauncherInstalled.dat InstallationList = [] (0 engines).
+- Project: unreal/OmegaValley/OmegaValley.uproject is present. EngineAssociation = "" (find_engine.ps1 fills it in). 4 plugins. Config has 2 ini files. Content/OmegaValley is empty (0 assets; the level has not been built yet).
+- Data and scripts: unreal/data/village-barn.json, plus 6 files in unreal/scripts. .gitignore covers Binaries/Intermediate/Saved/DerivedDataCache/build.
+- Owner step 1: open the Epic Games Launcher and sign in (owner only).
+- Owner step 2: Unreal Engine > Library > ENGINE VERSIONS + > latest 5.x > Options: Core on, Templates on, Starter Content, Source, Symbols and Target Platforms off > Install to the default path. The owner accepts the EULA.
+- Owner step 3: launch the engine once from the Launcher so first-run setup finishes, then close it.
+- Tariq step 1: `powershell -ExecutionPolicy Bypass -File unreal\scripts\run_trial.ps1`. It runs find_engine, the JSON export, build_barn_level.py, a shader warm-up (about 20-40 min, 40 min cap), then fps runs at scalability 3 and 2.
+- Tariq step 2: dusk still and LS_OpeningDolly via Movie Render Queue (64+ warm-up frames). Optional: import_art.py. Then `-Package` for the build size.
+- Outputs: studio/reports/tariq-ue-trial.md and studio/stills/ue-trial-barn-dusk.png. Target: 60 fps (iGPU Iris Xe will likely miss it at Epic).
