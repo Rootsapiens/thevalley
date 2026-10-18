@@ -56,7 +56,9 @@ export const TERRACE = { x0: -41.5, step: 7.5, rise: 0.42, ramp: 0.9 };
 export const streamX = (z: number) => 104.5 + 1.1 * Math.sin((z + 20) / 17) + 0.5 * Math.sin((z + 20) / 7.3 + 1);
 export const streamHalf = (z: number) => 2.5 + 0.5 * Math.sin((z - 12.5) / 13);
 export const waterY = (z: number) => -8.3 - 0.008 * (z - 12.5);
-export const BANK = { west: 5.5, east: 5.0, eastRise: 2.3, eastK: 0.08 };   // both banks stay under 35 deg
+/** The west bank (5.5 m) and the east bank (6.5 m) stay under 35 deg; past it the east bank climbs out of the
+ *  village's evening shadow into the last sun, toward the mountain, and levels off at the valley floor (-2.5 m). */
+export const BANK = { west: 5.5, east: 6.5, eastRise: 3.0, eastK: 0.15, floor: -2.5 };
 /** Maryam's yard [7] is levelled: a 1.2 m retaining wall on the stream side, 6 stone steps at the back gate. */
 export const MARYAM_YARD: Rect & { y: number } = { x0: 67.5, x1: 92.5, z0: 2.5, z1: 22.5, y: -3.9 };
 const smooth01 = (t: number) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
@@ -95,7 +97,7 @@ export function groundY(x: number, z: number): number {
     } else if (d < hw + BANK.east) {
       y = w + 0.06 + BANK.eastRise * smooth01((d - hw) / BANK.east);
     } else {
-      y = w + 0.06 + BANK.eastRise + BANK.eastK * (d - hw - BANK.east);
+      y = Math.min(BANK.floor, w + 0.06 + BANK.eastRise + BANK.eastK * (d - hw - BANK.east));
     }
   }
   return y;
@@ -262,7 +264,7 @@ export const PATHS: Path[] = [
 /** 7 stepping stones across 5 m of water at row 6, centres 0.6 m apart. */
 export const STONES = (() => {
   const z = 12.5, c = streamX(z), w = waterY(z);
-  return Array.from({ length: 7 }, (_, i) => ({ x: c - 1.8 + i * 0.6, z: z + [0.04, -0.06, 0.05, -0.03, 0.06, -0.05, 0.02][i], top: w + [0.12, 0.16, 0.1, 0.15, 0.11, 0.14, 0.12][i], sx: 0.46, sz: 0.62 }));
+  return Array.from({ length: 7 }, (_, i) => ({ x: c - 1.8 + i * 0.6, z: z + [0.04, -0.06, 0.05, -0.03, 0.06, -0.05, 0.02][i], top: w + [0.2, 0.25, 0.18, 0.24, 0.2, 0.26, 0.21][i], sx: 0.5, sz: 0.8 }));
 })();
 /** The 6 stone steps down the retaining wall at the back gate, east toward the stream. */
 export const BACK_STEPS = Array.from({ length: 6 }, (_, i) => ({ x0: 92.75 + i * 0.42, x1: 92.75 + (i + 1) * 0.42, z0: 6.4, z1: 8.6, top: MARYAM_YARD.y - (i + 1) * 0.2 }));

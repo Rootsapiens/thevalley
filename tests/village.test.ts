@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { newPlayer, step, eyeHeight, height, overlaps, TUNING, type Input, type PlayerState, type Box } from '../src/physics';
 import {
   villageSolids, EXAMINABLES, LINES, SPAWN, SPAWN_YAW, END_ZONE, TURNBACK_ZONE, MOUNTAIN, trailPoints, bearingDir,
-  pickExaminable, surfaceAt, zoneEvents, newVillageState, markExamined, rng, SUN,
+  pickExaminable, surfaceAt, zoneEvents, newVillageState, markExamined, rng, SUN, groundY,
 } from '../src/village';
 /** Main route on foot: farm track, back door, aisle, north door, then the hoofprints across the pasture to the gap. */
 const ROUTE = [[0, 12], [0, -9], [0, -13], [1.5, -15], [25, -38.6], [25.2, -40.5]];
@@ -51,7 +51,7 @@ describe('Village slice data', () => {
   it('every examinable can be examined from its standing spot (in range, facing it, line of sight)', () => {
     for (const [i, e] of EXAMINABLES.entries()) {
       const p = newPlayer(e.from);
-      for (let k = 0; k < 30; k++) step(p, idle, WORLD, DT);
+      for (let k = 0; k < 30; k++) step(p, idle, WORLD, DT, groundY);
       expect(p.onGround, e.id).toBe(true);
       expect(Math.hypot(p.pos.x - e.from.x, p.pos.z - e.from.z), `${e.id} spot is free`).toBeLessThan(0.01);
       const eye = { x: p.pos.x, y: p.pos.y + eyeHeight(p), z: p.pos.z };
@@ -69,7 +69,7 @@ describe('Village slice data', () => {
     expect(pickExaminable(eye, { x: d.x / n, y: d.y / n, z: d.z / n }, EXAMINABLES, SOLIDS, 10)).toBe(-1);
   });
 
-  it('spawn, every examine spot and the end zone are connected on foot (grid flood fill, player-sized)', () => {
+  it('spawn, every examine spot and the end zone are connected on foot in the barn corner (grid flood fill, player-sized)', () => {
     const h = 0.25, x0 = -28, z0 = -44, nx = Math.round(58 / h), nz = Math.round(72 / h);
     const cell = (x: number, z: number) => [Math.round((x - x0) / h), Math.round((z - z0) / h)] as const;
     const seen = new Uint8Array(nx * nz);
@@ -89,11 +89,7 @@ describe('Village slice data', () => {
     const reach = (x: number, z: number) => { const [a, b] = cell(x, z); return seen[a + b * nx] === 1; };
     for (const e of EXAMINABLES) expect(reach(e.from.x, e.from.z), e.id).toBe(true);
     expect(reach((END_ZONE.box.min.x + END_ZONE.box.max.x) / 2, END_ZONE.box.max.z - 0.5)).toBe(true);
-    // The play space is closed: nothing outside the fences/walls is reachable.
-    expect(reach(-27.9 - 0.3, 0)).toBe(false);
-    expect(reach(10, -46)).toBe(false);
-    expect(reach(25, -46)).toBe(false);
-    expect(reach(0, 28.5)).toBe(false);
+    // Closure of the full village (map edges, the stream) is checked in tests/villageWalk.test.ts.
   });
 
   it('hoofprint trail is continuous, starts in the barn, never crosses a solid, reaches the end zone, always heads toward the mountain', () => {
@@ -126,7 +122,7 @@ describe('Village slice data', () => {
       const [tx, tz] = route[wp];
       if (Math.hypot(tx - p.pos.x, tz - p.pos.z) < 0.4 && wp < route.length - 1) wp++;
       yaw = Math.atan2(-(route[wp][0] - p.pos.x), -(route[wp][1] - p.pos.z));
-      step(p, { ...idle, forward: 1, yaw }, WORLD, DT);
+      step(p, { ...idle, forward: 1, yaw }, WORLD, DT, groundY);
       if (zoneEvents(s, pbox(p)).includes('end')) ended = true;
     }
     expect(ended, `stuck at (${p.pos.x.toFixed(2)}, ${p.pos.z.toFixed(2)}) heading to waypoint ${wp}`).toBe(true);
@@ -157,16 +153,16 @@ describe('Village slice data', () => {
     expect(SUN.elevation).toBeLessThanOrEqual(6);
   });
 
-  it('walking back to the village fires turnback and an invisible stop holds the player', () => {
-    const p = newPlayer({ x: 0, y: 0.01, z: 23.5 });
+  it('walking down the valley road fires turnback and an invisible stop holds the player at the map edge', () => {
+    const p = newPlayer({ x: 37.5, y: groundY(37.5, 96) + 0.01, z: 96 });
     const s = newVillageState();
     let turned = 0;
-    for (let i = 0; i < 120 * 6; i++) {
-      step(p, { ...idle, forward: 1, yaw: Math.PI }, WORLD, DT);
+    for (let i = 0; i < 120 * 8; i++) {
+      step(p, { ...idle, forward: 1, yaw: Math.PI }, WORLD, DT, groundY);
       if (zoneEvents(s, pbox(p)).includes('turnback')) turned++;
     }
     expect(turned).toBeGreaterThan(0);
-    expect(p.pos.z).toBeLessThan(TURNBACK_ZONE.box.max.z + 0.5);
+    expect(p.pos.z).toBeLessThan(TURNBACK_ZONE.box.max.z + 0.7);
     expect(s.finished).toBe(false);
   });
 

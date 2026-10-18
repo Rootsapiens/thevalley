@@ -1273,7 +1273,6 @@ export function buildVillage(scene: THREE.Scene, renderer: THREE.WebGLRenderer):
   for (const k of Object.keys(buckets) as BucketId[]) buckets[k].length = 0;
   exGeos.clear();
   FENCES_NOW = fencesNow();
-  const pm = new THREE.PMREMGenerator(renderer);   // created first: its shader links while the CPU builds geometry
   R = rng(5);
   const maxAniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
   const phase: Record<string, number> = {};
@@ -1349,12 +1348,13 @@ export function buildVillage(scene: THREE.Scene, renderer: THREE.WebGLRenderer):
   disc.renderOrder = 1;
   sky.add(disc);
   mark('materials');
+  const pm = new THREE.PMREMGenerator(renderer);
   const envScene = new THREE.Scene();
   envScene.add(new THREE.Mesh(skyGeo, skyMat));
   const env = pm.fromScene(envScene, 0.04, 1, 2000).texture;
   for (const [m, k] of [[lit, 2.4], [stone, 2.4], [foliage, 2.0], [chalk, 2.0], [wet, 1.0], [prints, 0.3]] as const) { m.envMap = env; m.envMapIntensity = k; }
   const wm = waterMat as THREE.MeshStandardMaterial | null;
-  if (wm) { wm.envMap = env; wm.envMapIntensity = 1.3; }
+  if (wm) { wm.envMap = env; wm.envMapIntensity = 2.6; }
   pm.dispose();
   mark('envmap');
   const stats: Record<string, number> = { ...phase };
@@ -1412,7 +1412,8 @@ export function buildVillage(scene: THREE.Scene, renderer: THREE.WebGLRenderer):
   // Mountains: near valley sides, then the mountain itself (NNE) with the cave mouth, and the ridge mast to the west.
   // Near valley sides stay below 3 deg in the WSW so the sun clears them; the west ridge carries the mast.
   // The west ridge peaks due west (the mast, village.md: 450 m W, 110 m up) and dips in the WSW where the sun sets.
-  const nearH = (b: number) => 4 + 5 * ringNoise(b, 3, 3.1) + 2 * ringNoise(b, 17, 7.7) + 52 * Math.exp(-((angDiff(b, 276) / 15) ** 2))
+  const nearH = (b: number) => 4 + 5 * ringNoise(b, 3, 3.1) + 2 * ringNoise(b, 17, 7.7) + 50 * Math.exp(-((angDiff(b, 276) / 14) ** 2))
+    + 18 * Math.exp(-((angDiff(b, 293) / 13) ** 2)) + 9 * (ringNoise(b, 64, 5.5) - 0.5) * Math.exp(-((angDiff(b, 280) / 22) ** 2))
     + 20 * Math.exp(-((angDiff(b, 130) / 34) ** 2)) + 12 * Math.exp(-((angDiff(b, 190) / 20) ** 2))
     + 8 * Math.exp(-((angDiff(b, 20) / 14) ** 2)) + 6 * Math.exp(-((angDiff(b, 70) / 10) ** 2));
   const near = ridgeRing(230, nearH, { shade: mix('fogHaze', 'ink', 0.5, 1.0), lit: mix('wallPaint', 'sodium', 0.4, 0.5), snow: P('ink'), snowLine: 999, haze: 0.25, litK: 0.8 });

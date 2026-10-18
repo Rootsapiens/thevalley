@@ -622,7 +622,7 @@ export function buildTown(k: Kit, scene: THREE.Scene, leafMat: THREE.Material): 
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.setIndex(idx);
     g.computeVertexNormals();
-    const water = new THREE.MeshStandardMaterial({ color: mix('fogHaze', 'ink', 0.55, 1.0), roughness: 0.12, metalness: 0, envMapIntensity: 1.0 });
+    const water = new THREE.MeshStandardMaterial({ color: mix('fogHaze', 'skyNight', 0.45, 1.25), roughness: 0.1, metalness: 0, envMapIntensity: 1.0 });
     water.onBeforeCompile = s => {
       s.uniforms.uTime = waterTime;
       s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
@@ -654,9 +654,11 @@ export function buildTown(k: Kit, scene: THREE.Scene, leafMat: THREE.Material): 
     const p = ico.getAttribute('position');
     for (let i = 0; i < p.count; i++) { const y = p.getY(i); p.setY(i, y > 0.3 ? 0.3 + (y - 0.3) * 0.25 : y); }
     ico.computeVertexNormals();
-    ico.scale(st.sx * 0.55, 0.62, st.sz * 0.55); ico.rotateY(R() * 3);
+    ico.scale(st.sx * 0.55, 0.62, st.sz * 0.55); ico.rotateY(rr(-0.3, 0.3));
     ico.translate(st.x, st.top - 0.62 * (0.3 + 0.7 * 0.25) + 0.005, st.z);
-    put('stone', ico, cS(COL.stone, rr(0.75, 0.9)));
+    put('stone', ico, cS(COL.stone, rr(1.0, 1.15)));
+    // A pale ring of broken water round each stone, the current piling against its upstream side.
+    put('glow', k.ellipseG(st.x, waterY(st.z) + 0.012, st.z - 0.06, st.sz * 0.62, st.sx * 0.66, Math.PI / 2, 12), mix('concrete', 'fogHaze', 0.4, 0.42));
   }
   // Hoofprints over the east bank: the herd crossed here too, all heading for the mountain.
   {
