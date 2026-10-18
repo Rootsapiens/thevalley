@@ -147,7 +147,7 @@ const D = (face: Face, at: number, use: 'open' | 'locked' = 'locked', id?: strin
  *  built by the slice code in village.ts / villageScene.ts). Footprints sit 0.5-1 m inside their cells. */
 export const BUILDINGS: Building[] = [
   // North row: the church block (graveyard, tower [3], nave, yard, priest's house).
-  bld({ id: 'tower', kind: 'tower', landmark: 3, cells: [15, 9, 15, 9], x0: 0, x1: 5, z0: 26, z1: 31, eave: 15, ridgeAlongX: true, roof: 'pyramid',
+  bld({ id: 'tower', kind: 'tower', landmark: 3, cells: [15, 9, 15, 9], x0: 0, x1: 5, z0: 25, z1: 30, eave: 15, ridgeAlongX: true, roof: 'pyramid',
     doors: [D('s', 2.5, 'open', 'door-tower', 1.15, 2.2)], lit: 0, hollow: true }),
   bld({ id: 'church', kind: 'church', cells: [16, 9, 19, 10], x0: 5, x1: 24, z0: 26.5, z1: 35, eave: 7.5, ridgeAlongX: true, roof: 'gable',
     doors: [D('s', 9.5, 'open', 'door-church', 1.7, 2.9)], lit: 1, hollow: true }),
@@ -179,16 +179,16 @@ export const BUILDINGS: Building[] = [
   bld({ id: 'barn-e', kind: 'barn', cells: [27, 19, 29, 21], x0: 60.5, x1: 74.5, z0: 75.5, z1: 89.5, eave: 5.0, ridgeAlongX: false, roof: 'gable',
     doors: [D('w', 82.5, 'locked', undefined, 3.6, 3.8)], lit: 0 }),
   // Maryam's house [7]: the last house before the stream, kitchen lit; the lean-to cow shed against its east wall.
-  bld({ id: 'maryam', kind: 'house', landmark: 7, cells: [29, 5, 30, 6], x0: 70.5, x1: 79.5, z0: 6, z1: 14.5, eave: 5.0, ridgeAlongX: true, roof: 'gable',
+  bld({ id: 'maryam', kind: 'house', landmark: 7, cells: [29, 5, 30, 6], x0: 70.5, x1: 80, z0: 6, z1: 14.5, eave: 5.0, ridgeAlongX: true, roof: 'gable',
     doors: [D('s', 74, 'open', 'door-maryam', 1.15, 2.1)], lit: 0.6, hollow: true }),
-  bld({ id: 'shed', kind: 'shed', cells: [31, 5, 31, 6], x0: 79.5, x1: 84, z0: 6.5, z1: 14, eave: 2.6, ridgeAlongX: false, roof: 'lean',
+  bld({ id: 'shed', kind: 'shed', cells: [31, 5, 31, 6], x0: 80, x1: 84.5, z0: 6.5, z1: 14, eave: 2.6, ridgeAlongX: false, roof: 'lean',
     doors: [], lit: 0 }),
 ];
 // Floors of the yard buildings sit on the yard pad.
 for (const b of BUILDINGS) if (b.id === 'maryam' || b.id === 'shed') { b.floor = MARYAM_YARD.y + 0.02; b.base = Math.min(b.base, MARYAM_YARD.y - 0.4); }
 
 // ---------- Fences (rail, 1.2 m: not jumpable) and dry-stone walls (#, 1.0 m: jumpable) ----------
-export interface Run { x0: number; z0: number; x1: number; z1: number }
+export interface Run { x0: number; z0: number; x1: number; z1: number; edge?: boolean }
 export interface Gate { id: string; x: number; z: number; w: number; alongX: boolean; swing: number; name: Text }
 /** Usable gates (the `:` cells in a fence line). Hinge at the low end of the opening; `swing` is the open yaw
  *  (radians, positive = counter-clockwise seen from above). */
@@ -208,11 +208,12 @@ export const TOWN_FENCES: Run[] = [
   // Maryam's yard (rows 4-8, cols 28-33).
   { x0: 67.5, z0: 2.5, x1: 92.5, z1: 2.5 }, { x0: 67.5, z0: 2.5, x1: 67.5, z1: 22.5 },
   { x0: 92.5, z0: 2.5, x1: 92.5, z1: 22.5 }, { x0: 67.5, z0: 22.5, x1: 92.5, z1: 22.5 },
-  // Map boundary: west, north (both sides of the farm), east bank, south (the road leaves through it).
-  { x0: -75, z0: -20, x1: -75, z1: 110 }, { x0: -75, z0: -20, x1: -28, z1: -20 }, { x0: -28, z0: -20, x1: -28, z1: -13.5 },
-  { x0: 62.5, z0: -20, x1: 97, z1: -20 }, { x0: 112, z0: -20, x1: 125, z1: -20 },
-  { x0: 125, z0: -20, x1: 125, z1: 10.5 }, { x0: 125, z0: 14.5, x1: 125, z1: 110 },
-  { x0: -75, z0: 110, x1: 34, z1: 110 }, { x0: 41, z0: 110, x1: 97, z1: 110 }, { x0: 112, z0: 110, x1: 125, z1: 110 },
+  // Map boundary (edge: 3 m of collision, so no one balances along its top from the jumpable wall): west, north
+  // (both sides of the farm), east bank, south (the road leaves through it).
+  { x0: -75, z0: -20, x1: -75, z1: 110, edge: true }, { x0: -75, z0: -20, x1: -28, z1: -20, edge: true }, { x0: -28, z0: -20, x1: -28, z1: -13.5, edge: true },
+  { x0: 62.5, z0: -20, x1: 97, z1: -20, edge: true }, { x0: 112, z0: -20, x1: 125, z1: -20, edge: true },
+  { x0: 125, z0: -20, x1: 125, z1: 10.5, edge: true }, { x0: 125, z0: 14.5, x1: 125, z1: 110, edge: true },
+  { x0: -75, z0: 110, x1: 34, z1: 110, edge: true }, { x0: 41, z0: 110, x1: 97, z1: 110, edge: true }, { x0: 112, z0: 110, x1: 125, z1: 110, edge: true },
 ];
 /** Splits fence runs around the gate openings. */
 export function fenceRuns(): Run[] {
@@ -228,8 +229,8 @@ export function fenceRuns(): Run[] {
         const c = alongX ? g.x : g.z, h = g.w / 2;
         if (c + h <= a || c - h >= b) return [p];
         const res: Run[] = [];
-        if (c - h - a > 0.05) res.push(alongX ? { x0: a, z0: p.z0, x1: c - h, z1: p.z0 } : { x0: p.x0, z0: a, x1: p.x0, z1: c - h });
-        if (b - (c + h) > 0.05) res.push(alongX ? { x0: c + h, z0: p.z0, x1: b, z1: p.z0 } : { x0: p.x0, z0: c + h, x1: p.x0, z1: b });
+        if (c - h - a > 0.05) res.push(alongX ? { x0: a, z0: p.z0, x1: c - h, z1: p.z0, edge: p.edge } : { x0: p.x0, z0: a, x1: p.x0, z1: c - h, edge: p.edge });
+        if (b - (c + h) > 0.05) res.push(alongX ? { x0: c + h, z0: p.z0, x1: b, z1: p.z0, edge: p.edge } : { x0: p.x0, z0: c + h, x1: p.x0, z1: b, edge: p.edge });
         return res;
       });
     }
@@ -316,7 +317,7 @@ export function pathDist(x: number, z: number, kind?: Path['kind']): number {
   return d;
 }
 const inRect = (x: number, z: number, r: Rect, m = 0) => x > r.x0 - m && x < r.x1 + m && z > r.z0 - m && z < r.z1 + m;
-export const CHURCH_YARDS: Rect[] = [{ x0: 0, x1: 5, z0: 31, z1: 35.5 }, { x0: 24, x1: 30.5, z0: 26, z1: 35.5 }];
+export const CHURCH_YARDS: Rect[] = [{ x0: 0, x1: 5, z0: 30, z1: 35.5 }, { x0: 24, x1: 30.5, z0: 26, z1: 35.5 }];
 /** True where grass tufts and trees must not stand: buildings, cobbles, paths, the water, Maryam's yard. */
 export function townBlocked(x: number, z: number): boolean {
   if (BUILDINGS.some(b => inRect(x, z, b, 0.4))) return true;

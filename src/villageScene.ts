@@ -6,10 +6,11 @@ import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import palette from '../studio/art/palette.json';
 import type { Token } from './nightshift';
-import { worldUVs, withTexture, textureBase } from './materials';
+import { worldUVs, villageSet } from './materials';
+import { VILLAGE_TEX, NORMAL_Y } from './villageTextures';
 import {
   BARN, STALLS, POSTS_Z, LOFT, FARMHOUSE, HOUSES, TROUGH, KENNEL, SHRINE, FENCES, NORTH_WALL_Z, GAP, SOUTH_WALL_Z,
-  TRACK, SUN, MOUNTAIN, EXAMINABLES, TRAIL_CTRL, TREES, trailPoints, rng, bearingDir, fencesNow, H3, groundY,
+  TRACK, SUN, MOUNTAIN, EXAMINABLES, TRAIL_CTRL, TREES, trailPoints, rng, bearingDir, fencesNow, H3, groundY, SLICE_PINES,
 } from './village';
 import { townFootprints, townFenceRuns, townInteriors, buildTown, townBlocked, slicePineKept, townGroundColor, sunHeightMap, type TownScene } from './villageTown';
 
@@ -158,8 +159,8 @@ export function bakeAt(x: number, y: number, z: number, nx: number, ny: number, 
 }
 
 // ---------- Geometry buckets ----------
-export type BucketId = 'lit' | 'stone' | 'wet' | 'prints' | 'foliage' | 'chalk' | 'glow' | 'noshadow';
-const buckets: Record<BucketId, THREE.BufferGeometry[]> = { lit: [], stone: [], wet: [], prints: [], foliage: [], chalk: [], glow: [], noshadow: [] };
+export type BucketId = 'lit' | 'stone' | 'wood' | 'wet' | 'prints' | 'foliage' | 'chalk' | 'glow' | 'noshadow';
+const buckets: Record<BucketId, THREE.BufferGeometry[]> = { lit: [], stone: [], wood: [], wet: [], prints: [], foliage: [], chalk: [], glow: [], noshadow: [] };
 let redirect: THREE.BufferGeometry[] | null = null;
 let exTag: string | null = null;
 const exGeos = new Map<string, { geo: THREE.BufferGeometry; chalk: boolean }[]>();
@@ -197,7 +198,7 @@ function put(b: BucketId, src: THREE.BufferGeometry, col: THREE.Color | ColorFn,
   }
   g.setAttribute('color', new THREE.BufferAttribute(c, 3));
   g.setAttribute('bake', new THREE.BufferAttribute(k, 2));
-  if (b === 'stone') worldUVs(g);
+  if (b === 'stone' || b === 'wood') worldUVs(g);
   else if (b !== 'chalk' && g.getAttribute('uv')) g.deleteAttribute('uv');
   if (g.getAttribute('uv1')) g.deleteAttribute('uv1');
   if (!g.index) { const idx = new Uint32Array(n); for (let i = 0; i < n; i++) idx[i] = i; g.setIndex(new THREE.BufferAttribute(idx, 1)); }
@@ -269,7 +270,7 @@ function boards(axis: 'x' | 'z', fixed: number, out: number, from: number, to: n
       const tone = R() < 0.12 ? rr(0.62, 0.78) : rr(0.86, 1.12);
       _c.copy(col).multiplyScalar(tone);
       const g = axis === 'x' ? boxG(mid, yb + h / 2, c, w - 0.004, h, 0.045, 0, 0, tilt, 1.6) : boxG(c, yb + h / 2, mid, 0.045, h, w - 0.004, tilt, 0, 0, 1.6);
-      put('lit', g, _c.clone());
+      put('wood', g, _c.clone());
     }
     u += w + gap;
   }
@@ -1053,6 +1054,8 @@ function buildTrees() {
     if (x > -30 && x < 32 && z > -45 && z < 30) continue;
     if (x > -40 && x < 35 && z > 28 && z < 55 && R() < 0.7) continue;
     const h = rr(9, 17) * (northView ? 0.7 : 1);
+    const twin = SLICE_PINES[placed];   // village.ts replays this ring for trunk collision: it must agree
+    if (!twin || Math.abs(twin.x - x) + Math.abs(twin.z - z) + Math.abs(twin.h - h) > 1e-9) console.warn('pine ring and SLICE_PINES disagree at', placed);
     if (slicePineKept(x, z)) pine(x, z, h); else discarding(() => pine(x, z, h));   // same numbers drawn either way
     placed++;
   }
@@ -1255,6 +1258,8 @@ export interface VillageScene {
   /** Valley sides and the mountain: moved each frame by the parallax field (see villageMain). */
   nearRing: THREE.Object3D;
   farRing: THREE.Object3D;
+  /** Resolves (never rejects) once the stone and wood texture sets have loaded or failed (null), after their binds ran. */
+  texturesReady: Promise<void>;
 }
 
 /** The scene's geometry kit, handed to the town builders (villageTown.ts) at build time. */
@@ -1314,7 +1319,7 @@ export function buildVillage(scene: THREE.Scene, renderer: THREE.WebGLRenderer):
     SUN_H.uSunHRect.value.set(shm.x0, shm.z0, 1 / (shm.w * shm.cell), 1 / (shm.h * shm.cell));
   }
   mark('sunmap');
-  const base = textureBase('wall-painted');
+  const base = new THREE.Color(VILLAGE_TEX['stone-wall'].base);
   const stone = patchBake(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0, color: base }));
   stone.shadowSide = THREE.BackSide;
   // Vertex colours hold the target colour; once the texture arrives, divide by its authored base so the average matches.
@@ -1322,7 +1327,24 @@ export function buildVillage(scene: THREE.Scene, renderer: THREE.WebGLRenderer):
     const c = g.getAttribute('color');
     for (let i = 0; i < c.count; i++) c.setXYZ(i, c.getX(i) / base.r, c.getY(i) / base.g, c.getZ(i) / base.b);
   }
-  withTexture('wall-painted', t => { stone.map = t; stone.color.setRGB(1, 1, 1); stone.needsUpdate = true; });
+  villageSet('stone-wall').then(set => {
+    if (!set) return; // no file: keep the flat colour
+    stone.map = set.map; stone.normalMap = set.normal; stone.normalScale.y = NORMAL_Y; stone.color.setRGB(1, 1, 1); stone.needsUpdate = true;
+  });
+  // Barn boards: same divide-by-base trick as the stone, on the plank set.
+  const woodBase = new THREE.Color(VILLAGE_TEX['wood-planks-barn'].base);
+  const wood = patchBake(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0, color: woodBase }));
+  wood.shadowSide = THREE.BackSide;
+  for (const g of buckets.wood) {
+    const c = g.getAttribute('color');
+    for (let i = 0; i < c.count; i++) c.setXYZ(i, c.getX(i) / woodBase.r, c.getY(i) / woodBase.g, c.getZ(i) / woodBase.b);
+  }
+  villageSet('wood-planks-barn').then(set => {
+    if (!set) return; // no file: keep the flat colour
+    wood.map = set.map; wood.normalMap = set.normal; wood.normalScale.y = NORMAL_Y; wood.color.setRGB(1, 1, 1); wood.needsUpdate = true;
+  });
+  // Same shared promises, subscribed after the two binds above, so both binds have run by the time this resolves.
+  const texturesReady = Promise.all([villageSet('stone-wall'), villageSet('wood-planks-barn')]).then(() => {});
   const wet = patchBake(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.06, metalness: 0, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 }));
   const foliage = patchBake(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0, side: THREE.DoubleSide }));
   const chalkTex = chalkTexture(maxAniso);
@@ -1352,7 +1374,7 @@ export function buildVillage(scene: THREE.Scene, renderer: THREE.WebGLRenderer):
   const envScene = new THREE.Scene();
   envScene.add(new THREE.Mesh(skyGeo, skyMat));
   const env = pm.fromScene(envScene, 0.04, 1, 2000).texture;
-  for (const [m, k] of [[lit, 2.4], [stone, 2.4], [foliage, 2.0], [chalk, 2.0], [wet, 1.0], [prints, 0.3]] as const) { m.envMap = env; m.envMapIntensity = k; }
+  for (const [m, k] of [[lit, 2.4], [stone, 2.4], [wood, 2.4], [foliage, 2.0], [chalk, 2.0], [wet, 1.0], [prints, 0.3]] as const) { m.envMap = env; m.envMapIntensity = k; }
   const wm = waterMat as THREE.MeshStandardMaterial | null;
   if (wm) { wm.envMap = env; wm.envMapIntensity = 2.6; }
   pm.dispose();
@@ -1389,6 +1411,7 @@ export function buildVillage(scene: THREE.Scene, renderer: THREE.WebGLRenderer):
 
   mk('lit', lit, true, true);
   mk('stone', stone, true, true);
+  mk('wood', wood, true, true);
   mk('noshadow', noshadow, false, true);
   mk('wet', wet, false, true);
   mk('prints', prints, false, true);
@@ -1496,5 +1519,5 @@ export function buildVillage(scene: THREE.Scene, renderer: THREE.WebGLRenderer):
   dust.frustumCulled = false;
   scene.add(dust);
 
-  return { sun, sky, highlights, eastLeaf: leaf, tvMat, flameMat, flame, mastMat, dustTime, stats, leaves: town.leaves, waterTime: town.waterTime, nearRing, farRing };
+  return { sun, sky, highlights, eastLeaf: leaf, tvMat, flameMat, flame, mastMat, dustTime, stats, leaves: town.leaves, waterTime: town.waterTime, nearRing, farRing, texturesReady };
 }

@@ -218,8 +218,9 @@ export function buildTown(k: Kit, scene: THREE.Scene, leafMat: THREE.Material): 
       k.windowAt(w.face, w.x, w.z, w.y, w.w, w.h, w.light, b.kind !== 'church' && b.kind !== 'cafe');
       if (b.hollow) {   // the inside face of the pane, so the room reads from within
         const t = WALL_T + 0.02, ix = w.x - w.o[0] * t, iz = w.z - w.o[1] * t;
-        put(w.light === 'dark' ? 'wet' : 'glow', w.face === 'n' || w.face === 's' ? boxG(ix, w.y + w.h / 2, iz, w.w, w.h, 0.02) : boxG(ix, w.y + w.h / 2, iz, 0.02, w.h, w.w),
-          w.light === 'warm' ? COL.windowWarm : w.light === 'dim' ? COL.windowDim : COL.glass);
+        // From inside, the glass shows the dusk outside: a cool, dim blue, brighter toward the sunset side.
+        put('glow', w.face === 'n' || w.face === 's' ? boxG(ix, w.y + w.h / 2, iz, w.w, w.h, 0.02) : boxG(ix, w.y + w.h / 2, iz, 0.02, w.h, w.w),
+          mix('skyNight', 'fogHaze', 0.55, w.face === 's' || w.face === 'w' ? 2.6 : 1.9));
       }
     }
   }

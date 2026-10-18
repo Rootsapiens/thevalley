@@ -70,6 +70,10 @@ const leafObj = USABLES.map(u => V.leaves.find(l => l.id === u.id)?.obj ?? null)
 for (let u = 0; u < USABLES.length; u++) leafSolid[u] = USABLES[u].locked ? 0 : 1;
 const easeIO = (t: number) => t * t * (3 - 2 * t);
 const HOLLOW = BUILDINGS.filter(b => b.hollow);
+// Stone and wood texture sets first (4 s at most), so their programs compile here with the maps bound, not in frame 1.
+const tTex0 = performance.now();
+await Promise.race([V.texturesReady, new Promise(r => setTimeout(r, 4000))]);
+V.stats['ms:tex'] = Math.round(performance.now() - tTex0);
 // Every program (outlines included) compiles before the first frame. Async: the driver links in parallel
 // (KHR_parallel_shader_compile) and the page stays responsive meanwhile.
 for (const h of V.highlights) h.group.visible = true;
@@ -413,7 +417,7 @@ window.__game = {
   state: () => ({
     level: 'village', examined: [...vs.examined], finished: vs.finished, target: target >= 0 ? EXAMINABLES[target].id : null,
     pos: { ...player.pos }, vel: { ...player.vel }, onGround: player.onGround, crouched: player.crouched, yaw, pitch, storyTime,
-    endT, surface: surfaceAt(player.pos.x, player.pos.z), use: useTarget >= 0 ? USABLES[useTarget].id : null,
+    endT, surface: surfaceAt(player.pos.x, player.pos.z), use: useTarget >= 0 ? USABLES[useTarget].id : null, mast: V.mastMat.visible,
     // Shape shared with Night Shift so generic e2e helpers keep working: no combat here.
     health: 100, weapon: 'none', hasNailer: false, mag: 0, reserve: 0, kills: 0, enemies: [],
     facility: { breakers: [], doorOpen: false, fired: [], finished: vs.finished },

@@ -9,7 +9,7 @@
 import { overlaps, type Box, type Vec3 } from './physics';
 import {
   BUILDINGS, GATES, WALLS, STONES, BACK_STEPS, MARYAM_YARD, FOUNTAIN, BENCH, TRANSFORMER, POLES_10KV, POLE_SQUARE, POLICE_CAR,
-  GRAVES, OLIVES, TRAIL_END, ROAD_SOUTH, groundY, groundRange, fenceRuns, streamX, streamHalf, waterY,
+  GRAVES, OLIVES, TOWN_PINES, TRAIL_END, ROAD_SOUTH, groundY, groundRange, fenceRuns, streamX, streamHalf, waterY, slicePineKept,
   type Building, type DoorSpec, type Face, type Rect,
 } from './villageMap';
 export { groundY } from './villageMap';
@@ -72,6 +72,25 @@ export const fencesNow = (): [number, number, number, number][] =>
   FENCES.map(([x0, z0, x1, z1]) => (x0 === x1 && FENCE_END[x0] !== undefined ? [x0, z0, x1, Math.min(z1, FENCE_END[x0])] : [x0, z0, x1, z1]));
 /** H3: the cottage east of the barn (the slice's background house, in the opening shot), now walkable around. */
 export const H3 = { x0: 24, x1: 31, z0: 6, z1: 13 };
+/** The slice's pine ring (villageScene buildTrees), replayed on the same random sequence so trunks get collision:
+ *  rng(77), two draws per try, one more in the thinning band, then the height and the 16 draws pine() makes. */
+export const SLICE_PINES = (() => {
+  const R = rng(77), out: { x: number; z: number; h: number }[] = [], d = 180 / Math.PI;
+  let placed = 0;
+  for (let k = 0; k < 600 && placed < 150; k++) {
+    const a = R() * Math.PI * 2, dist = 34 + 86 * R();
+    const x = Math.sin(a) * dist, z = -Math.cos(a) * dist - 5;
+    const b = ((Math.atan2(x - 14, -(z + 27)) * d) + 360) % 360, northView = b > 0 && b < 95;
+    const fromSpawn = ((Math.atan2(x - 4, -(z - 21.5)) * d) + 360) % 360;
+    if (northView || (fromSpawn > 22 && fromSpawn < 68)) continue;
+    if (x > -30 && x < 32 && z > -45 && z < 30) continue;
+    if (x > -40 && x < 35 && z > 28 && z < 55 && R() < 0.7) continue;
+    const h = (9 + 8 * R()) * (northView ? 0.7 : 1);
+    for (let i = 0; i < 16; i++) R();
+    out.push({ x, z, h }); placed++;
+  }
+  return out;
+})();
 
 /** Late dusk (16:41, sunset 16:50): the sun sits 4 deg above the WSW hills and lights the mountain face across the
  *  valley. Long shadows point ENE, the way the hoofprints go. */
@@ -213,7 +232,7 @@ export function townSolids(s: Solid[]) {
   const T = BUILDINGS.find(b => b.id === 'tower')!;
   s.push({ box: yb(T.x0 + 1.7, T.z0 + WALL_T, T.x1 - 1.7, T.z0 + WALL_T + 0.3, T.floor, T.floor + 3.2) });
   // Fences (1.3 m: the 1.16 m jump cannot clear them) and dry-stone walls (1.0 m: it can).
-  for (const r of fenceRuns()) runBoxes(s, r.x0, r.z0, r.x1, r.z1, 0.08, 1.3, 4);
+  for (const r of fenceRuns()) runBoxes(s, r.x0, r.z0, r.x1, r.z1, 0.08, r.edge ? 3.0 : 1.3, 4);
   for (const w of WALLS) runBoxes(s, w.x0, w.z0, w.x1, w.z1, w.thick / 2, w.h, 1.5);
   // Maryam's yard: the retaining wall on the stream side (the fence stands on it) and the 6 steps at the back gate.
   const Y = MARYAM_YARD;
@@ -235,6 +254,10 @@ export function townSolids(s: Solid[]) {
   }
   for (const g of GRAVES) s.push({ box: yb(g.x - 0.3, g.z - 0.12, g.x + 0.3, g.z + 0.12, -0.5, g.kind === 'cross' ? 1.1 : 0.75) });
   for (const t of OLIVES) { const g = groundY(t.x, t.z); s.push({ box: yb(t.x - 0.22, t.z - 0.22, t.x + 0.22, t.z + 0.22, g - 0.5, g + 2.2) }); }
+  for (const t of [...TOWN_PINES, ...SLICE_PINES.filter(p => p.x > -76 && p.x < 126 && p.z > -21 && p.z < 111 && slicePineKept(p.x, p.z))]) {
+    const g = groundY(t.x, t.z), r = Math.max(0.2, t.h * 0.025);
+    s.push({ box: yb(t.x - r, t.z - r, t.x + r, t.z + r, g - 0.5, g + t.h * 0.3) });
+  }
   // Stream [8]: the water is closed except the 1.2 m corridor over the stepping stones; the stones carry the player.
   const CZ0 = 11.9, CZ1 = 13.1;
   for (let z = -24; z < 114; z += 2) {

@@ -23,6 +23,9 @@ export interface GameState {
 const ALLOWED_CONSOLE: RegExp[] = [
   // Headless Chromium cannot grant pointer lock; main.ts falls back to drag-to-look.
   /SecurityError[\s\S]*pointer ?lock|pointer ?lock[\s\S]*SecurityError|requestPointerLock/i,
+  // SwiftShader (playwright.config.ts) never exposes KHR_parallel_shader_compile, so three's compileAsync warns once and
+  // polls instead; the real GPU exposes it. Environment noise, not a game fault.
+  /^THREE\.WebGLRenderer: KHR_parallel_shader_compile extension not supported\.$/,
 ];
 
 /**

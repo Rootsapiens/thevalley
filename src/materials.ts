@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import palette from '../studio/art/palette.json';
 import { C, type Surface, type Token } from './nightshift';
+import { VILLAGE_TEX, type VillageTexName } from './villageTextures';
 
 /** Metres covered by one texture tile (1024 px tiles → ~2 px/cm). */
 export const TILE_M = 2;
@@ -69,6 +70,34 @@ export function withTexture(name: TexName, cb: (t: THREE.Texture) => void) {
     }, undefined, () => { entry.waiting.length = 0; /* no file yet: keep the flat palette colour */ });
   }
   if (e.tex) cb(e.tex); else e.waiting.push(cb);
+}
+
+/** Village PBR set: albedo + the normal/roughness maps the manifest ships. `null` when the albedo file is missing. */
+export interface PbrSet { map: THREE.Texture; normal: THREE.Texture | null; rough: THREE.Texture | null }
+const pbrSets = new Map<VillageTexName, Promise<PbrSet | null>>();
+
+function loadArt(file: string, srgb: boolean): Promise<THREE.Texture | null> {
+  return new Promise(resolve => loader.load(`${import.meta.env.BASE_URL}art/${file}`, t => {
+    t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.anisotropy = anisotropy;
+    resolve(t);
+  }, undefined, () => resolve(null)));
+}
+
+/** Loads a village texture set once and shares the promise. Normal and rough load only where the manifest flags them. */
+export function villageSet(name: VillageTexName): Promise<PbrSet | null> {
+  let p = pbrSets.get(name);
+  if (!p) {
+    const spec = VILLAGE_TEX[name];
+    p = Promise.all([
+      loadArt(`${name}.jpg`, true),
+      spec.normal ? loadArt(`${name}_normal.jpg`, false) : Promise.resolve(null),
+      spec.rough ? loadArt(`${name}_rough.jpg`, false) : Promise.resolve(null),
+    ]).then(([map, normal, rough]) => (map ? { map, normal, rough } : null));
+    pbrSets.set(name, p);
+  }
+  return p;
 }
 
 /** Palette colour a texture's average was authored to (multiply by want/base to retint it). */

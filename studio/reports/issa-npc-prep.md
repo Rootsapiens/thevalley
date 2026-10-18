@@ -1,0 +1,10 @@
+# Issa: village NPC prep (2026-10-18)
+
+- NPC spec files: 9 plus README (`Glob studio/npc/*.md`: 10 files)
+- Longest file: 28 lines, README and farmer.md; all NPC specs are 25 to 28 lines, under the 30-line limit (`wc -l studio/npc/*.md`)
+- Canon-named NPCs in the slice: 4 (Maryam, Omar, Elia, Moreno), plus Joseph and Lorenzo as player characters (story-canon-ar.md, characters.md)
+- Unnamed NPC groups: 5 (farmer, farmer's wife, priest, 2 officers, 6 villagers) (characters.md [ref], village.md)
+- Open questions for owner: 9 (studio/npc/README.md)
+- src/ changes by Issa: 0 (`git status --short src/` shows the same 7 entries as at session start)
+- Build and check: not run (no code changed)
+- UE5 work: none (decisions.md entry 4)
