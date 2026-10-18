@@ -306,6 +306,43 @@ export function buildTown(k: Kit, scene: THREE.Scene, leafMat: THREE.Material): 
     }
     put('lit', boxMM(b.x1 - 0.55, b.floor + 2.2, cz - 0.05, b.x1 - 0.48, b.floor + 4.4, cz + 0.05, 1), COL.timberDark);   // cross on the east wall
     put('lit', boxMM(b.x1 - 0.55, b.floor + 3.6, cz - 0.6, b.x1 - 0.48, b.floor + 3.72, cz + 0.6, 1), COL.timberDark);
+    // Colourful stained glass high on both side walls: warm amber, red, blue and green panes.
+    const glass = [0xffb000, 0xd62828, 0x2f6fd6, 0x3a9a55];
+    for (let i = 0; i < 4; i++) {
+      const x = b.x0 + 2.4 + i * 2.2, col = new THREE.Color(glass[i]);
+      for (const z of [b.z0 + 0.12, b.z1 - 0.12]) {
+        const g = new THREE.PlaneGeometry(0.8, 1.6);
+        g.translate(x, b.floor + 2.9, z);
+        if (z > cz) g.rotateY(Math.PI);
+        const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.8, side: THREE.DoubleSide, toneMapped: false }));
+        scene.add(m);
+      }
+    }
+    // Nave: two rows of stone pillars with gilded capitals, like a grand cathedral's aisles.
+    for (let i = 0; i < 4; i++) {
+      const x = b.x0 + 2.6 + i * 2.2;
+      for (const z of [b.z0 + 1.1, b.z1 - 1.1]) {
+        put('stone', cylG(x, b.floor, z, x, b.floor + b.eave * 0.7, z, 0.28, 0.3, 12), cS(COL.stone, 1.05));
+        put('lit', boxMM(x - 0.36, b.floor + b.eave * 0.7, z - 0.36, x + 0.36, b.floor + b.eave * 0.7 + 0.14, z + 0.36, 1), cS(COL.candle, 1.1));
+      }
+    }
+    // Gilded altar frontal with a gold cross, in front of the stone altar.
+    put('lit', boxMM(b.x1 - 3.0, b.floor, cz - 1.4, b.x1 - 2.92, b.floor + 1.2, cz + 1.4, 1), new THREE.Color(0xc9a23a));
+    put('glow', boxG(b.x1 - 2.6, b.floor + 2.6, cz, 0.12, 0.5, 0.12), new THREE.Color(0xffd27a));
+    // Framed photos (from the Joseph game) on the north wall, between the pews and the altar.
+    const loader = new THREE.TextureLoader();
+    const framed = (name: string, x: number, y: number, z: number, facing: number) => {
+      put('wood', boxMM(x - 0.6, y - 0.5, z - 0.02, x + 0.6, y + 0.5, z, 1), cS(COL.timberDark, 1));
+      const g = new THREE.PlaneGeometry(1.0, 0.56);
+      g.rotateY(facing);
+      g.translate(x + Math.sin(facing) * 0.02, y, z + Math.cos(facing) * 0.02);
+      scene.add(new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: loader.load(`${import.meta.env.BASE_URL}art/photos/${name}.jpg`) })));
+    };
+    // North wall: Joseph game stills.
+    ['church_steps', 'great_hall', 'yard'].forEach((name, i) => framed(name, b.x0 + 3.3 + i * 2.2, b.floor + 1.7, b.z0 + 0.1, 0));
+    // South wall: Michelangelo drawings (public domain): the Pietà study (Mary) and the Crucifixion.
+    framed('mary', b.x0 + 4.4, b.floor + 1.7, b.z1 - 0.1, Math.PI);
+    framed('crucifixion', b.x0 + 6.6, b.floor + 1.7, b.z1 - 0.1, Math.PI);
   }
   function tower(b: Building) {
     const tone = 0.95, shaft = b.floor + b.eave, cx = (b.x0 + b.x1) / 2, cz = (b.z0 + b.z1) / 2;

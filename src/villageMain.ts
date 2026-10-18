@@ -115,7 +115,7 @@ function subtitle(t: Text, seconds?: number) {
 let player: PlayerState = newPlayer(SPAWN);
 let vs: VillageState = newVillageState();
 let yaw = SPAWN_YAW, pitch = -0.03, storyTime = 0, endT = -1, introDone = false, turnbackCD = 0;
-let target = -1, lastExamine = -1, zoomT = 0, useTarget = -1;
+let target = -1, lastExamine = -1, zoomT = 0, useTarget = -1, lockT = 0, lockU = -1;
 const hl = new Float32Array(EXAMINABLES.length);
 const zoneOut: ('end' | 'turnback')[] = [];
 const pb: Box = { min: { x: 0, y: 0, z: 0 }, max: { x: 0, y: 0, z: 0 } };
@@ -123,10 +123,27 @@ const eyeV = { x: 0, y: 0, z: 0 }, dirV = { x: 0, y: 0, z: 0 };
 
 // ---------- Input ----------
 const keys = new Set<string>();
+// Secret word: type "sinafly" to get the flying carpet (type it again to land).
+let typed = '', flying = false;
+const carpet = new THREE.Group();
+{
+  const rug = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.04, 2.4), new THREE.MeshLambertMaterial({ color: 0x8a2b2b, flatShading: true }));
+  const edge = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.05, 2.5), new THREE.MeshLambertMaterial({ color: 0xc9a23a }));
+  edge.position.y = -0.005; carpet.add(edge, rug);
+  for (let i = -0.7; i <= 0.7; i += 0.35) for (const z of [-1.25, 1.25]) {
+    const t = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 0.14), new THREE.MeshLambertMaterial({ color: 0xc9a23a }));
+    t.position.set(i, 0, z); carpet.add(t);
+  }
+  carpet.visible = false; scene.add(carpet);
+}
 addEventListener('keydown', e => {
   if (e.code.startsWith('Control') || e.code === 'Space') e.preventDefault();
   if (e.repeat) return;
   keys.add(e.code);
+  if (e.key && e.key.length === 1) {
+    typed = (typed + e.key.toLowerCase()).slice(-12);
+    if (typed.endsWith('sinafly')) { flying = !flying; typed = ''; showToast(flying ? 'FLY MODE ON' : 'FLY MODE OFF'); }
+  }
   if (e.code === 'KeyE') examine();
   if (e.code === 'KeyR' && endT > 9) restart();
   if (e.code === 'F3') { e.preventDefault(); devOn = !devOn; dev.style.display = devOn ? 'block' : 'none'; }
@@ -189,7 +206,9 @@ function examine() {
 /** E on a gate or door: swing it (0.75 s), or rattle it if locked. A leaf never closes on the player. */
 function use(u: number) {
   const it = USABLES[u];
-  if (it.locked) { audio.play('rattle'); if (subTime <= 0.5) subtitle(LOCKED_LINE, 1.6); return; }
+  // Locked: the rattle, and the prompt under the crosshair reads "Locked." at once. Not a spoken line, so it never waits
+  // for (or cuts) the subtitle channel; the old subtitle version was dropped whenever a line was still up.
+  if (it.locked) { audio.play('rattle'); lockT = 1.6; lockU = u; return; }
   if (openGoal[u] === 1 && openT[u] > 0.98) {
     leafBox(it, 0, _closed);
     if (overlaps(pb, _closed)) { audio.play('latch', undefined, 0.4); return; }
@@ -215,7 +234,18 @@ function tick(input: Input) {
       if (openT[u] === goal) { leafBox(USABLES[u], easeIO(goal), leafBoxes[u]); if (goal === 0) audio.play('latch', undefined, 0.7); }
     } else if (!leafSolid[u] && !overlaps(pb, leafBoxes[u])) leafSolid[u] = 1;
   }
-  step(player, input, nearWorld(player.pos.x, player.pos.z), DT, groundY);
+  if (flying) {
+    // Carpet flight: WASD steers in the look direction, Space climbs, Ctrl descends. No walls while flying.
+    const sp = 7 * DT, sn = Math.sin(input.yaw), cs = Math.cos(input.yaw);
+    player.pos.x += (-sn * input.forward + cs * input.strafe) * sp;
+    player.pos.z += (-cs * input.forward - sn * input.strafe) * sp;
+    player.pos.y += ((keys.has('Space') ? 1 : 0) - (keys.has('ControlLeft') || keys.has('KeyC') ? 1 : 0)) * 4 * DT;
+    player.pos.y = Math.max(groundY(player.pos.x, player.pos.z), player.pos.y);
+    player.vel.x = player.vel.y = player.vel.z = 0; player.onGround = false;
+  } else step(player, input, nearWorld(player.pos.x, player.pos.z), DT, groundY);
+  carpet.visible = flying;
+  carpet.position.set(player.pos.x, player.pos.y - 0.25, player.pos.z);
+  carpet.rotation.set(0, input.yaw, 0);
   const r = TUNING.radius, h = height(player);
   pb.min.x = player.pos.x - r; pb.min.y = player.pos.y; pb.min.z = player.pos.z - r;
   pb.max.x = player.pos.x + r; pb.max.y = player.pos.y + h; pb.max.z = player.pos.z + r;
@@ -239,7 +269,7 @@ function startEnd() {
 }
 function restart() {
   player = newPlayer(SPAWN); vs = newVillageState();
-  yaw = SPAWN_YAW; pitch = -0.03; storyTime = 0; endT = -1; introDone = false; turnbackCD = 0; zoomT = 0; subTime = 0;
+  yaw = SPAWN_YAW; pitch = -0.03; storyTime = 0; endT = -1; introDone = false; turnbackCD = 0; zoomT = 0; subTime = 0; lockT = 0;
   END.yaw1 = Math.atan2(-cave.x, -cave.z);
   fade.style.opacity = '0'; title.classList.remove('show'); rec.classList.remove('stopped');
   playing = false; overlay.style.display = 'flex';
@@ -351,11 +381,13 @@ function frame(now: number) {
     if (promptEn.textContent !== e.name.en) { promptAr.textContent = e.name.ar; promptEn.textContent = e.name.en; }
     prompt.classList.add('show');
     prompt.classList.toggle('seen', vs.examined.includes(e.id));
+    prompt.classList.remove('locked');
   } else if (useTarget >= 0) {
-    const u = USABLES[useTarget];
-    if (promptEn.textContent !== u.name.en) { promptAr.textContent = u.name.ar; promptEn.textContent = u.name.en; }
+    const locked = lockT > 0 && lockU === useTarget, name = locked ? LOCKED_LINE : USABLES[useTarget].name;
+    if (promptEn.textContent !== name.en) { promptAr.textContent = name.ar; promptEn.textContent = name.en; }
     prompt.classList.add('show');
     prompt.classList.remove('seen');
+    prompt.classList.toggle('locked', locked);
   } else prompt.classList.remove('show');
   for (let u = 0; u < USABLES.length; u++) { const o = leafObj[u]; if (o) o.rotation.y = USABLES[u].yaw0 + USABLES[u].swing * easeIO(openT[u]); }
 
@@ -410,7 +442,7 @@ function frame(now: number) {
   if (devOn && (cpuI & 15) === 0) devOverlay();
 
   // HUD: subtitles, REC timecode (25 fps), clip counter.
-  subTime -= dt;
+  subTime -= dt; lockT -= dt;
   sub.style.opacity = subTime > 0 ? '1' : '0';
   toastTime -= dt; toast.style.opacity = toastTime > 0 ? '1' : '0';
   if (endT < 7) {

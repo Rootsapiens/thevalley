@@ -63,10 +63,13 @@ test('village tour: gates, a locked door, the back gate, the stepping stones, th
   await useIt(page, 'gate-farm-s');
   await waitOpen(page, 'gate-farm-s', 0);
 
-  // A locked door rattles and says so.
+  // A locked door rattles and says so in the prompt at once, without touching a spoken line that may still be up
+  // (under SwiftShader the sim runs slower than real time, so the opening line is often still showing here).
   await useIt(page, 'locked-cafe');
-  await expect(page.locator('#sub-en')).toHaveText(LOCKED_LINE.en);
-  await expect(page.locator('#sub-ar')).toHaveText(LOCKED_LINE.ar);
+  await expect(page.locator('#prompt-en')).toHaveText(LOCKED_LINE.en);
+  await expect(page.locator('#prompt-ar')).toHaveText(LOCKED_LINE.ar);
+  await expect(page.locator('#prompt')).toHaveClass(/locked/);
+  expect(await page.locator('#sub-en').textContent(), 'the rattle is not a subtitle line').not.toBe(LOCKED_LINE.en);
 
   // Maryam's yard gate, then her back gate, the six steps down and the seven stones across.
   await useIt(page, 'gate-maryam');

@@ -12,6 +12,7 @@ import {
   BARN, STALLS, POSTS_Z, LOFT, FARMHOUSE, HOUSES, TROUGH, KENNEL, SHRINE, FENCES, NORTH_WALL_Z, GAP, SOUTH_WALL_Z,
   TRACK, SUN, MOUNTAIN, EXAMINABLES, TRAIL_CTRL, TREES, trailPoints, rng, bearingDir, fencesNow, H3, groundY, SLICE_PINES,
 } from './village';
+import { TRANSFORMER } from './villageMap';
 import { townFootprints, townFenceRuns, townInteriors, buildTown, townBlocked, slicePineKept, townGroundColor, sunHeightMap, type TownScene } from './villageTown';
 
 const deg = Math.PI / 180;
@@ -1307,6 +1308,21 @@ export function buildVillage(scene: THREE.Scene, renderer: THREE.WebGLRenderer):
   };
   const town = buildTown(kit, scene, lit);
   mark('town');
+  // Visible light sources: lanterns in the barn, the street lamp at the transformer, and a lit lamp in the village.
+  const lanterns: [number, number, number, number][] = [
+    [0, 3.4, 0, 9],                       // barn: hanging lantern in the middle of the hall
+    [-7, 2.6, -6, 5],                     // barn: stall lantern
+    [7, 2.6, -6, 5],
+    [TRANSFORMER.x, 5.6, TRANSFORMER.z, 10], // street lamp on the transformer pole [9]
+  ];
+  for (const [x, y, z, d] of lanterns) {
+    const pl = new THREE.PointLight(0xffb060, 6, d, 1.6);
+    pl.position.set(x, y, z);
+    scene.add(pl);
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffd08a, toneMapped: false }));
+    bulb.position.set(x, y, z);
+    scene.add(bulb);
+  }
   const ground = new THREE.Mesh(groundGeo!, lit);
   ground.receiveShadow = true; ground.matrixAutoUpdate = false;
   scene.add(ground);
