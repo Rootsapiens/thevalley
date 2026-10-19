@@ -154,6 +154,15 @@ export const voices = {
     o.connect(envAt(c, out, t, 0.25 * k, 0.002, metal ? 0.35 : 0.12)); o.start(t); o.stop(t + 0.45);
     burst(c, out, t, 0.05, 'lowpass', 500, 0.8, 0.3 * k);
   },
+  /** The camcorder: a soft relay click and one beep when recording starts, two short beeps when it stops. */
+  rec(c: Ctx, out: AudioNode, t: number, on: boolean) {
+    burst(c, out, t, 0.02, 'bandpass', 3200, 3, 0.1);
+    for (let i = 0; i < (on ? 1 : 2); i++) {
+      const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = on ? 2093 : 1568;
+      const ts = t + 0.03 + i * 0.11;
+      o.connect(envAt(c, out, ts, 0.05, 0.004, on ? 0.12 : 0.06)); o.start(ts); o.stop(ts + 0.2);
+    }
+  },
   /** Low swell under the title card. */
   drone(c: Ctx, out: AudioNode, t: number) {
     for (const [f, p] of [[55, 0.09], [82.4, 0.05], [110.3, 0.025]] as const) {
@@ -243,12 +252,14 @@ export function villageAudio() {
       lastWind = c.currentTime;
       windAt(wind, gust, indoor, fade, c.currentTime);
     },
-    /** arg: the surface for 'step', the pan for 'dog', 1 for a metal prop ('scrape', 'bump'), the delay (s) for 'bell'. */
-    play(name: 'step' | 'chime' | 'creak' | 'dog' | 'drone' | 'latch' | 'rattle' | 'bell' | 'scrape' | 'bump', arg?: Step | number, k = 1) {
+    /** arg: the surface for 'step', the pan for 'dog', 1 for a metal prop ('scrape', 'bump'), the delay (s) for 'bell',
+     *  1 = start / 0 = stop for 'rec'. */
+    play(name: 'step' | 'chime' | 'creak' | 'dog' | 'drone' | 'latch' | 'rattle' | 'bell' | 'scrape' | 'bump' | 'rec', arg?: Step | number, k = 1) {
       if (!c || !master) return;
       const t = c.currentTime + 0.005;
       if (name === 'bell') { voices.bell(c, master, t + ((arg as number | undefined) ?? 0), k); return; }
       if (name === 'scrape' || name === 'bump') { voices[name](c, master, t, k, arg === 1); return; }
+      if (name === 'rec') { voices.rec(c, master, t, arg === 1); return; }
       if (name === 'step') voices.step(c, master, t, (arg as Step | undefined) ?? 'dirt', k);
       else if (name === 'creak') voices.creak(c, master, t, k);
       else if (name === 'latch') voices.latch(c, master, t, k);
@@ -282,6 +293,7 @@ export async function measureVillagePeaks(): Promise<Record<string, number>> {
   out.bell = await render(9, (c, m) => voices.bell(c, m, 0.01, 1));
   out.scrape = await render(0.4, (c, m) => voices.scrape(c, m, 0.01, 1.5, true));
   out.bump = await render(0.6, (c, m) => voices.bump(c, m, 0.01, 1.5, true));
+  out.rec = await render(0.5, (c, m) => voices.rec(c, m, 0.01, false));
   out.stream = await render(4, (c, m) => streamAt(streamBed(c, m), 1, null));
   // Worst case: full-gust wind + the stream at the stones + creak + chime + latch + a heavy step + a bark at once.
   out.allAtOnce = await render(3, (c, m) => {

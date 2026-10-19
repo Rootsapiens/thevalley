@@ -10,6 +10,10 @@ unreal/OmegaValley/DerivedDataCache/
 unreal/OmegaValley/.vs/
 unreal/OmegaValley/*.sln
 unreal/build/
+# UE content binaries stay in the mirror project (%USERPROFILE%/OVUnreal); scripts rebuild them
+unreal/OmegaValley/Content/
+unreal/data/*.glb
+unreal/scripts/__pycache__/
 test-results
 playwright-report
 art-src

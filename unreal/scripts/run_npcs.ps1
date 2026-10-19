@@ -19,31 +19,8 @@ param(
   [switch]$SkipExport,
   [ValidateSet('Commandlet', 'Editor')][string]$BuildMode = 'Commandlet'
 )
-$ErrorActionPreference = 'Stop'
-
-$Repo    = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
-$Proj    = Join-Path $Repo 'unreal\OmegaValley\OmegaValley.uproject'
-$ProjDir = Split-Path $Proj
-$Saved   = Join-Path $ProjDir 'Saved'
-$Json    = Join-Path $Repo 'unreal\data\village-npcs.json'
-New-Item -ItemType Directory -Force -Path (Join-Path $Saved 'Logs') | Out-Null
-
-function Say([string]$m) { Write-Host ("[run_npcs] " + $m) }
-function Q([string]$s) { '"' + $s + '"' }
-
-# Same engine runner as run_trial.ps1 (hard timeout).
-function Invoke-Engine([string]$Exe, [string]$ArgLine, [int]$Timeout) {
-  Say ("> " + (Split-Path $Exe -Leaf) + " " + $ArgLine)
-  $p = Start-Process -FilePath $Exe -ArgumentList $ArgLine -PassThru -WindowStyle Normal
-  $null = $p.Handle
-  $sw = [Diagnostics.Stopwatch]::StartNew()
-  while (-not $p.HasExited) {
-    Start-Sleep -Seconds 2
-    if ($sw.Elapsed.TotalSeconds -gt $Timeout) { Say "timeout after $Timeout s, killing"; $p.Kill(); break }
-  }
-  $p.WaitForExit()
-  [pscustomobject]@{ Seconds = [math]::Round($sw.Elapsed.TotalSeconds, 1); ExitCode = $p.ExitCode }
-}
+. (Join-Path $PSScriptRoot 'ov_env.ps1')     # $Repo (git), $Proj (mirror project), $DataDir, Invoke-Engine
+$Json = Join-Path $DataDir 'village-npcs.json'
 
 # ---------- 1. Engine ----------
 $eng = & (Join-Path $PSScriptRoot 'find_engine.ps1') -Project $Proj | Select-Object -Last 1
@@ -59,7 +36,7 @@ if (-not $SkipExport) {
 
 # ---------- 3. Place the NPCs ----------
 $resultFile = Join-Path $Saved 'ov_npcs_result.json'
-$script = Join-Path $PSScriptRoot 'place_npcs.py'
+$script = Join-Path $Scripts 'place_npcs.py'
 $env:OV_NPC_DATA = $Json
 $res = $null
 $modes = if ($BuildMode -eq 'Commandlet') { @('Commandlet', 'Editor') } else { @('Editor') }

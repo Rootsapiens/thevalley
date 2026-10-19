@@ -1,0 +1,6 @@
+# Noor's NPC placement decisions (2026-10-19, for Rajaie)
+1. Altar: EAST end (x 21.4..22.4, z 29.55..31.95), per src/village.ts churchLayout. The spec was wrong. Priest at (20.5, 0, 29.5), yaw -pi/2 (faces east); the aisle z 29.85..31.65 stays free.
+2. Officer 1: (-5.3, 0, 44.2), on the square side of the car (car box x -8.3..-6.1), yaw -pi/2. Officer 2: (-9.4, 0, 45.8), north of the locked school door (z 47.5), yaw -pi/2; the door spot (-9.2, 47.5) stays free.
+3. Rule: no NPC stands inside a building without an interior. Interim spots outside, y = 0, floorKnown true, yaw -pi/2: Moreno (-9.4, 0, 49.4), south of the school door; farmer's wife (-14.2, 0, 0.4) at the farmhouse east door. Omar (post [6]) follows the same rule: interim (-9.4, 0, 51.0), cuffed, until the school has an interior.
+4. The inside positions stay in the spec files as targets for when the interiors exist: Moreno (-15.5, 0, 45.0), Omar (-15.0, 0, 47.5), wife (-21.0, 0, 0.0). Then restore floorKnown false and set the real floor y.
+5. Done: src/npcData.ts, the 5 spec files and tests/npcPlacement.test.ts (open list now {}). Not run (no shell). unreal/data/village-npcs.json must be re-exported (scripts/export-village-json.mjs).

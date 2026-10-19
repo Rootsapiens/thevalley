@@ -1226,11 +1226,15 @@ const LIGHTS_SHM = THREE.ShaderChunk.lights_fragment_begin
   ].join('\n'));
 if (!LIGHTS_SHM.includes('shmVis.x, min( smv')) throw new Error('three.js lights chunk changed: sun-height patch did not apply');
 
-function patchBake(m: THREE.MeshStandardMaterial): THREE.MeshStandardMaterial {
+/** A vertex-stage extension of the baked material (the NPC batch poses its figures with it): declarations, code after
+ *  the object normal is read, and code after the position is read (before the bake and world position are taken). */
+export interface BakeExtra { key: string; uniforms: Record<string, THREE.IUniform>; head: string; normal: string; position: string }
+export function patchBake(m: THREE.MeshStandardMaterial, x?: BakeExtra): THREE.MeshStandardMaterial {
   m.onBeforeCompile = s => {
-    Object.assign(s.uniforms, FOG_UNIFORMS, SUN_H, { uBounce: { value: BOUNCE } });
-    s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>\nattribute vec2 bake;\nvarying vec2 vBake;\nvarying vec3 vWPos;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvBake = bake;\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    Object.assign(s.uniforms, FOG_UNIFORMS, SUN_H, { uBounce: { value: BOUNCE } }, x?.uniforms);
+    s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>\nattribute vec2 bake;\nvarying vec2 vBake;\nvarying vec3 vWPos;\n' + (x?.head ?? ''))
+      .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\n' + (x?.normal ?? ''))
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n' + (x?.position ?? '') + '\nvBake = bake;\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     s.fragmentShader = s.fragmentShader
       .replace('#include <common>', '#include <common>\nvarying vec2 vBake;\nvarying vec3 vWPos;\nuniform vec3 uBounce, uSun, uWarm, uGlow;\nuniform float uBandPow;\n' + SHM_GLSL)
       .replace('#include <lights_fragment_begin>', LIGHTS_SHM)
@@ -1250,7 +1254,8 @@ function patchBake(m: THREE.MeshStandardMaterial): THREE.MeshStandardMaterial {
         '#endif',
       ].join('\n'));
   };
-  m.customProgramCacheKey = () => 'village-bake';
+  const key = x ? 'village-bake-' + x.key : 'village-bake';
+  m.customProgramCacheKey = () => key;
   return m;
 }
 
@@ -1346,6 +1351,8 @@ export interface VillageScene {
   props: { id: string; mesh: THREE.Mesh }[];
   /** The bell rope: its rest position; pulled down by moving the mesh in y. */
   bellRope: THREE.Mesh;
+  /** The sky's PMREM environment (the NPC batch shares it). */
+  env: THREE.Texture;
 }
 
 /** The scene's geometry kit, handed to the town builders (villageTown.ts) at build time. */
@@ -1673,5 +1680,5 @@ export function buildVillage(scene: THREE.Scene, renderer: THREE.WebGLRenderer):
   dust.frustumCulled = false;
   scene.add(dust);
 
-  return { sun, sky, highlights, eastLeaf: leaf, tvMat, flameMat, flame, mastMat, dustTime, stats, leaves: town.leaves, waterTime: town.waterTime, nearRing, farRing, texturesReady, pictures: town.pictures, carpet, props, bellRope };
+  return { sun, sky, highlights, eastLeaf: leaf, tvMat, flameMat, flame, mastMat, dustTime, stats, leaves: town.leaves, waterTime: town.waterTime, nearRing, farRing, texturesReady, pictures: town.pictures, carpet, props, bellRope, env };
 }

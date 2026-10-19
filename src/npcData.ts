@@ -27,10 +27,26 @@ export interface Vec3 {
 
 export interface NpcTrigger {
   id: string;
-  /** English line. Arabic text is added later by Noor. */
+  /** English line. */
   line: string;
+  /** Arabic line: characters.md for the canon and [new] lines, Noor's studio/world/npc-line-review.md for the lines she
+   *  changed; the kept lines carry a draft (marked "AR draft"), to be replaced by Noor's final text. */
+  ar: string;
   /** 'canon' only for lines quoted from characters.md; everything else is a draft. */
   status: 'canon' | 'proposed';
+  /** When the line can play (all fields must hold); absent = always. From the "Dialogue triggers" of each spec file. */
+  when?: TriggerWhen;
+}
+
+export interface TriggerWhen {
+  /** The chapter, or an inclusive [first, last] range. */
+  chapter?: number | readonly [number, number];
+  /** Inclusive day range. */
+  day?: readonly [number, number];
+  /** Binding events done, at least (ORDER prefix length): 5 = Omar has been taken to post [6]. */
+  events?: number;
+  /** A story flag that must be set, e.g. 'posters' (Lorenzo has seen Joseph's posters on pole [9]). */
+  flag?: string;
 }
 
 export interface NpcSpec {
@@ -140,8 +156,11 @@ const SQUARE_VILLAGER_SPOTS: readonly { x: number; z: number }[] = [
   { x: -3.0, z: 42.0 },
 ];
 
-const SQUARE_ANIMALS_LINE = 'Have you seen the animals? They just walked up the hill.';
+// Noor's review #16 (the village blames the Ravens) and #17 (kept; AR draft).
+const SQUARE_ANIMALS_LINE = 'It\'s the Ravens. Who else takes a whole herd in one night?';
+const SQUARE_ANIMALS_AR = 'إنهم الغربان. من غيرهم يأخذ قطيعاً كاملاً في ليلة؟';
 const SQUARE_OMAR_LINE = 'Is that him? The one from the Ravens?';
+const SQUARE_OMAR_AR = 'أهذا هو؟ ذاك الذي من الغربان؟';   // AR draft
 
 function squareVillager(n: number, spot: { x: number; z: number }): NpcSpec {
   const id = `npc_square_villager_${n}` as NpcId;
@@ -154,8 +173,9 @@ function squareVillager(n: number, spot: { x: number; z: number }): NpcSpec {
     floorKnown: true, // square floor y = 0 (villageMap SQUARE)
     cuffed: false,
     triggers: [
-      { id: `${id}_animals`, line: SQUARE_ANIMALS_LINE, status: 'proposed' },
-      { id: `${id}_omar`, line: SQUARE_OMAR_LINE, status: 'proposed' },
+      { id: `${id}_animals`, line: SQUARE_ANIMALS_LINE, ar: SQUARE_ANIMALS_AR, status: 'proposed', when: { chapter: 1 } },
+      // "after Omar is brought in"
+      { id: `${id}_omar`, line: SQUARE_OMAR_LINE, ar: SQUARE_OMAR_AR, status: 'proposed', when: { chapter: 1, events: 5 } },
     ],
   };
 }
@@ -171,9 +191,10 @@ export const NPCS: Record<NpcId, NpcSpec> = {
     floorKnown: true,
     cuffed: false,
     triggers: [
-      { id: 'maryam_door', line: 'Have you seen my son? He had the cow\'s rope with him.', status: 'proposed' },
-      { id: 'maryam_posters', line: 'I put those up myself. Nobody has called.', status: 'proposed' },
-      { id: 'maryam_gate', line: 'I am not leaving until he comes back.', status: 'proposed' },
+      // Noor's review #1, #2 (changed), #3 (kept; AR draft).
+      { id: 'maryam_door', line: 'Have you seen my son, Joseph? His bed was empty this morning.', ar: 'هل رأيتَ ابني جوزيف؟ كان سريره فارغاً هذا الصباح.', status: 'proposed', when: { chapter: 1 } },
+      { id: 'maryam_posters', line: 'I drew them myself. Nobody has knocked on my door.', ar: 'رسمتُها بيدي. لم يطرق أحد بابي.', status: 'proposed', when: { chapter: 1, flag: 'posters' } },
+      { id: 'maryam_gate', line: 'I am not leaving until he comes back.', ar: 'لن أرحل حتى يعود.', status: 'proposed', when: { chapter: 4 } },
     ],
   },
 
@@ -183,17 +204,21 @@ export const NPCS: Record<NpcId, NpcSpec> = {
     spawnDay: 1,
     // Seated, cuffed, at post [6] by Moreno's table (spec: about (-15.0, 0, 47.5)).
     // placeholder, owner to confirm: the found spot near the mountain is not placed yet, so the post seat is used.
-    position: { x: -15.0, y: 0, z: 47.5 },
-    yaw: 0,
-    floorKnown: false, // school interior floor not decided
+    // Interim (decisions-noor-npc.md): outside the school, south of Moreno; interior target (-15.0, 0, 47.5).
+    position: { x: -9.4, y: 0, z: 51.0 },
+    yaw: -Math.PI / 2,
+    floorKnown: true, // square ground, y = 0
     cuffed: true,
     triggers: [
       {
         id: 'omar_mountain',
         line: "They say I know this mountain. I don't even know my name the way they say it.",
+        ar: 'يقولون إنني أعرف هذا الجبل. لا أعرف حتى اسمي كما ينطقونه.',
         status: 'proposed', // characters.md [new], owner approval pending
+        when: { chapter: 1, events: 5 },   // seated at post [6]
       },
-      { id: 'omar_watcher', line: 'Who is that woman who keeps looking at me?', status: 'proposed' },
+      // Noor's review #4 (changed; +owner: when it plays). Day 2+, after Elia's cover starts.
+      { id: 'omar_watcher', line: "She says she's my girlfriend. I don't remember her face.", ar: 'تقول إنها حبيبتي. لا أتذكّر وجهها.', status: 'proposed', when: { day: [2, 99], events: 6 } },
     ],
   },
 
@@ -208,12 +233,15 @@ export const NPCS: Record<NpcId, NpcSpec> = {
     floorKnown: false,
     cuffed: false,
     triggers: [
-      { id: 'elia_rest', line: "He's resting. Please come back later.", status: 'proposed' },
-      { id: 'elia_photos', line: 'Are you the one putting up the photos?', status: 'proposed' },
+      // Noor's review #5 (kept; AR draft), #6 (changed). Day 2+, balcony.
+      { id: 'elia_rest', line: "He's resting. Please come back later.", ar: 'إنه يرتاح. عُد لاحقاً من فضلك.', status: 'proposed', when: { day: [2, 99] } },
+      { id: 'elia_photos', line: "You're the one showing people a photo of a missing man?", ar: 'أنت الذي يُري الناس صورة رجل مفقود؟', status: 'proposed', when: { day: [2, 99] } },
       {
         id: 'elia_remember',
         line: "Tell me what you remember, even something small. I'm here.",
+        ar: 'قل لي ما تتذكّره، حتى لو كان صغيراً. أنا هنا.',
         status: 'proposed', // characters.md [new], owner approval pending
+        when: { chapter: [2, 99] },   // "Later (Ch2+)"
       },
     ],
   },
@@ -222,19 +250,24 @@ export const NPCS: Record<NpcId, NpcSpec> = {
     id: 'npc_moreno',
     role: 'Police chief, post [6]',
     spawnDay: 1,
-    // placeholder, owner to confirm: table position inside [6] is approximate (spec says to confirm in villageTown.ts).
-    position: { x: -15.5, y: 0, z: 45.0 },
-    yaw: 0,
-    floorKnown: false, // school interior floor not decided
+    // Interim (decisions-noor-npc.md): outside the school's east door, south side, until [6] has an interior.
+    // Interior target when it exists: table at (-15.5, 0, 45.0).
+    position: { x: -9.4, y: 0, z: 49.4 },
+    yaw: -Math.PI / 2, // faces east, the square
+    floorKnown: true, // square ground, y = 0
     cuffed: false,
     triggers: [
+      // Noor's review #7 (changed; +owner: whether he talks to Lorenzo on Day 1), #8 (changed: what he says about Omar).
       {
         id: 'moreno_reporter',
-        line: "You're the reporter who was asking about Joseph. What do you want from me?",
+        line: "You're the one with the camera, asking about a missing man. What do you want from me?",
+        ar: 'أنت صاحب الكاميرا الذي يسأل عن رجل مفقود. ماذا تريد مني؟',
         status: 'proposed',
+        when: { chapter: 1, day: [1, 1] },
       },
-      { id: 'moreno_said', line: 'Did he say anything when they brought him in?', status: 'proposed' },
-      { id: 'moreno_report', line: 'There are people inside. Write that in your report.', status: 'proposed' },
+      { id: 'moreno_said', line: 'He says he remembers nothing. A man like him remembers everything.', ar: 'يقول إنه لا يتذكّر شيئاً. رجل مثله يتذكّر كل شيء.', status: 'proposed', when: { chapter: 1, events: 5 } },
+      // characters.md [new]; Ch3+ (Act III radio), not in this slice.
+      { id: 'moreno_report', line: 'There are people inside. Write that in your report.', ar: 'هناك أناس في الداخل. اكتبوا ذلك في تقريركم.', status: 'proposed', when: { chapter: [3, 99] } },
     ],
   },
 
@@ -242,40 +275,45 @@ export const NPCS: Record<NpcId, NpcSpec> = {
     id: 'npc_officer_1',
     role: 'Police officer, guards the car (unnamed)',
     spawnDay: 1,
-    position: { x: -8.0, y: 0, z: 44.6 }, // police-officers.md, beside POLICE_CAR (-7.2, 44.2)
-    yaw: 0,
+    position: { x: -5.3, y: 0, z: 44.2 }, // police-officers.md: square side of POLICE_CAR (box x -8.3..-6.1), 0.8 m clear
+    yaw: -Math.PI / 2, // faces east, the square
     floorKnown: true, // outside, on the square
     cuffed: false,
-    triggers: [{ id: 'officer_1_car', line: 'Step back from the car, please.', status: 'proposed' }],
+    triggers: [{ id: 'officer_1_car', line: 'Step back from the car, please.', ar: 'ابتعد عن السيارة، من فضلك.', status: 'proposed' }],   // AR draft
   },
 
   npc_officer_2: {
     id: 'npc_officer_2',
     role: 'Police officer, school doorway (unnamed)',
     spawnDay: 1,
-    position: { x: -11.5, y: 0, z: 47.5 }, // police-officers.md, school east doorway
-    yaw: 0,
-    floorKnown: false, // school interior floor not decided
+    position: { x: -9.4, y: 0, z: 45.8 }, // police-officers.md: outside the locked east door (z 47.5), north side; the door spot (-9.2, 47.5) stays free
+    yaw: -Math.PI / 2, // faces east, the square
+    floorKnown: true, // square ground, y = 0
     cuffed: false,
-    triggers: [{ id: 'officer_2_door', line: 'The chief is busy. Wait out here.', status: 'proposed' }],
+    // AR draft. Noor's review #10: only while Omar is inside [6].
+    triggers: [{ id: 'officer_2_door', line: 'The chief is busy. Wait out here.', ar: 'الرئيس مشغول. انتظر هنا في الخارج.', status: 'proposed', when: { events: 5 } }],
   },
 
   npc_priest: {
     id: 'npc_priest',
     role: 'Village priest (unnamed)',
     spawnDay: 1,
-    // Altar at the north end of the church nave (villageMap church x 5..24, z 26.5..35).
-    position: { x: 14.5, y: 0, z: 28.5 },
-    yaw: 0,
+    // Altar at the EAST end of the nave (village.ts churchLayout: x 21.4..22.4, z 29.55..31.95; the aisle z 29.85..31.65
+    // stays free). He stands west of it, on the north side of the aisle end, facing east.
+    position: { x: 20.5, y: 0, z: 29.5 },
+    yaw: -Math.PI / 2,
     floorKnown: true,
     cuffed: false,
     triggers: [
-      { id: 'priest_altar', line: 'Go home. And stay away from the mountain.', status: 'canon' }, // characters.md [ref]
-      { id: 'priest_ladder', line: 'The ladder is old. Mind the fourth flight.', status: 'proposed' },
+      { id: 'priest_altar', line: 'Go home. And stay away from the mountain.', ar: 'عُد إلى بيتك. وابتعد عن الجبل.', status: 'canon', when: { chapter: 1 } }, // characters.md [ref]
+      // Noor's review #11 (changed: real facts, sets up Ch3), #12 (kept; AR draft, "after the posters").
+      { id: 'priest_ladder', line: "The ladder is old, four flights. If it's signal you want, it's only up by the bells.", ar: 'السلّم قديم، أربع طبقات. إن كنت تريد إشارة، فهي فوق عند الأجراس فقط.', status: 'proposed', when: { chapter: 1 } },
       {
         id: 'priest_mother',
         line: 'The boy\'s mother came in this morning. She did not sit down.',
+        ar: 'جاءت أمّ الصبي هذا الصباح. لم تجلس.',
         status: 'proposed',
+        when: { chapter: 1, flag: 'posters' },
       },
     ],
   },
@@ -290,11 +328,8 @@ export const NPCS: Record<NpcId, NpcSpec> = {
     floorKnown: true,
     cuffed: false,
     triggers: [
-      {
-        id: 'farmer_light',
-        line: "My wife keeps the light on for me. I'm going back out.",
-        status: 'proposed',
-      },
+      // Noor's review #13 (changed: the TV is the only light in the farmhouse window).
+      { id: 'farmer_light', line: "I'm going back out before it gets dark.", ar: 'سأخرج مرة أخرى قبل أن يحلّ الظلام.', status: 'proposed', when: { chapter: 1 } },
     ],
   },
 
@@ -302,18 +337,15 @@ export const NPCS: Record<NpcId, NpcSpec> = {
     id: 'npc_farmers_wife',
     role: "Farmer's wife (unnamed)",
     spawnDay: 1,
-    // Seated in front of the TV inside farmhouse [2] (village.ts FARMHOUSE x -25..-15, z -5..5).
-    position: { x: -21.0, y: 0, z: 0.0 },
-    yaw: 0,
-    floorKnown: false, // spec: floor to confirm inside the farmhouse
+    // Interim (decisions-noor-npc.md): at the farmhouse east door (village.ts FARMHOUSE x -25..-15), until it has an
+    // interior. Interior target when it exists: seated at the TV, (-21.0, 0, 0.0).
+    position: { x: -14.2, y: 0, z: 0.4 },
+    yaw: -Math.PI / 2, // faces east, the farmyard
+    floorKnown: true, // farmyard ground, y = 0
     cuffed: false,
+    // Noor's review #14 (kept; AR draft). #15 "The cow was the first one to go…" is cut (contradicts [ref]).
     triggers: [
-      { id: 'wife_back', line: 'He\'ll come back. He always does.', status: 'proposed' },
-      {
-        id: 'wife_cow',
-        line: 'The cow was the first one to go. She walked up the hill.',
-        status: 'proposed',
-      },
+      { id: 'wife_back', line: 'He\'ll come back. He always does.', ar: 'سيعود. هو يعود دائماً.', status: 'proposed', when: { chapter: 1 } },
     ],
   },
 

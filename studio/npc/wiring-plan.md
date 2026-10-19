@@ -17,7 +17,7 @@ Goal: place the 15 NPCs from `src/npcData.ts` in the village scene. Owner: Issa 
 7. **Visibility switch.** Add `setNpcVisibility(day, events)` calling `npcsAtDay`. File: `src/villageScene.ts` (needs Rajaie). Test: Day 1 hides Elia; Day 2 shows her only after `ORDER[5]`. Check: e2e plus vitest for the pure list.
 8. **Cuffs and transport.** Omar is cuffed at post [6] and uncuffed after `medicalCheckComplete`. File: `src/villageScene.ts` (needs Rajaie). Test: `cuffed` flips on the medical check flag. Check: vitest and one e2e run.
 9. **Dialogue triggers.** Connect each trigger id to the interaction prompt, showing only the line text. Files: `src/villageMain.ts` (needs Rajaie), `src/npcData.ts` (Issa, if a trigger lookup is needed). Test: every `proposed` trigger is tagged as draft in the UI. Check: vitest; manual e2e.
-10. **Unit conversion (deferred).** Meters, +Y up to centimeters, +Z up in Unreal. Only when the owner resumes UE5. File: `unreal/` (Issa). Test: one known landmark (the church altar at 14.5, 28.5) converts correctly. Check: landmark printed in the report.
+10. **Unit conversion (deferred).** Meters, +Y up to centimeters, +Z up in Unreal. Only when the owner resumes UE5. File: `unreal/` (Issa). Test: one known landmark (the church altar at 21.9, 30.75) converts correctly. Check: landmark printed in the report.
 11. **Report.** Write `studio/reports/issa-npc-wiring.md` (12 lines max) with the command for each number. File: that report (Issa). Check: the commands rerun cleanly.
 12. **Final gate.** Run `npm run check` and `npm run build`. Files: none. Check: both exit 0 before the task counts as done.
 

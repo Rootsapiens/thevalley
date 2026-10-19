@@ -1,0 +1,552 @@
+{
+ "table_kitchen_long": {
+  "src": "ph:painted_wooden_table",
+  "room": "house/kitchen",
+  "tris0": 600,
+  "tris": 600,
+  "w": 2.406,
+  "d": 1.137,
+  "h": 0.959,
+  "bytes": 48948
+ },
+ "table_plain": {
+  "src": "ph:wooden_table_02",
+  "room": "house/kitchen",
+  "tris0": 196,
+  "tris": 196,
+  "w": 1.134,
+  "d": 0.706,
+  "h": 0.8,
+  "bytes": 43696
+ },
+ "chair_wood_a": {
+  "src": "ph:painted_wooden_chair_01",
+  "room": "house/kitchen",
+  "tris0": 724,
+  "tris": 724,
+  "w": 0.432,
+  "d": 0.54,
+  "h": 0.956,
+  "bytes": 80276
+ },
+ "chair_wood_b": {
+  "src": "ph:painted_wooden_chair_02",
+  "room": "house/cafe",
+  "tris0": 1246,
+  "tris": 1246,
+  "w": 0.639,
+  "d": 0.662,
+  "h": 1.264,
+  "bytes": 78832
+ },
+ "stool_wood": {
+  "src": "ph:painted_wooden_stool",
+  "room": "house/kitchen",
+  "tris0": 676,
+  "tris": 676,
+  "w": 0.385,
+  "d": 0.406,
+  "h": 0.579,
+  "bytes": 60384
+ },
+ "stool_rustic": {
+  "src": "ph:wooden_stool_01",
+  "room": "barn/house",
+  "tris0": 10946,
+  "tris": 1499,
+  "w": 0.425,
+  "d": 0.442,
+  "h": 0.438,
+  "bytes": 99344
+ },
+ "nightstand": {
+  "src": "ph:painted_wooden_nightstand",
+  "room": "house",
+  "tris0": 470,
+  "tris": 470,
+  "w": 0.505,
+  "d": 0.509,
+  "h": 0.616,
+  "bytes": 52108
+ },
+ "wardrobe": {
+  "src": "ph:painted_wooden_cabinet_02",
+  "room": "house",
+  "tris0": 966,
+  "tris": 966,
+  "w": 0.776,
+  "d": 0.562,
+  "h": 2.0,
+  "bytes": 74792
+ },
+ "cupboard": {
+  "src": "ph:painted_wooden_cabinet",
+  "room": "house/kitchen",
+  "tris0": 2227,
+  "tris": 2227,
+  "w": 1.195,
+  "d": 0.617,
+  "h": 1.182,
+  "bytes": 128172
+ },
+ "shelf_small": {
+  "src": "ph:painted_wooden_shelves",
+  "room": "house/kitchen",
+  "tris0": 524,
+  "tris": 524,
+  "w": 0.511,
+  "d": 0.367,
+  "h": 1.125,
+  "bytes": 46088
+ },
+ "shelf_tall_worn": {
+  "src": "ph:wooden_bookshelf_worn",
+  "room": "house/church",
+  "tris0": 10106,
+  "tris": 3000,
+  "w": 1.374,
+  "d": 0.581,
+  "h": 2.063,
+  "bytes": 144132
+ },
+ "shelf_display": {
+  "src": "ph:wooden_display_shelves_01",
+  "room": "house/cafe",
+  "tris0": 3174,
+  "tris": 2494,
+  "w": 0.372,
+  "d": 1.078,
+  "h": 1.556,
+  "bytes": 131444
+ },
+ "bed_old_frame": {
+  "src": "ph:old_bed_frame",
+  "room": "house",
+  "tris0": 49990,
+  "tris": 3000,
+  "w": 0.912,
+  "d": 2.002,
+  "h": 1.204,
+  "bytes": 301036
+ },
+ "daybed": {
+  "src": "ph:vintage_day_bed",
+  "room": "house",
+  "tris0": 2715,
+  "tris": 2715,
+  "w": 1.973,
+  "d": 0.855,
+  "h": 1.127,
+  "bytes": 133516
+ },
+ "sideboard_long": {
+  "src": "ph:modern_wooden_cabinet",
+  "room": "cafe/house",
+  "tris0": 24976,
+  "tris": 2499,
+  "w": 2.44,
+  "d": 0.52,
+  "h": 0.68,
+  "bytes": 218792
+ },
+ "chest_wood": {
+  "src": "ph:treasure_chest",
+  "room": "house/barn",
+  "tris0": 103330,
+  "tris": 2995,
+  "w": 0.949,
+  "d": 0.527,
+  "h": 0.624,
+  "bytes": 181484
+ },
+ "stove_barrel": {
+  "src": "ph:barrel_stove",
+  "room": "house/barn",
+  "tris0": 9216,
+  "tris": 2500,
+  "w": 0.593,
+  "d": 0.59,
+  "h": 0.857,
+  "bytes": 126664
+ },
+ "stove_masonry": {
+  "src": "ph:scandinavian_masonry_heater",
+  "room": "house/kitchen",
+  "tris0": 9350,
+  "tris": 3000,
+  "w": 1.167,
+  "d": 1.331,
+  "h": 2.361,
+  "bytes": 234184
+ },
+ "jug": {
+  "src": "ph:jug_01",
+  "room": "kitchen",
+  "tris0": 5770,
+  "tris": 1200,
+  "w": 0.276,
+  "d": 0.168,
+  "h": 0.211,
+  "bytes": 39380
+ },
+ "pot_clay": {
+  "src": "ph:ceramic_pot",
+  "room": "kitchen",
+  "tris0": 3592,
+  "tris": 1998,
+  "w": 0.656,
+  "d": 0.502,
+  "h": 0.372,
+  "bytes": 66444
+ },
+ "jar_ceramic": {
+  "src": "ph:ceramic_vase_02",
+  "room": "kitchen/house",
+  "tris0": 11128,
+  "tris": 1200,
+  "w": 0.217,
+  "d": 0.222,
+  "h": 0.308,
+  "bytes": 57668
+ },
+ "bucket_wood": {
+  "src": "ph:wooden_bucket_01",
+  "room": "kitchen/barn",
+  "tris0": 5116,
+  "tris": 1798,
+  "w": 0.367,
+  "d": 0.341,
+  "h": 0.552,
+  "bytes": 84772
+ },
+ "basket_wicker": {
+  "src": "ph:wicker_basket_02",
+  "room": "kitchen/house",
+  "tris0": 17850,
+  "tris": 1498,
+  "w": 0.347,
+  "d": 0.255,
+  "h": 0.201,
+  "bytes": 64932
+ },
+ "bowl_wood": {
+  "src": "ph:wooden_bowl_01",
+  "room": "kitchen",
+  "tris0": 14122,
+  "tris": 800,
+  "w": 0.313,
+  "d": 0.31,
+  "h": 0.094,
+  "bytes": 32728
+ },
+ "pot_enamel": {
+  "src": "ph:pot_enamel_01",
+  "room": "kitchen",
+  "tris0": 11416,
+  "tris": 998,
+  "w": 0.263,
+  "d": 0.182,
+  "h": 0.178,
+  "bytes": 41948
+ },
+ "pot_brass": {
+  "src": "ph:brass_pot_01",
+  "room": "kitchen",
+  "tris0": 3760,
+  "tris": 1500,
+  "w": 0.301,
+  "d": 0.3,
+  "h": 0.291,
+  "bytes": 54632
+ },
+ "cutting_board": {
+  "src": "ph:wooden_cutting_board",
+  "room": "kitchen",
+  "tris0": 3520,
+  "tris": 799,
+  "w": 0.45,
+  "d": 0.247,
+  "h": 0.041,
+  "bytes": 41712
+ },
+ "broom": {
+  "src": "ph:wooden_broom",
+  "room": "house/barn",
+  "tris0": 14258,
+  "tris": 1498,
+  "w": 0.488,
+  "d": 0.104,
+  "h": 1.455,
+  "bytes": 172864
+ },
+ "bottles_wine": {
+  "src": "ph:wine_bottles_01",
+  "room": "kitchen/cafe",
+  "tris0": 28848,
+  "tris": 1499,
+  "w": 0.678,
+  "d": 0.082,
+  "h": 0.333,
+  "bytes": 177892
+ },
+ "lamp_oil": {
+  "src": "ph:vintage_oil_lamp",
+  "room": "house/kitchen",
+  "tris0": 7208,
+  "tris": 2499,
+  "w": 0.22,
+  "d": 0.22,
+  "h": 0.802,
+  "bytes": 92408
+ },
+ "lantern_wood": {
+  "src": "ph:wooden_lantern_01",
+  "room": "house/barn",
+  "tris0": 8321,
+  "tris": 1998,
+  "w": 0.221,
+  "d": 0.233,
+  "h": 0.528,
+  "bytes": 108208
+ },
+ "lantern_brass": {
+  "src": "ph:Lantern_01",
+  "room": "house/barn",
+  "tris0": 33902,
+  "tris": 1498,
+  "w": 0.123,
+  "d": 0.098,
+  "h": 0.293,
+  "bytes": 76140
+ },
+ "chandelier_lantern": {
+  "src": "ph:lantern_chandelier_01",
+  "room": "cafe/church",
+  "tris0": 5971,
+  "tris": 2500,
+  "w": 0.58,
+  "d": 0.575,
+  "h": 0.878,
+  "bytes": 137728
+ },
+ "candlestick": {
+  "src": "ph:wooden_candlestick",
+  "room": "house/church",
+  "tris0": 212992,
+  "tris": 2129,
+  "w": 0.098,
+  "d": 0.099,
+  "h": 0.22,
+  "bytes": 104072
+ },
+ "candleholders_brass": {
+  "src": "ph:brass_candleholders",
+  "room": "church",
+  "tris0": 41936,
+  "tris": 1998,
+  "w": 1.058,
+  "d": 0.367,
+  "h": 0.835,
+  "bytes": 180340
+ },
+ "barrel_wood": {
+  "src": "ph:barrel_03",
+  "room": "barn/cafe",
+  "tris0": 1473,
+  "tris": 1473,
+  "w": 0.634,
+  "d": 0.639,
+  "h": 0.93,
+  "bytes": 74816
+ },
+ "barrel_wine": {
+  "src": "ph:wine_barrel_01",
+  "room": "barn/cafe",
+  "tris0": 10820,
+  "tris": 2497,
+  "w": 0.742,
+  "d": 0.756,
+  "h": 0.872,
+  "bytes": 182764
+ },
+ "crate_small": {
+  "src": "ph:wooden_crate_01",
+  "room": "barn/house",
+  "tris0": 6576,
+  "tris": 1498,
+  "w": 0.821,
+  "d": 0.408,
+  "h": 0.348,
+  "bytes": 97204
+ },
+ "crate_large": {
+  "src": "ph:wooden_crate_02",
+  "room": "barn",
+  "tris0": 5176,
+  "tris": 1498,
+  "w": 0.529,
+  "d": 1.165,
+  "h": 0.464,
+  "bytes": 99076
+ },
+ "cafe_table_round": {
+  "src": "ph:round_wooden_table_02",
+  "room": "cafe",
+  "tris0": 4254,
+  "tris": 2499,
+  "w": 0.796,
+  "d": 0.796,
+  "h": 0.746,
+  "bytes": 116308
+ },
+ "cafe_table_low": {
+  "src": "ph:gallinera_table",
+  "room": "cafe",
+  "tris0": 5528,
+  "tris": 1999,
+  "w": 0.828,
+  "d": 0.518,
+  "h": 0.487,
+  "bytes": 127392
+ },
+ "cafe_chair": {
+  "src": "ph:gallinera_chair",
+  "room": "cafe",
+  "tris0": 11560,
+  "tris": 2500,
+  "w": 0.58,
+  "d": 0.602,
+  "h": 1.034,
+  "bytes": 155864
+ },
+ "cafe_barstool": {
+  "src": "ph:bar_chair_round_01",
+  "room": "cafe",
+  "tris0": 14373,
+  "tris": 2000,
+  "w": 0.49,
+  "d": 0.491,
+  "h": 0.752,
+  "bytes": 179956
+ },
+ "stool_folding": {
+  "src": "ph:folding_wooden_stool",
+  "room": "cafe/house",
+  "tris0": 6324,
+  "tris": 1500,
+  "w": 0.527,
+  "d": 0.546,
+  "h": 0.441,
+  "bytes": 82052
+ },
+ "side_table": {
+  "src": "ph:side_table_01",
+  "room": "house/cafe",
+  "tris0": 2756,
+  "tris": 2000,
+  "w": 0.55,
+  "d": 0.45,
+  "h": 0.551,
+  "bytes": 110128
+ },
+ "bench_church": {
+  "src": "ph:painted_wooden_bench",
+  "room": "church",
+  "tris0": 630,
+  "tris": 630,
+  "w": 1.165,
+  "d": 0.497,
+  "h": 0.889,
+  "bytes": 53840
+ },
+ "mirror_ornate": {
+  "src": "ph:ornate_mirror_01",
+  "room": "house",
+  "tris0": 14246,
+  "tris": 2000,
+  "w": 0.486,
+  "d": 0.026,
+  "h": 0.744,
+  "bytes": 90696
+ },
+ "clock_wall": {
+  "src": "ph:wall_clock",
+  "room": "house/cafe",
+  "tris0": 3658,
+  "tris": 1498,
+  "w": 0.321,
+  "d": 0.047,
+  "h": 0.322,
+  "bytes": 82616
+ },
+ "spinning_wheel": {
+  "src": "ph:spinning_wheel_01",
+  "room": "house",
+  "tris0": 52023,
+  "tris": 3499,
+  "w": 0.49,
+  "d": 1.025,
+  "h": 0.968,
+  "bytes": 220224
+ },
+ "rug_rect": {
+  "src": "k:rugRectangle",
+  "room": "house",
+  "tris0": 28,
+  "tris": 28,
+  "w": 2.512,
+  "d": 1.472,
+  "h": 0.016,
+  "bytes": 3564
+ },
+ "rug_round": {
+  "src": "k:rugRound",
+  "room": "house/cafe",
+  "tris0": 188,
+  "tris": 188,
+  "w": 1.472,
+  "d": 1.472,
+  "h": 0.016,
+  "bytes": 10860
+ },
+ "table_cloth": {
+  "src": "k:tableCloth",
+  "room": "cafe/house",
+  "tris0": 144,
+  "tris": 144,
+  "w": 1.683,
+  "d": 0.895,
+  "h": 0.653,
+  "bytes": 10080
+ },
+ "kitchen_counter": {
+  "src": "k:kitchenCabinet",
+  "room": "kitchen",
+  "tris0": 114,
+  "tris": 114,
+  "w": 0.903,
+  "d": 0.945,
+  "h": 0.945,
+  "bytes": 11124
+ },
+ "kitchen_sink": {
+  "src": "k:kitchenSink",
+  "room": "kitchen",
+  "tris0": 318,
+  "tris": 318,
+  "w": 0.903,
+  "d": 0.945,
+  "h": 1.029,
+  "bytes": 24728
+ },
+ "bar_counter": {
+  "src": "ph:modern_wooden_cabinet",
+  "room": "cafe",
+  "tris0": 24976,
+  "tris": 2499,
+  "w": 3.767,
+  "d": 0.803,
+  "h": 1.05,
+  "bytes": 218724
+ }
+}

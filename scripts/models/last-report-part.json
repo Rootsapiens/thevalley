@@ -1,0 +1,52 @@
+{
+ "chair_wood_a": {
+  "src": "ph:painted_wooden_chair_01",
+  "room": "house/kitchen",
+  "tris0": 724,
+  "tris": 724,
+  "w": 0.432,
+  "d": 0.54,
+  "h": 0.956,
+  "bytes": 80276
+ },
+ "bed_old_frame": {
+  "src": "ph:old_bed_frame",
+  "room": "house",
+  "tris0": 49990,
+  "tris": 5000,
+  "w": 0.905,
+  "d": 2.002,
+  "h": 1.205,
+  "bytes": 1073412
+ },
+ "lantern_wood": {
+  "src": "ph:wooden_lantern_01",
+  "room": "house/barn",
+  "tris0": 8321,
+  "tris": 4997,
+  "w": 0.221,
+  "d": 0.235,
+  "h": 0.53,
+  "bytes": 224460
+ },
+ "rug_rect": {
+  "src": "k:rugRectangle",
+  "room": "house",
+  "tris0": 28,
+  "tris": 28,
+  "w": 1.57,
+  "d": 0.92,
+  "h": 0.01,
+  "bytes": 3568
+ },
+ "bar_counter": {
+  "src": "k:kitchenBar",
+  "room": "cafe",
+  "tris0": 76,
+  "tris": 76,
+  "w": 0.43,
+  "d": 0.21,
+  "h": 0.42,
+  "bytes": 6952
+ }
+}

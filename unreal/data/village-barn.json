@@ -2,7 +2,7 @@
  "schema": "omega-valley/village-barn@1",
  "source": {
   "file": "src/village.ts",
-  "sha256": "5396102ae96e2132",
+  "sha256": "8c7083d30d11f254",
   "loader": "node-strip-types"
  },
  "units": {

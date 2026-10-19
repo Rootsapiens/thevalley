@@ -11,6 +11,21 @@
 **Left uncommitted on purpose:** Tariq's lines in `CREDITS.md` and `studio/decisions.md`, his handoff entry and `unreal/`.
 **Next:** build step 2: place the 9 ready NPCs, dialogue, Lorenzo's camera verb. SwiftShader e2e runs ~3x slower while UnrealEditor is open.
 
+## 2026-10-19 — Tariq (UE5), barn trial + playable + village blockout
+**Done:**
+- The UE project is now the mirror `%USERPROFILE%\OVUnreal\unreal\OmegaValley`. The repo keeps the text side only; sync it with `unreal/scripts/sync_mirror.ps1`. `Content/` is gitignored.
+- The barn is lit at dusk (sun 240°/4°, `valley-sky.jpg` sky with the painted mountain and cave at 45°, cold blue fog, 7 barn lanterns and 1 at the farmhouse) and uses Aktham's textures and normals.
+- Stills are in `studio/stills/ue-*.png`; the dolly frames are `ue-dolly-*.jpg`.
+- Playable first person (engine FP template): `unreal/scripts/play.ps1`. The opening dolly auto-plays first. The packaged Shipping build is 432 MB at `unreal/build/Windows/OmegaValley.exe`.
+- Village blockout map from the new export (`village-town.json` + terrain `.glb`). Shrine, tower and terrain checks are all at 0 cm error.
+- Report: `studio/reports/tariq-ue-trial.md`. Iris Xe at 1080p: Epic 10.2 fps, High 67 % 23.4 fps. That fails 60 fps.
+
+**Open:**
+1. 60 fps needs a discrete GPU run (`run_trial.ps1 -SkipExport -SkipBuild -SkipStills`).
+2. The village town has no lanterns or materials per building yet, and no gable roofs on lean/pyramid roofs.
+3. `wall-painted.png` is not used (it is the Night Shift wall).
+4. The owner decides what to port.
+
 ## 2026-10-18 (evening) — Issa/Rajaie, commit 4605a95
 **Done:** Commit 4605a95 (pushed to origin/main): village stone/barn PBR textures (`src/villageTextures.ts`, normals green-down), warm-up waits up to 4 s for textures before compileAsync (+ warmup e2e), NPC data layer `src/npcData.ts` (15 NPCs, 32 trigger lines: 30 proposed, 2 canon, 1 cuffed = Omar). Proof in `studio/reports/issa-npc-data.md`: `npm run check` exit 0, 78 tests at that time (87 now, after Zurub's `tests/zurub-engine.test.ts`).
 **Agent reports since the commit (uncommitted):** Cyrex gate = FIX (`studio/reviews/slice-review.md`); Firas QA: walkthrough + warmup pass, `village-tour.spec.ts` FAILS at line 68 (locked café line stays on the Day-one subtitle) (`firas-qa-village.md`); Imad: Day 2 has no chapter slot, 7 undefined flags (`studio/reviews/imad-npc-order.md`); Noor: 17 proposed lines = keep 7, change 9, cut 1 (`studio/world/npc-line-review.md`); Aktham: all 7 albedos match, hay worst at dE 22, check-art.mjs skips JPEGs (`aktham-village-art-check.md`); Tariq: UE5 not installed (`tariq-ue5-status.md`); Khaled: ambience plan, ElevenLabs ledger file missing (`studio/audio/village-ambience-plan.md`); Razan: 12/12 agent files pass; Issa: `studio/npc/wiring-plan.md` (12 steps).
