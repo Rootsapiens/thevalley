@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import palette from '../studio/art/palette.json';
 import type { Token } from './nightshift';
-import { worldUVs, villageSet } from './materials';
+import { worldUVs, villageSet, TILE_M } from './materials';
 import { VILLAGE_TEX, NORMAL_Y } from './villageTextures';
 import {
   BARN, STALLS, POSTS_Z, LOFT, FARMHOUSE, HOUSES, TROUGH, KENNEL, SHRINE, FENCES, NORTH_WALL_Z, GAP, SOUTH_WALL_Z,
@@ -200,7 +200,7 @@ function put(b: BucketId, src: THREE.BufferGeometry, col: THREE.Color | ColorFn,
   }
   g.setAttribute('color', new THREE.BufferAttribute(c, 3));
   g.setAttribute('bake', new THREE.BufferAttribute(k, 2));
-  if (b === 'stone' || b === 'wood') worldUVs(g);
+  if (b === 'stone' || b === 'wood') { if (!g.userData.boardUV) worldUVs(g); }   // boards keep their per-board UVs
   else if (b !== 'chalk' && g.getAttribute('uv')) g.deleteAttribute('uv');
   if (g.getAttribute('uv1')) g.deleteAttribute('uv1');
   if (!g.index) { const idx = new Uint32Array(n); for (let i = 0; i < n; i++) idx[i] = i; g.setIndex(new THREE.BufferAttribute(idx, 1)); }
@@ -257,6 +257,22 @@ function ellipseG(x: number, y: number, z: number, a: number, b: number, yaw: nu
 let R = rng(1);
 const rr = (a: number, b: number) => a + (b - a) * R();
 
+/** Plank texture (village_textures.py planks()): 8 boards across each 2 m tile, board k centred at u = k / 8, its gap at
+ *  u = (k +- 0.5) / 8. World UVs put those gaps every 0.25 m across boards 0.19-0.29 m wide, so ~90% of boards showed a
+ *  false seam (rajaie-village-textures.md). boardUVs maps each board box into one texture board, inset from its gaps,
+ *  and slides it along the grain; both picks come from a hash of the board's position, so the slice's random sequence
+ *  (and with it every other vertex of the approved barn corner) is untouched. */
+export const PLANK_BOARDS = 8, PLANK_INSET = 0.1;
+const hashF = (x: number) => { const s = Math.sin(x * 12.9898 + 78.233) * 43758.5453; return s - Math.floor(s); };
+export function boardUVs(g: THREE.BufferGeometry, key: number, h: number): THREE.BufferGeometry {
+  const uv = g.getAttribute('uv'), k = Math.floor(hashF(key) * PLANK_BOARDS) % PLANK_BOARDS;
+  const half = (0.5 - PLANK_INSET) / PLANK_BOARDS, v0 = Math.floor(hashF(key + 7.31) * 64) / 16;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, k / PLANK_BOARDS + (uv.getX(i) * 2 - 1) * half, v0 + uv.getY(i) * h / TILE_M);
+  uv.needsUpdate = true;
+  g.userData.boardUV = true;
+  return g;
+}
+
 /** Vertical boards along a wall line. axis 'x': wall runs along x at z = fixed; 'z': runs along z at x = fixed.
  *  `out` is the outward normal sign. `bottom(u)` / `top(u)` give the board span; return null to skip. */
 function boards(axis: 'x' | 'z', fixed: number, out: number, from: number, to: number,
@@ -272,7 +288,7 @@ function boards(axis: 'x' | 'z', fixed: number, out: number, from: number, to: n
       const tone = R() < 0.12 ? rr(0.62, 0.78) : rr(0.86, 1.12);
       _c.copy(col).multiplyScalar(tone);
       const g = axis === 'x' ? boxG(mid, yb + h / 2, c, w - 0.004, h, 0.045, 0, 0, tilt, 1.6) : boxG(c, yb + h / 2, mid, 0.045, h, w - 0.004, tilt, 0, 0, 1.6);
-      put('wood', g, _c.clone());
+      put('wood', boardUVs(g, mid * 3.7 + fixed * 1.3 + (axis === 'x' ? 0 : 0.37), h), _c.clone());
     }
     u += w + gap;
   }
