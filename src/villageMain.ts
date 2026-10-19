@@ -15,6 +15,10 @@ import { buildVillage, FOG_COLOR } from './villageScene';
 import { villageAudio, measureVillagePeaks } from './villageAudio';
 import { setAnisotropy } from './materials';
 import { placeNpcs } from './npcPlacement';
+import { CH1_DAY1, CAST, FRAME_HOLD, makeActors, actorBox, actorChest, tickActor, nextLine, talkedOut, newFilm, filmTick, pickFramed, testimonies, type Story, type Actor } from './npcTalk';
+import { buildNpcFigures } from './npcFigures';
+import { createArena } from './arena';
+import { ARENA_START, segmentBox } from './rootBots';
 import palette from '../studio/art/palette.json';
 
 const DT = 1 / 120;
@@ -44,8 +48,27 @@ const tBuild0 = performance.now();
 const V = buildVillage(scene, renderer);
 V.stats['ms:build'] = Math.round(performance.now() - tBuild0);
 const SOLIDS = villageSolids();
+const QUERY = new URLSearchParams(location.search);
+const ARENA_ON = QUERY.get('arena') === '1' || QUERY.get('roots') === '1';
+// ---------- NPCs (build step 2): Lorenzo's Day 1 cast where npcPlacement stands them; solid, so he walks round them.
+// The arena sandbox (?arena=1) keeps its square to itself: no cast there. ----------
+const story: Story & { flags: Set<string> } = { ...CH1_DAY1, flags: new Set<string>() };
+const ACTORS = ARENA_ON ? [] : makeActors(story);
+for (const a of ACTORS) SOLIDS.push({ box: actorBox(a) });
+const NPCF = buildNpcFigures(scene, ACTORS, V.env);
+V.stats['npc:tris'] = NPCF.stats.tris;
+const TALK_RANGE = 3.2;
+const NPC_PICKS: Examinable[] = ACTORS.map(a => ({ id: a.id, name: CAST[a.id].label, line: CAST[a.id].label, pos: actorChest(a, { x: 0, y: 0, z: 0 }), r: a.seated ? 0.5 : 0.42, from: { x: a.x, y: a.y, z: a.z } }));
 const WORLD = SOLIDS.map(s => s.box);
 const audio = villageAudio();
+// ---------- Arena (opt-in, ?arena=1 or ?roots=1): root walkers in the square and the spark caster, src/arena.ts. Off by
+// default: in Chapter 1 Lorenzo is unarmed, and the slice runs exactly as without it. ----------
+const arena = ARENA_ON ? createArena({
+  scene, camera, canvas: renderer.domElement, env: V.env, audio, ground: groundY,
+  near: (x, z) => nearWorld(x, z, false), segment: segmentHit, live: () => playing && endT < 0,
+  respawn: () => { player = newPlayer(START); yaw = START_YAW; pitch = -0.03; }, toast: m => showToast(m),
+}) : null;
+const START = arena ? { x: ARENA_START.x, y: ARENA_START.y, z: ARENA_START.z } : SPAWN, START_YAW = arena ? ARENA_START.yaw : SPAWN_YAW;
 
 // ---------- Broadphase: static boxes bucketed on a 4 m grid; each tick the physics sees only the boxes near the player ----------
 const BP = 4, bpGrid = new Map<number, number[]>(), bpKey = (i: number, j: number) => i * 4099 + j;
@@ -57,8 +80,9 @@ WORLD.forEach((b, n) => {
 const bpSeen = new Uint32Array(WORLD.length);
 let bpStamp = 0;
 const NEAR: Box[] = [];
-/** Static boxes within ~2.5 m of (x, z) plus the gate and door leaves that are solid right now and the loose props. No allocation. */
-function nearWorld(x: number, z: number): Box[] {
+/** Static boxes within ~2.5 m of (x, z) plus the gate and door leaves that are solid right now and the loose props
+ *  (and the arena's walkers unless `bots` is false: their own movement). No allocation. */
+function nearWorld(x: number, z: number, bots = true): Box[] {
   NEAR.length = 0; bpStamp++;
   for (let i = Math.floor((x - 2.5) / BP); i <= Math.floor((x + 2.5) / BP); i++) for (let j = Math.floor((z - 2.5) / BP); j <= Math.floor((z + 2.5) / BP); j++) {
     const a = bpGrid.get(bpKey(i, j)); if (!a) continue;
@@ -66,7 +90,29 @@ function nearWorld(x: number, z: number): Box[] {
   }
   for (const d of ENTS.doors) if (d.solid) NEAR.push(d.box);
   for (const p of ENTS.props) NEAR.push(p.box);
+  if (bots && arena) arena.boxes(NEAR);
   return NEAR;
+}
+const INVIS = Uint8Array.from(SOLIDS, s => (s.tag === 'invisible' ? 1 : 0));
+/** First solid along a→b as a fraction of the way (Infinity when clear): the static boxes in the broadphase cells the
+ *  segment crosses (2D DDA; invisible clip boxes skipped), the solid door leaves and the props. The arena's line of
+ *  sight and hitscan. No allocation. */
+function segmentHit(ax: number, ay: number, az: number, bx: number, by: number, bz: number): number {
+  const dx = bx - ax, dy = by - ay, dz = bz - az;
+  let best = Infinity, i = Math.floor(ax / BP), j = Math.floor(az / BP);
+  const i1 = Math.floor(bx / BP), j1 = Math.floor(bz / BP), si = Math.sign(dx), sj = Math.sign(dz);
+  const tdx = dx ? Math.abs(BP / dx) : Infinity, tdz = dz ? Math.abs(BP / dz) : Infinity;
+  let tx = dx ? ((si > 0 ? (i + 1) * BP : i * BP) - ax) / dx : Infinity, tz = dz ? ((sj > 0 ? (j + 1) * BP : j * BP) - az) / dz : Infinity;
+  bpStamp++;
+  for (let n = 0; n < 1024; n++) {
+    const a = bpGrid.get(bpKey(i, j));
+    if (a) for (const k of a) if (bpSeen[k] !== bpStamp) { bpSeen[k] = bpStamp; if (!INVIS[k]) best = Math.min(best, segmentBox(ax, ay, az, dx, dy, dz, WORLD[k])); }
+    if ((i === i1 && j === j1) || Math.min(tx, tz) > best) break;
+    if (tx < tz) { tx += tdx; i += si; } else { tz += tdz; j += sj; }
+  }
+  for (const d of ENTS.doors) if (d.solid) best = Math.min(best, segmentBox(ax, ay, az, dx, dy, dz, d.box));
+  for (const p of ENTS.props) best = Math.min(best, segmentBox(ax, ay, az, dx, dy, dz, p.box));
+  return best;
 }
 
 // ---------- Entities: gates and doors (index = USABLES index), the bell rope, the pail and the stool ----------
@@ -110,16 +156,27 @@ function compileShadowDepth(): Promise<unknown> {
   rt.dispose();
   return p;
 }
-// F3 also marks where the Day 1 NPCs will stand (build step 2 prep, src/npcPlacement.ts): teal = placeable as specified,
-// amber = an open item (no interior yet, floor undecided, inside a solid). One instanced draw, only while F3 is on.
-const NPC_SPOTS = placeNpcs(1);
-const npcMarks = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.22, 1.3, 3, 8), new THREE.MeshBasicMaterial({ toneMapped: false }), NPC_SPOTS.length);
-{
-  const m = new THREE.Matrix4(), ok = new THREE.Color(palette.ruptureTeal), open = new THREE.Color(palette.hudAmber);
-  NPC_SPOTS.forEach((p, i) => { npcMarks.setMatrixAt(i, m.makeTranslation(p.x, p.y + 0.87, p.z)); npcMarks.setColorAt(i, p.issues.length ? open : ok); });
-  npcMarks.visible = false; npcMarks.frustumCulled = false;
-  scene.add(npcMarks);
-}
+// F3 draws the NPC collision boxes (teal) and the spots of the story's NPCs that are still open (amber: no interior
+// yet, floor undecided, inside a solid; src/npcPlacement.ts), which are left out of the scene. One line draw, F3 only.
+const NPC_OPEN = placeNpcs(story.day, { chapter: story.chapter, events: story.events }).filter(p => p.issues.length);
+const npcMarks = (() => {
+  const pos: number[] = [], col: number[] = [], ok = new THREE.Color(palette.ruptureTeal), open = new THREE.Color(palette.hudAmber);
+  const boxes: [Box, THREE.Color][] = [...ACTORS.map(a => [actorBox(a), ok] as [Box, THREE.Color]),
+    ...NPC_OPEN.map(p => [{ min: { x: p.x - 0.24, y: p.y, z: p.z - 0.24 }, max: { x: p.x + 0.24, y: p.y + 1.78, z: p.z + 0.24 } }, open] as [Box, THREE.Color])];
+  for (const [b, c] of boxes) {
+    const X = [b.min.x, b.max.x], Y = [b.min.y, b.max.y], Z = [b.min.z, b.max.z];
+    for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) {
+      pos.push(X[0], Y[i], Z[j], X[1], Y[i], Z[j], X[i], Y[0], Z[j], X[i], Y[1], Z[j], X[i], Y[j], Z[0], X[i], Y[j], Z[1]);
+      for (let k = 0; k < 6; k++) col.push(c.r, c.g, c.b);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  const l = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ vertexColors: true, toneMapped: false }));
+  l.visible = false; l.frustumCulled = false;
+  scene.add(l);
+  return l;
+})();
 const depthReady = compileShadowDepth();
 // Stone and wood texture sets first (4 s at most), so their programs compile here with the maps bound, not in frame 1.
 const tTex0 = performance.now();
@@ -139,19 +196,25 @@ for (const id of ['hud', 'ammo', 'end', 'death', 'hurt']) $(id).style.display = 
 document.body.classList.add('village');
 const overlay = $('overlay'), sub = $('sub'), subAr = $('sub-ar'), subEn = $('sub-en'), prompt = $('prompt');
 const promptAr = $('prompt-ar'), promptEn = $('prompt-en'), rec = $('rec'), tc = $('tc'), clips = $('clips');
-const fade = $('fade'), title = $('title'), toast = $('toast');
+const fade = $('fade'), title = $('title'), toast = $('toast'), subWho = $('sub-who'), subWhoAr = $('sub-who-ar'), subWhoEn = $('sub-who-en'), recLabel = $('rec-label');
+const batt = $('batt'), battFill = $('batt-fill'), focus = $('focus');
 $('title-stats').textContent = '';
 let subTime = 0;
-function subtitle(t: Text, seconds?: number) {
+/** Shows a line (AR over EN); `who` names the speaker (an NPC), none for Lorenzo's own lines. */
+function subtitle(t: Text, seconds?: number, who?: Text) {
   subAr.textContent = t.ar; subEn.textContent = t.en;
+  subWhoAr.textContent = who ? who.ar : ''; subWhoEn.textContent = who ? who.en : ''; subWho.classList.toggle('on', !!who);
   subTime = seconds ?? Math.max(4, 2.2 + t.en.length * 0.055);
 }
 
 // ---------- State ----------
-let player: PlayerState = newPlayer(SPAWN);
+let player: PlayerState = newPlayer(START);
 let vs: VillageState = newVillageState();
-let yaw = SPAWN_YAW, pitch = -0.03, storyTime = 0, endT = -1, introDone = false, turnbackCD = 0;
-let target = -1, lastExamine = -1, zoomT = 0, useTarget = -1, buttonTarget = -1, lockT = 0, lockU = -1;
+let yaw = START_YAW, pitch = -0.03, storyTime = 0, endT = -1, introDone = false, turnbackCD = 0;
+let target = -1, lastExamine = -1, zoomT = 0, useTarget = -1, buttonTarget = -1, lockT = 0, lockU = -1, npcTarget = -1;
+// Talk: the lines heard so far (the order cursor, src/npcTalk.ts nextLine) and a log for the tests. Film: hold RMB.
+const heard = new Set<string>(), talkLog: { npc: string; line: string; t: number }[] = [];
+let film = newFilm(), filmHeld = false;
 const hl = new Float32Array(EXAMINABLES.length);
 const zoneOut: ('end' | 'turnback')[] = [];
 const pb: Box = { min: { x: 0, y: 0, z: 0 }, max: { x: 0, y: 0, z: 0 } };
@@ -183,7 +246,11 @@ addEventListener('keydown', e => {
   if (e.code === 'F3') { e.preventDefault(); devOn = !devOn; dev.style.display = devOn ? 'block' : 'none'; npcMarks.visible = devOn; }
 });
 addEventListener('keyup', e => keys.delete(e.code));
-addEventListener('blur', () => keys.clear());
+addEventListener('blur', () => { keys.clear(); filmHeld = false; });
+// Lorenzo's camera: hold the right button to record. The page's context menu never opens over the game.
+addEventListener('mousedown', e => { if (e.button === 2 && playing) filmHeld = true; });
+addEventListener('mouseup', e => { if (e.button === 2) filmHeld = false; });
+addEventListener('contextmenu', e => e.preventDefault());
 let playing = false, dragLook = false;
 function startPlay() {
   overlay.style.display = 'none';
@@ -212,12 +279,13 @@ addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
 });
+arena?.start();
 let toastTime = 0;
 function showToast(msg: string) { toast.textContent = msg; toastTime = 2.5; }
 
 function readInput(): Input {
   const k = (c: string) => keys.has(c) ? 1 : 0;
-  const free = endT < 0;
+  const free = endT < 0 && !arena?.down();
   return {
     forward: free ? k('KeyW') - k('KeyS') + k('ArrowUp') - k('ArrowDown') : 0,
     strafe: free ? k('KeyD') - k('KeyA') : 0,
@@ -232,7 +300,8 @@ function readInput(): Input {
 function examine() {
   if (endT >= 0) return;
   if (target < 0) {
-    if (useTarget >= 0) use(useTarget);
+    if (npcTarget >= 0) talk(ACTORS[npcTarget]);
+    else if (useTarget >= 0) use(useTarget);
     else if (buttonTarget >= 0 && pressButton(ENTS, ENTS.buttons[buttonTarget])) drainEvents();
     return;
   }
@@ -240,6 +309,16 @@ function examine() {
   if (markExamined(vs, e.id)) { audio.play('chime'); clips.classList.remove('pulse'); void clips.offsetWidth; clips.classList.add('pulse'); }
   subtitle(e.line);
   lastExamine = target; zoomT = subTime;
+}
+/** E on an NPC: the next line it has for this story state (src/npcTalk.ts), under the speaker's role. It turns to
+ *  Lorenzo and nods along while the line is up. A press during a line moves on to the next one. */
+function talk(a: Actor) {
+  const line = nextLine(a.spec, story, heard);
+  if (!line) return;
+  subtitle({ ar: line.ar, en: line.line }, undefined, CAST[a.id].label);
+  for (const o of ACTORS) if (o !== a) { o.talk = 0; o.line = null; }
+  a.talk = subTime; a.line = line.id;
+  talkLog.push({ npc: a.id, line: line.id, t: storyTime });
 }
 /** E on a gate or door: swing it (0.75 s), or rattle it if locked. A leaf never closes on the player. Locked: the prompt
  *  under the crosshair reads "Locked." at once (not a spoken line, so it never waits for or cuts the subtitle channel). */
@@ -279,6 +358,7 @@ function tick(input: Input) {
     if (ev === 'end' && endT < 0) startEnd();
     if (ev === 'turnback' && turnbackCD <= 0 && endT < 0) { subtitle(LINES.turnback, 3.5); turnbackCD = 6; }
   }
+  arena?.tick(DT, player, h);
 }
 
 const cave = bearingDir(MOUNTAIN.caveBearing);
@@ -294,13 +374,16 @@ function startEnd() {
   if (document.pointerLockElement) document.exitPointerLock();
 }
 function restart() {
-  player = newPlayer(SPAWN); vs = newVillageState();
-  yaw = SPAWN_YAW; pitch = -0.03; storyTime = 0; endT = -1; introDone = false; turnbackCD = 0; zoomT = 0; subTime = 0; lockT = 0;
+  player = newPlayer(START); vs = newVillageState();
+  yaw = START_YAW; pitch = -0.03; storyTime = 0; endT = -1; introDone = false; turnbackCD = 0; zoomT = 0; subTime = 0; lockT = 0;
   flying = false; V.carpet.mesh.visible = false; flyV.x = flyV.y = flyV.z = 0;   // a restart lands without a glide
   END.yaw1 = Math.atan2(-cave.x, -cave.z);
   fade.style.opacity = '0'; title.classList.remove('show'); rec.classList.remove('stopped');
   playing = false; overlay.style.display = 'flex';
   resetEnts();
+  heard.clear(); talkLog.length = 0; film = newFilm(); filmHeld = false;
+  for (const a of ACTORS) { a.yaw = a.rest; a.headYaw = a.headPitch = 0; a.talk = 0; a.line = null; }
+  arena?.reset();
 }
 
 // ---------- Frame ----------
@@ -329,8 +412,24 @@ function devOverlay() {
     + `  grid ${Math.floor((player.pos.x + 75) / 5)},${Math.floor((player.pos.z + 20) / 5)}\n`
     + `look ${target >= 0 ? EXAMINABLES[target].id : useTarget >= 0 ? USABLES[useTarget].id : buttonTarget >= 0 ? BELL_ROPE.id : '-'}  examined ${vs.examined.length}/${EXAMINABLES.length}  near ${NEAR.length}  t ${storyTime.toFixed(1)}
 `
-    + `npcs ${NPC_SPOTS.length} (${NPC_SPOTS.filter(p => p.issues.length).length} open)  trauma ${trauma.toFixed(2)}  bells ${bells}`;
+    + `npcs ${ACTORS.length} (${NPC_OPEN.length} open)  trauma ${trauma.toFixed(2)}  bells ${bells}
+`
+    + `npc ${devNpc()}
+`
+    + `film ${film.rec ? 'REC' : 'stby'}  battery ${(film.battery * 100).toFixed(0)}%  framed ${film.framed ?? '-'} ${film.held.toFixed(1)}s  log ${film.log.length} (${testimonies(film)} said)`
+    + (arena ? '\n' + arena.dev() : '');
 }
+
+/** AI state of the NPC under the crosshair, else the nearest one (F3). */
+function devNpc(): string {
+  let a: Actor | null = npcTarget >= 0 ? ACTORS[npcTarget] : null;
+  if (!a) { let bd = Infinity; for (const o of ACTORS) { const d = Math.hypot(o.x - player.pos.x, o.z - player.pos.z); if (d < bd) { bd = d; a = o; } } }
+  if (!a) return '-';
+  const d = Math.hypot(a.x - player.pos.x, a.z - player.pos.z);
+  return `${a.id} ${d.toFixed(1)}m  yaw ${a.yaw.toFixed(2)} (rest ${a.rest.toFixed(2)})  head ${a.headYaw.toFixed(2)} ${a.headPitch.toFixed(2)}  ${a.talk > 0 ? 'talk ' + a.line : d < 4 ? 'attend' : 'idle'}`;
+}
+const _chest = { x: 0, y: 0, z: 0 }, _proj = new THREE.Vector3();
+let recShown = false, battShown = -1;
 
 function frame(now: number) {
   const c0 = performance.now();
@@ -387,6 +486,7 @@ function frame(now: number) {
     zoomT -= dt;
     if (target === lastExamine) fovTarget = FOV - 8;
   }
+  if (film.rec && endT < 0) fovTarget = Math.min(fovTarget, FOV - 14);   // the viewfinder's tighter lens
   fov += (fovTarget - fov) * Math.min(1, dt * (endT >= 0 ? 6 : 3));
   if (Math.abs(camera.fov - fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
 
@@ -404,9 +504,15 @@ function frame(now: number) {
   eyeV.x = player.pos.x; eyeV.y = player.pos.y + eyeY; eyeV.z = player.pos.z;
   const cp = Math.cos(pitch);
   dirV.x = -sy * cp; dirV.y = Math.sin(pitch); dirV.z = -cy * cp;
+  if (arena) {   // fire along the logical view; the punch, the hurt roll and the fall go on top of the camera
+    arena.frame(dt, eyeV, dirV, bobX, bobY);
+    camera.rotation.x += arena.view.pitch; camera.rotation.z += arena.view.roll; camera.position.y -= arena.view.drop;
+    trauma = Math.min(1, trauma + arena.trauma());
+  }
   target = endT >= 0 ? -1 : pickExaminable(eyeV, dirV, EXAMINABLES, SOLIDS);
-  useTarget = endT >= 0 || target >= 0 ? -1 : pickUsable(eyeV, dirV, SOLIDS);
-  buttonTarget = endT >= 0 || target >= 0 || useTarget >= 0 ? -1 : pickExaminable(eyeV, dirV, BUTTONS, SOLIDS);
+  npcTarget = endT >= 0 || target >= 0 ? -1 : pickExaminable(eyeV, dirV, NPC_PICKS, SOLIDS, TALK_RANGE);
+  useTarget = endT >= 0 || target >= 0 || npcTarget >= 0 ? -1 : pickUsable(eyeV, dirV, SOLIDS);
+  buttonTarget = endT >= 0 || target >= 0 || npcTarget >= 0 || useTarget >= 0 ? -1 : pickExaminable(eyeV, dirV, BUTTONS, SOLIDS);
   for (let i = 0; i < EXAMINABLES.length; i++) {
     const h = V.highlights[i];
     hl[i] += ((i === target ? 1 : 0) - hl[i]) * Math.min(1, dt * (i === target ? 10 : 6));
@@ -425,6 +531,12 @@ function frame(now: number) {
     if (promptEn.textContent !== e.name.en) { promptAr.textContent = e.name.ar; promptEn.textContent = e.name.en; }
     prompt.classList.add('show');
     prompt.classList.toggle('seen', vs.examined.includes(e.id));
+    prompt.classList.remove('locked');
+  } else if (npcTarget >= 0) {
+    const a = ACTORS[npcTarget], n = CAST[a.id].label;
+    if (promptEn.textContent !== n.en || promptAr.textContent !== n.ar) { promptAr.textContent = n.ar; promptEn.textContent = n.en; }
+    prompt.classList.add('show');
+    prompt.classList.toggle('seen', talkedOut(a.spec, story, heard));
     prompt.classList.remove('locked');
   } else if (useTarget >= 0) {
     const locked = lockT > 0 && lockU === useTarget, name = locked ? LOCKED_LINE : USABLES[useTarget].name;
@@ -494,6 +606,36 @@ function frame(now: number) {
 
   V.dustTime.value = t;
 
+  // NPCs: attention and idle (src/npcTalk.ts), then posed on the GPU (src/npcFigures.ts).
+  for (const a of ACTORS) tickActor(a, dt, player.pos.x, player.pos.y, player.pos.z, storyTime);
+  NPCF.update(ACTORS, t);
+  // Camera: while RMB is held (and charged) Lorenzo records; an NPC held in frame for a second is logged, and again for
+  // each line it is filmed saying (a testimony).
+  {
+    const live = filmHeld && playing && endT < 0;
+    const fi = live && film.battery > 0 ? pickFramed(eyeV, dirV, ACTORS, SOLIDS) : -1, fa = fi >= 0 ? ACTORS[fi] : null;
+    const was = film.rec;
+    const got = filmTick(film, dt, live, fa ? fa.id : null, fa ? fa.line : null, storyTime);
+    if (film.rec !== was) audio.play('rec', film.rec ? 1 : 0);
+    if (live && !film.rec) { showToast('BATTERY EMPTY'); filmHeld = false; }   // held with no charge left
+    if (got) {
+      audio.play('chime');
+      const n = CAST[got.npc].label;
+      showToast(`${got.line ? 'TESTIMONY' : 'FILMED'} — ${n.en.toUpperCase()}`);
+    }
+    if (film.rec && fa) {
+      actorChest(fa, _chest);
+      const top = fa.y + (fa.seated ? 1.35 : 1.85), bottom = fa.y;
+      _proj.set(_chest.x, top, _chest.z).project(camera); const y0 = (1 - _proj.y) / 2 * innerHeight;
+      _proj.set(_chest.x, bottom, _chest.z).project(camera); const y1 = (1 - _proj.y) / 2 * innerHeight, x = (_proj.x + 1) / 2 * innerWidth;
+      const h = Math.max(24, y1 - y0) * 1.08, w = h * 0.55;
+      focus.style.transform = `translate(${(x - w / 2).toFixed(0)}px, ${(y0 - h * 0.04).toFixed(0)}px)`;
+      focus.style.width = `${w.toFixed(0)}px`; focus.style.height = `${h.toFixed(0)}px`;
+      focus.classList.add('show');
+      focus.classList.toggle('locked', film.held >= FRAME_HOLD);
+    } else focus.classList.remove('show');
+  }
+
   renderer.render(scene, camera);
   cpuTimes[cpuI++ % cpuTimes.length] = performance.now() - c0;
   if (devOn && (cpuI & 15) === 0) devOverlay();
@@ -510,6 +652,9 @@ function frame(now: number) {
     }
     rec.classList.toggle('blink', (t % 1) > 0.5);
   }
+  if (film.rec !== recShown) { recShown = film.rec; rec.classList.toggle('live', film.rec); recLabel.textContent = film.rec ? 'REC' : 'STBY'; document.body.classList.toggle('filming', film.rec); }
+  const bp = Math.ceil(film.battery * 100);
+  if (bp !== battShown) { battShown = bp; battFill.style.width = `${bp}%`; batt.title = `${bp}%`; batt.classList.toggle('low', bp <= 15); }
   if (vs.examined.length !== clipCount) { clipCount = vs.examined.length; clips.textContent = `${clipCount}/${EXAMINABLES.length}`; }
   requestAnimationFrame(frame);
 }
@@ -522,9 +667,12 @@ window.__game = {
     level: 'village', examined: [...vs.examined], finished: vs.finished, target: target >= 0 ? EXAMINABLES[target].id : null,
     pos: { ...player.pos }, vel: { ...player.vel }, onGround: player.onGround, crouched: player.crouched, yaw, pitch, storyTime,
     endT, surface: surfaceAt(player.pos.x, player.pos.z), use: useTarget >= 0 ? USABLES[useTarget].id : null, mast: V.mastMat.visible, trauma,
+    npc: npcTarget >= 0 ? ACTORS[npcTarget].id : null, talked: talkLog.map(e => ({ ...e })),
+    film: { rec: film.rec, battery: film.battery, framed: film.framed, held: film.held, log: film.log.map(e => ({ ...e })) },
     // Shape shared with Night Shift so generic e2e helpers keep working: no combat here.
     health: 100, weapon: 'none', hasNailer: false, mag: 0, reserve: 0, kills: 0, enemies: [],
     facility: { breakers: [], doorOpen: false, fired: [], finished: vs.finished },
+    ...(arena ? arena.state() : {}),   // ?arena=1: health, the caster, the walkers as enemies, and arena details
   }),
   frameTimes: () => [...frameTimes],
   cpuTimes: () => Array.from(cpuTimes),
@@ -538,6 +686,9 @@ window.__game = {
   usables: () => USABLES.map((u, i) => ({ id: u.id, kind: u.kind, locked: u.locked, pos: u.pos, from: u.from, open: ENTS.doors[i].open, solid: ENTS.doors[i].solid })),
   ents: () => ({ bells, props: ENTS.props.map(p => ({ id: p.id, pos: { ...p.pos }, vel: { ...p.vel } })), buttons: ENTS.buttons.map(b => ({ id: b.id, t: b.t, cool: b.cool })) }),
   buttonTarget: () => (buttonTarget >= 0 ? BELL_ROPE.id : null),
+  npcs: () => ACTORS.map(a => ({ id: a.id, x: a.x, y: a.y, z: a.z, rest: a.rest, yaw: a.yaw, headYaw: a.headYaw, headPitch: a.headPitch, seated: a.seated, talk: a.talk, line: a.line, label: CAST[a.id].label })),
+  /** Sets a story flag (e.g. 'posters') so flag-gated lines can be checked. */
+  flag: (name: string) => { story.flags.add(name); },
   useTarget: () => (useTarget >= 0 ? USABLES[useTarget].id : null),
   pictures: () => V.pictures,
   carpet: () => { const c = V.carpet.mesh; return { flying, visible: c.visible, x: c.position.x, y: c.position.y, z: c.position.z, yaw: c.rotation.y }; },
@@ -555,3 +706,4 @@ window.__game = {
   teleport: (x: number, y: number, z: number) => { player.pos = { x, y, z }; player.vel = { x: 0, y: 0, z: 0 }; },
   start: () => { overlay.style.display = 'none'; playing = true; },
 };
+if (arena) Object.assign(window.__game as object, { god: () => arena.god() });   // measurements: walkers on, Lorenzo never down

@@ -487,7 +487,7 @@ export const EXAMINABLES: Examinable[] = [
   ex('trough', { ar: 'الحوض الحجري', en: 'Stone trough' }, {
     ar: 'جافّ تماماً. إمّا أنّ أحداً لم يملأه منذ أيام… أو أنها شربته كلّه قبل أن ترحل.',
     en: "Bone dry. Either nobody's filled it in days… or they drank it empty before they left.",
-  }, { x: -13, y: 0.6, z: 6.35 }, 0.7, { x: -13, y: 0.01, z: 8.0 }),
+  }, { x: -13, y: 0.6, z: 6.35 }, 0.7, { x: -13.4, y: 0.01, z: 7.9 }),
   ex('dog', { ar: 'سلسلة الكلب', en: 'Dog chain' }, {
     ar: 'الطوق ما زال مقفلاً، ومشبوكاً بالسلسلة. حتى الكلب ذهب.',
     en: "The collar's still buckled. Still clipped to the chain. Even the dog went.",

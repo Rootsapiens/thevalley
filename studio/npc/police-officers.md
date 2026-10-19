@@ -5,8 +5,8 @@
 **Scene:** Ch1 (Day 1).
 
 **Position (m, +Y up; from src/villageTown.ts POLICE_CAR and the school door)**
-- Officer A: at the police car door, (-8.0, 0, 44.6), facing the square.
-- Officer B: inside the school doorway, (-11.5, 0, 47.5), facing out.
+- Officer A: on the square side of the police car, (-5.3, 0, 44.2), facing east. The car box is x -8.3..-6.1, z 41.96..46.44; the old spot (-8.0, 44.6) was inside it.
+- Officer B: outside the locked school east door (z 47.5), north side, (-9.4, 0, 45.8), facing east. The door spot (-9.2, 47.5) stays free. The school has no interior yet (see decisions-noor-npc.md).
 - Floor y = 0.
 
 **Idle behaviour**

@@ -3,6 +3,7 @@
 // OfflineAudioContext for peak checks (measureVillagePeaks). Mix: master gain 0.8 into a limiter (-3 dB, 20:1).
 type Ctx = BaseAudioContext;
 export type Step = 'dirt' | 'wood' | 'straw' | 'stone';
+export type ArenaVoice = 'spark' | 'crank' | 'empty' | 'zap' | 'rootcreak' | 'lash' | 'hurt' | 'rootdie' | 'groan';
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 
 function brown(c: Ctx, seconds: number): AudioBuffer {
@@ -154,6 +155,117 @@ export const voices = {
     o.connect(envAt(c, out, t, 0.25 * k, 0.002, metal ? 0.35 : 0.12)); o.start(t); o.stop(t + 0.45);
     burst(c, out, t, 0.05, 'lowpass', 500, 0.8, 0.3 * k);
   },
+  /** The camcorder: a soft relay click and one beep when recording starts, two short beeps when it stops. */
+  rec(c: Ctx, out: AudioNode, t: number, on: boolean) {
+    burst(c, out, t, 0.02, 'bandpass', 3200, 3, 0.1);
+    for (let i = 0; i < (on ? 1 : 2); i++) {
+      const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = on ? 2093 : 1568;
+      const ts = t + 0.03 + i * 0.11;
+      o.connect(envAt(c, out, ts, 0.05, 0.004, on ? 0.12 : 0.06)); o.start(ts); o.stop(ts + 0.2);
+    }
+  },
+  // ----- Arena (?arena=1): the spark caster and the root walkers. All in-house synthesis, no samples. -----
+  /** The spark caster firing: the jar dumps through the prongs. A hard crack, the arc's zap (a falling square wave)
+   *  and the energiser's thump under it. */
+  spark(c: Ctx, out: AudioNode, t: number, k = 1) {
+    burst(c, out, t, 0.045, 'highpass', 2400, 0.7, 0.5 * k, 0.001);
+    burst(c, out, t + 0.002, 0.11, 'bandpass', rand(850, 1150), 1.4, 0.32 * k, 0.001);
+    const o = c.createOscillator(); o.type = 'square';
+    o.frequency.setValueAtTime(rand(2300, 2800), t); o.frequency.exponentialRampToValueAtTime(150, t + 0.09);
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 4200;
+    o.connect(lp).connect(envAt(c, out, t, 0.14 * k, 0.001, 0.1)); o.start(t); o.stop(t + 0.14);
+    const th = c.createOscillator(); th.type = 'sine';
+    th.frequency.setValueAtTime(115, t); th.frequency.exponentialRampToValueAtTime(45, t + 0.12);
+    th.connect(envAt(c, out, t, 0.5 * k, 0.002, 0.13)); th.start(t); th.stop(t + 0.2);
+  },
+  /** Cranking the dynamo: ratchet clicks speeding up over a rising whine, then a ping when the jar is full. */
+  crank(c: Ctx, out: AudioNode, t: number, seconds = 1.3) {
+    let s = t + 0.02, gap = 0.15;
+    while (s < t + seconds - 0.1) {
+      burst(c, out, s, 0.016, 'bandpass', rand(2600, 3400), 6, 0.2);
+      burst(c, out, s + 0.004, 0.03, 'lowpass', 650, 0.8, 0.1);
+      s += gap; gap = Math.max(0.065, gap * 0.88);
+    }
+    const o = c.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(170, t); o.frequency.exponentialRampToValueAtTime(880, t + seconds);
+    const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1100; bp.Q.value = 2.2;
+    const g = c.createGain();
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.05, t + seconds * 0.85); g.gain.linearRampToValueAtTime(0, t + seconds);
+    o.connect(bp).connect(g).connect(out); o.start(t); o.stop(t + seconds + 0.05);
+    const p = c.createOscillator(); p.type = 'sine'; p.frequency.value = 1760;
+    p.connect(envAt(c, out, t + seconds, 0.06, 0.004, 0.25)); p.start(t + seconds); p.stop(t + seconds + 0.3);
+  },
+  /** The trigger on a spent jar: a dry click. */
+  empty(c: Ctx, out: AudioNode, t: number, k = 1) {
+    burst(c, out, t, 0.02, 'bandpass', 1900, 4, 0.28 * k);
+    burst(c, out, t + 0.006, 0.025, 'lowpass', 500, 0.8, 0.12 * k);
+  },
+  /** The arc into a root: a crackle and the knock of wood. */
+  zap(c: Ctx, out: AudioNode, t: number, k = 1) {
+    for (let i = 0; i < 6; i++) burst(c, out, t + i * rand(0.006, 0.018), 0.012, 'highpass', rand(3000, 6500), 0.8, 0.2 * k);
+    const o = c.createOscillator(); o.type = 'triangle';
+    o.frequency.setValueAtTime(rand(170, 215), t); o.frequency.exponentialRampToValueAtTime(75, t + 0.11);
+    o.connect(envAt(c, out, t, 0.38 * k, 0.002, 0.12)); o.start(t); o.stop(t + 0.17);
+  },
+  /** A walker's tell (world-bible §4): roots creaking tight under load for 0.6 s, and grains of dust falling. */
+  rootcreak(c: Ctx, out: AudioNode, t: number, k = 1) {
+    const dur = 0.62;
+    const o = c.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(rand(34, 40), t); o.frequency.linearRampToValueAtTime(rand(62, 74), t + dur);
+    const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 220;
+    const g = c.createGain();
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.55 * k, t + 0.06); g.gain.setValueAtTime(0.55 * k, t + dur - 0.08); g.gain.linearRampToValueAtTime(0, t + dur);
+    g.connect(out);
+    o.connect(hp);
+    for (const [f, q] of [[rand(480, 600), 8], [rand(1100, 1350), 6]]) {
+      const b = c.createBiquadFilter(); b.type = 'bandpass'; b.frequency.value = f; b.Q.value = q;
+      hp.connect(b).connect(g);
+    }
+    o.start(t); o.stop(t + dur + 0.05);
+    for (let i = 0; i < 7; i++) burst(c, out, t + 0.05 + i * rand(0.06, 0.09), 0.01, 'bandpass', rand(4500, 7000), 3, 0.07 * k);
+  },
+  /** The lash: air torn by a root, a noise band sweeping up. */
+  lash(c: Ctx, out: AudioNode, t: number, k = 1) {
+    const s = c.createBufferSource(); s.buffer = white(c, 0.4);
+    const f = c.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.3;
+    f.frequency.setValueAtTime(300, t); f.frequency.exponentialRampToValueAtTime(2400, t + 0.2);
+    s.connect(f).connect(envAt(c, out, t, 0.5 * k, 0.05, 0.22)); s.start(t); s.stop(t + 0.35);
+  },
+  /** Lorenzo struck: a heavy thud and the breath knocked out of him. */
+  hurt(c: Ctx, out: AudioNode, t: number, k = 1) {
+    const o = c.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(95, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.18);
+    o.connect(envAt(c, out, t, 0.6 * k, 0.003, 0.2)); o.start(t); o.stop(t + 0.26);
+    burst(c, out, t, 0.12, 'lowpass', 420, 0.8, 0.45 * k);
+    burst(c, out, t + 0.05, 0.22, 'bandpass', 700, 1.2, 0.1 * k, 0.03);
+  },
+  /** A walker letting go: wood cracking along its length, a low groan, the fall. */
+  rootdie(c: Ctx, out: AudioNode, t: number, k = 1) {
+    for (let i = 0; i < 9; i++) burst(c, out, t + rand(0, 0.7), 0.02, 'bandpass', rand(1500, 4200), 2.5, 0.22 * k);
+    const o = c.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(rand(58, 66), t); o.frequency.exponentialRampToValueAtTime(28, t + 0.9);
+    const b = c.createBiquadFilter(); b.type = 'bandpass'; b.frequency.value = 420; b.Q.value = 3;
+    o.connect(b).connect(envAt(c, out, t, 0.5 * k, 0.05, 0.9)); o.start(t); o.stop(t + 1.0);
+    const th = c.createOscillator(); th.type = 'sine';
+    th.frequency.setValueAtTime(80, t + 0.62); th.frequency.exponentialRampToValueAtTime(38, t + 0.8);
+    th.connect(envAt(c, out, t + 0.62, 0.45 * k, 0.003, 0.2)); th.start(t + 0.62); th.stop(t + 0.9);
+    burst(c, out, t + 0.62, 0.15, 'lowpass', 380, 0.8, 0.35 * k);
+  },
+  /** Uprooting: a low groan of roots and the soil giving. */
+  groan(c: Ctx, out: AudioNode, t: number, k = 1) {
+    const dur = rand(0.7, 0.9);
+    const o = c.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(rand(30, 36), t); o.frequency.linearRampToValueAtTime(rand(22, 26), t + dur);
+    const g = c.createGain();
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.5 * k, t + 0.15); g.gain.linearRampToValueAtTime(0, t + dur);
+    g.connect(out);
+    for (const [f, q] of [[rand(260, 320), 6], [rand(640, 760), 5]]) {
+      const b = c.createBiquadFilter(); b.type = 'bandpass'; b.frequency.value = f; b.Q.value = q;
+      o.connect(b).connect(g);
+    }
+    o.start(t); o.stop(t + dur + 0.05);
+    burst(c, out, t, dur * 0.8, 'lowpass', 300, 0.7, 0.3 * k, 0.1);
+  },
   /** Low swell under the title card. */
   drone(c: Ctx, out: AudioNode, t: number) {
     for (const [f, p] of [[55, 0.09], [82.4, 0.05], [110.3, 0.025]] as const) {
@@ -243,12 +355,21 @@ export function villageAudio() {
       lastWind = c.currentTime;
       windAt(wind, gust, indoor, fade, c.currentTime);
     },
-    /** arg: the surface for 'step', the pan for 'dog', 1 for a metal prop ('scrape', 'bump'), the delay (s) for 'bell'. */
-    play(name: 'step' | 'chime' | 'creak' | 'dog' | 'drone' | 'latch' | 'rattle' | 'bell' | 'scrape' | 'bump', arg?: Step | number, k = 1) {
+    /** arg: the surface for 'step', the pan for 'dog', 1 for a metal prop ('scrape', 'bump'), the delay (s) for 'bell',
+     *  1 = start / 0 = stop for 'rec'; arena: the pan for the walkers' sounds, the seconds for 'crank'. */
+    play(name: 'step' | 'chime' | 'creak' | 'dog' | 'drone' | 'latch' | 'rattle' | 'bell' | 'scrape' | 'bump' | 'rec' | ArenaVoice, arg?: Step | number, k = 1) {
       if (!c || !master) return;
       const t = c.currentTime + 0.005;
+      if (name === 'crank') { voices.crank(c, master, t, (arg as number | undefined) ?? 1.3); return; }
+      if (name === 'spark' || name === 'empty' || name === 'hurt') { voices[name](c, master, t, k); return; }
+      if (name === 'zap' || name === 'rootcreak' || name === 'lash' || name === 'rootdie' || name === 'groan') {
+        const p = c.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, (arg as number | undefined) ?? 0)); p.connect(master);
+        voices[name](c, p, t, k);
+        return;
+      }
       if (name === 'bell') { voices.bell(c, master, t + ((arg as number | undefined) ?? 0), k); return; }
       if (name === 'scrape' || name === 'bump') { voices[name](c, master, t, k, arg === 1); return; }
+      if (name === 'rec') { voices.rec(c, master, t, arg === 1); return; }
       if (name === 'step') voices.step(c, master, t, (arg as Step | undefined) ?? 'dirt', k);
       else if (name === 'creak') voices.creak(c, master, t, k);
       else if (name === 'latch') voices.latch(c, master, t, k);
@@ -282,7 +403,18 @@ export async function measureVillagePeaks(): Promise<Record<string, number>> {
   out.bell = await render(9, (c, m) => voices.bell(c, m, 0.01, 1));
   out.scrape = await render(0.4, (c, m) => voices.scrape(c, m, 0.01, 1.5, true));
   out.bump = await render(0.6, (c, m) => voices.bump(c, m, 0.01, 1.5, true));
+  out.rec = await render(0.5, (c, m) => voices.rec(c, m, 0.01, false));
   out.stream = await render(4, (c, m) => streamAt(streamBed(c, m), 1, null));
+  // Arena voices at their loudest call (k = 1, centre).
+  out.spark = await render(0.4, (c, m) => voices.spark(c, m, 0.01, 1));
+  out.crank = await render(1.8, (c, m) => voices.crank(c, m, 0.01, 1.3));
+  out.empty = await render(0.2, (c, m) => voices.empty(c, m, 0.01, 1));
+  out.zap = await render(0.4, (c, m) => voices.zap(c, m, 0.01, 1));
+  out.rootcreak = await render(1, (c, m) => voices.rootcreak(c, m, 0.01, 1));
+  out.lash = await render(0.5, (c, m) => voices.lash(c, m, 0.01, 1));
+  out.hurt = await render(0.5, (c, m) => voices.hurt(c, m, 0.01, 1));
+  out.rootdie = await render(1.3, (c, m) => voices.rootdie(c, m, 0.01, 1));
+  out.groan = await render(1.2, (c, m) => voices.groan(c, m, 0.01, 1));
   // Worst case: full-gust wind + the stream at the stones + creak + chime + latch + a heavy step + a bark at once.
   out.allAtOnce = await render(3, (c, m) => {
     windAt(windBed(c, m), 1, 0, 1, null); streamAt(streamBed(c, m), 1, null);

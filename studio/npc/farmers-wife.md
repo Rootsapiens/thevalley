@@ -5,8 +5,8 @@
 **Scene:** Ch1 (Day 1) through the farmhouse window. Evacuated in Ch4 (not on stage).
 
 **Position (m, +Y up; from src/village.ts FARMHOUSE)**
-- Inside farmhouse [2] (x -25..-15, z -5..5), seated in front of the black-and-white TV at about (-21.0, 0, 0.0), facing east toward the window.
-- Floor y = 0 (to confirm inside the farmhouse).
+- Interim, until the farmhouse has an interior: at its east door (x -15, door spot (-13.6, 2.2)), at (-14.2, 0, 0.4), facing east. Floor y = 0.
+- Target once the interior exists: farmhouse [2] (x -25..-15, z -5..5), seated at the black-and-white TV, about (-21.0, 0, 0.0), facing east toward the window.
 - Visible from the farmyard through the east window. The TV light is the only light in the window.
 
 **Idle behaviour**

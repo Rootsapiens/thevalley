@@ -74,9 +74,18 @@ export function townInteriors(x: number, y: number, z: number): ((x: number, y: 
 
 // ---------- Warm light inside the church (bake: the bounce channel) ----------
 const CHURCH = BUILDINGS.find(b => b.kind === 'church')!, CHURCH_L = churchLayout(CHURCH);
-/** The priest is in tonight: a low warm fill, the altar candles' glow (falls off over ~2 m) and each picture lamp's
- *  pool on its wall. Baked into the vertices like the barn's sun bounce (villageScene bakeAt), so it costs nothing. */
+const MARYAM_H = BUILDINGS.find(b => b.id === 'maryam')!;
+/** The lamp over Maryam's kitchen table (maryamInterior draws its shade there). */
+export const MARYAM_LAMP = { x: 74.4, dy: 2.1, z: 9.9 };
+/** Maryam's kitchen lamp: a warm pool round her table. The priest is in tonight: a low warm fill, the altar candles'
+ *  glow (falls off over ~2 m) and each picture lamp's pool on its wall. Baked into the vertices like the barn's sun
+ *  bounce (villageScene bakeAt), so it costs nothing. */
 export function townWarm(x: number, y: number, z: number, nx: number, ny: number, nz: number): number {
+  const M = MARYAM_H;
+  if (x > M.x0 && x < M.x1 && z > M.z0 && z < M.z1) {   // the kitchen lamp she keeps lit: a warm pool, ~2.4 m falloff
+    const vx = MARYAM_LAMP.x - x, vy = M.floor + MARYAM_LAMP.dy - y, vz = MARYAM_LAMP.z - z, d = Math.hypot(vx, vy, vz) || 1;
+    return 0.1 + 1.25 * (0.35 + 0.65 * Math.max(0, (nx * vx + ny * vy + nz * vz) / d)) * Math.exp(-d / 2.4);
+  }
   const B = CHURCH, L = CHURCH_L;
   if (!(x > B.x0 && x < B.x1 && z > B.z0 && z < B.z1)) return 0;
   const vx = (L.altar.x0 + L.altar.x1) / 2 - x, vy = B.floor + 1.4 - y, vz = L.cz - z, d = Math.hypot(vx, vy, vz) || 1;
@@ -493,7 +502,7 @@ export function buildTown(k: Kit, scene: THREE.Scene, leafMat: THREE.Material): 
     put('glow', boxG(b.x1 - 1.0, y + 0.45, b.z0 + 1.32, 0.3, 0.12, 0.02), COL.windowWarm);                           // the fire door
     put('lit', boxMM(b.x0 + WALL_T + 0.05, y, b.z0 + 2.2, b.x0 + 1.0, y + 1.9, b.z0 + 4.4, 1), cS(COL.timber, 0.7)); // dresser
     put('lit', cylG(74.4, y + 2.7, 9.9, 74.4, y + 2.15, 9.9, 0.006, 0.006, 3), COL.rope);
-    put('glow', boxG(74.4, y + 2.1, 9.9, 0.16, 0.1, 0.16), COL.windowWarm);                                           // the lamp she keeps lit
+    put('glow', boxG(MARYAM_LAMP.x, y + MARYAM_LAMP.dy, MARYAM_LAMP.z, 0.16, 0.1, 0.16), COL.windowWarm);              // the lamp she keeps lit
   }
 
   // ----- Fences, walls, gates -----

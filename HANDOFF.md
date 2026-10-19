@@ -16,6 +16,7 @@ npm run check      # typecheck + unit tests
 npm run build
 npx playwright test   # e2e (tests/e2e)
 ```
+Village flag `?arena=1` (or `?roots=1`): combat sandbox, four root walkers in the east square and the spark caster (LMB fire, R crank); off by default, not Ch1 canon (src/arena.ts, src/rootBots.ts).
 Needs Node LTS. Blender 5.2 is used for art (`scripts/blender/`). UE5 lives in `unreal/` (see `unreal/README.md`).
 
 ## 3. Status (update on every handoff)

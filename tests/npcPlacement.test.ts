@@ -9,12 +9,7 @@ describe('NPC placement prep (build step 2)', () => {
     const ps = placeNpcs(1);
     expect(ps.map(p => p.id)).toEqual(npcsAtDay(1).map(n => n.id));
     const open = Object.fromEntries(ps.filter(p => p.issues.length).map(p => [p.id, p.issues]));
-    expect(open).toEqual({
-      npc_moreno: ['inside school, which has no interior yet', 'floor height not decided'],
-      npc_officer_1: ['stands inside a solid'],                     // overlaps the police car's box beside it
-      npc_officer_2: ['inside school, which has no interior yet', 'floor height not decided'],
-      npc_farmers_wife: ['inside farmhouse, which has no interior yet', 'floor height not decided'],
-    });
+    expect(open).toEqual({});   // studio/npc/decisions-noor-npc.md: the four open spots were moved outside / clear of the car
     for (const p of ps.filter(q => !q.issues.length)) expect(Number.isFinite(p.y), p.id).toBe(true);
   });
 

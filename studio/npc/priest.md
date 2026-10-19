@@ -5,7 +5,9 @@
 **Scene:** Ch1 (Day 1, evening). Ch3 vigil (candles in the church windows).
 
 **Position (m, +Y up; from src/villageMap.ts church and tower footprints)**
-- Church nave: x 5..24, z 26.5..35, door on the south wall at x 9.5. Altar at the north end, about (14.5, 0, 28.5). Floor y = 0.
+- Church nave: x 5..24, z 26.5..35, door on the south wall at x 9.5. The nave runs west-east; the altar is at the EAST end (x 21.4..22.4, z 29.55..31.95). Floor y = 0.
+- Priest stands at (20.5, 0, 29.5), west of the altar, north of the aisle, facing east (yaw -pi/2). The aisle (z 29.85..31.65) stays free.
+- Ch3 vigil: kneels at the front pew (x 16.7..17.2), at (16.9, 0, 29.0).
 - Tower door: south wall at (2.5, 0, 30.0), tower base x 0..5, z 25..30.
 - Priest's house: x 30.5..39.5, z 26.5..34, west door locked at z 30.
 
