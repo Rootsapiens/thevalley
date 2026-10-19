@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Omega Valley - Multiplayer</title>
+  <link rel="icon" href="data:," />
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #07090C; font-family: "Consolas", monospace; user-select: none; color: #e8e2d0; }
+    #app canvas { display: block; }
+    #cross { position: fixed; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px; border: 1px solid #FFB000; border-radius: 50%; pointer-events: none; }
+    #top { position: fixed; top: 10px; left: 0; width: 100%; text-align: center; color: #FFB000; letter-spacing: 3px; text-shadow: 0 0 6px #07090C; pointer-events: none; }
+    #top b { font-size: 26px; }
+    #banner { position: fixed; top: 24%; width: 100%; text-align: center; color: #FFB000; font-size: 28px; letter-spacing: 6px; text-shadow: 0 0 8px #07090C; pointer-events: none; }
+    #feed { position: fixed; top: 60px; right: 16px; text-align: right; color: #efe9da; font-size: 14px; text-shadow: 0 0 4px #07090C; pointer-events: none; }
+    #hp { position: fixed; left: 24px; bottom: 20px; color: #FFB000; font-size: 22px; letter-spacing: 2px; text-shadow: 0 0 6px #07090C; pointer-events: none; }
+    #room { position: fixed; left: 16px; top: 10px; color: #FFB000; font-size: 14px; pointer-events: none; }
+    #menu { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(7,9,12,.9); z-index: 10; text-align: center; }
+    #menu h1 { color: #FFB000; letter-spacing: 8px; margin: 0 0 6px; }
+    #menu input { font: inherit; padding: 8px 10px; background: #12161c; color: #e8e2d0; border: 1px solid #5a4a20; margin: 4px; text-align: center; }
+    #menu button { font: inherit; padding: 9px 22px; margin: 4px; background: #FFB000; color: #07090C; border: 0; cursor: pointer; letter-spacing: 2px; }
+    #menu button:disabled { opacity: .4; cursor: default; }
+    #status { min-height: 1.4em; margin-top: 10px; color: #efe9da; }
+    #help { opacity: .7; margin-top: 14px; font-size: 13px; }
+  </style>
+</head>
+<body class="mp">
+  <div id="app"></div>
+  <div id="cross"></div>
+  <div id="room"></div>
+  <div id="top"></div>
+  <div id="banner"></div>
+  <div id="feed"></div>
+  <div id="hp"></div>
+  <div id="menu">
+    <h1>OMEGA VALLEY</h1>
+    <p>Ravens vs Village. Up to 6 players, bots fill the empty seats.</p>
+    <div><input id="name" maxlength="16" placeholder="Your name" value="" /></div>
+    <div><button id="host">Host game</button> <button id="solo">Solo vs bots</button></div>
+    <div><input id="code" maxlength="17" placeholder="Room code" /><button id="join">Join</button></div>
+    <div id="status"></div>
+    <div id="help">WASD move, mouse look, click fire, Space jump, C crouch. Click the game to capture the mouse.</div>
+  </div>
+  <script type="module" src="/src/mp/main.ts"></script>
+</body>
+</html>

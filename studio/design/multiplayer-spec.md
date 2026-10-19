@@ -35,3 +35,8 @@ GitHub Pages is static, so no game server. Use serverless WebRTC DataChannel, ho
 - Is a copy/paste room code OK, or do you accept a free third-party signaling relay (easier to use, but a third party sees connection setup)?
 - Max players: 8 total OK?
 - Keep Lorenzo's story separate from multiplayer? (this spec assumes yes)
+
+## Owner decisions (2026-10-19)
+- Signaling: **free third-party relay** (PeerJS public cloud server). Room = short code; owner accepts that the relay sees connection setup.
+- Players: **6 max** (host + 5). Bots fill empty slots.
+- Lorenzo's story stays **single-player**; multiplayer is a separate mode (`?mode=multiplayer`).
