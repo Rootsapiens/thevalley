@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Omega Valley - Multiplayer</title>
+  <link rel="icon" href="data:," />
+  <style>html,body{-webkit-user-select:none;user-select:none;color:#e8e2d0;background:#07090c;height:100%;margin:0;font-family:Consolas,monospace;overflow:hidden}#app canvas{display:block}#cross{pointer-events:none;border:1px solid #ffb000;border-radius:50%;width:6px;height:6px;margin:-3px;position:fixed;top:50%;left:50%}#top{text-align:center;color:#ffb000;letter-spacing:3px;text-shadow:0 0 6px #07090c;pointer-events:none;width:100%;position:fixed;top:10px;left:0}#top b{font-size:26px}#banner{text-align:center;color:#ffb000;letter-spacing:6px;text-shadow:0 0 8px #07090c;pointer-events:none;width:100%;font-size:28px;position:fixed;top:24%}#feed{text-align:right;color:#efe9da;text-shadow:0 0 4px #07090c;pointer-events:none;font-size:14px;position:fixed;top:60px;right:16px}#hp{color:#ffb000;letter-spacing:2px;text-shadow:0 0 6px #07090c;pointer-events:none;font-size:22px;position:fixed;bottom:20px;left:24px}#room{color:#ffb000;pointer-events:none;font-size:14px;position:fixed;top:10px;left:16px}#menu{z-index:10;text-align:center;background:#07090ce6;flex-direction:column;justify-content:center;align-items:center;display:flex;position:fixed;inset:0}#menu h1{color:#ffb000;letter-spacing:8px;margin:0 0 6px}#menu select{font:inherit;color:#e8e2d0;background:#12161c;border:1px solid #5a4a20;margin:4px;padding:6px 8px}#menu input{font:inherit;color:#e8e2d0;text-align:center;background:#12161c;border:1px solid #5a4a20;margin:4px;padding:8px 10px}#menu button{font:inherit;color:#07090c;cursor:pointer;letter-spacing:2px;background:#ffb000;border:0;margin:4px;padding:9px 22px}#menu button:disabled{opacity:.4;cursor:default}#status{color:#efe9da;min-height:1.4em;margin-top:10px}#help{opacity:.7;margin-top:14px;font-size:13px}</style>
+  <script type="module" crossorigin src="./assets/mp-DpPvZT9C.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/preload-helper-BmaJr4lw.js">
+  <link rel="modulepreload" crossorigin href="./assets/materials-DDQqpvwQ.js">
+  <link rel="modulepreload" crossorigin href="./assets/villageScene-DEOWh7rH.js">
+</head>
+<body class="mp">
+  <div id="app"></div>
+  <div id="cross"></div>
+  <div id="room"></div>
+  <div id="top"></div>
+  <div id="banner"></div>
+  <div id="feed"></div>
+  <div id="hp"></div>
+  <div id="menu">
+    <h1>OMEGA VALLEY</h1>
+    <p>Ravens vs Village. Up to 6 players, bots fill the empty seats.</p>
+    <div><input id="name" maxlength="16" placeholder="Your name" value="" /></div>
+    <div>Bots: <select id="diff"><option value="easy" selected>Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></div>
+    <div><button id="host">Host game</button> <button id="solo">Solo vs bots</button></div>
+    <div><input id="code" maxlength="17" placeholder="Room code" /><button id="join">Join</button></div>
+    <div id="status"></div>
+    <div id="help">WASD move, mouse look, click fire, Space jump, C crouch. Click the game to capture the mouse.</div>
+  </div>
+</body>
+</html>

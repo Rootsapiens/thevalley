@@ -1,0 +1,2 @@
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["./nightshiftMain-BriN2FE9.js","./materials-DDQqpvwQ.js","./combat-dR1ZWbwj.js","./villageMain-Bdn7SgsD.js","./villageScene-DEOWh7rH.js"])))=>i.map(i=>d[i]);
+import{t as e}from"./preload-helper-BmaJr4lw.js";new URLSearchParams(location.search).get(`level`)===`nightshift`?e(()=>import(`./nightshiftMain-BriN2FE9.js`),__vite__mapDeps([0,1,2]),import.meta.url):e(()=>import(`./villageMain-Bdn7SgsD.js`),__vite__mapDeps([3,1,4,2]),import.meta.url);
