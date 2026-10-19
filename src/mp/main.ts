@@ -5,38 +5,48 @@ import { newPlayer, step as physStep, eyeHeight, TUNING, type PlayerState } from
 import { openHost, openClient, normaliseCode, type NetKind, type ClientNet } from '../net/transport';
 import { TEAM_NAMES, type GameEvent, type Phase, type PSnap } from '../net/protocol';
 import { HostSession, ClientSession } from './session';
-import { SOLIDS, FLAT, COVER, WALLS, ARENA_HALF, spawnFor } from './sim';
+import { SOLIDS, GROUND, EXTRA_COVER, spawnFor, type Difficulty } from './sim';
+import { buildVillage, SUN_DIR, FOG_COLOR } from '../villageScene';
+import { setAnisotropy } from '../materials';
 
 const Q = new URLSearchParams(location.search);
 const NET: NetKind = Q.get('net') === 'local' ? 'local' : 'peerjs';
 const BOTS = Q.get('bots') !== '0';
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
-// ---------- three scene ----------
+// ---------- three scene: the real village (src/villageScene.ts, read-only), lit and skied by its own builder ----------
 const renderer = new THREE.WebGLRenderer({ antialias: !Q.has('lowfx'), powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.debug.checkShaderErrors = import.meta.env.DEV;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+renderer.shadowMap.autoUpdate = false;     // the village is static: the sun's shadow map renders once
+renderer.shadowMap.needsUpdate = true;
+setAnisotropy(renderer.capabilities.getMaxAnisotropy());
 $('app').appendChild(renderer.domElement);
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x8a9aa6);
-scene.fog = new THREE.Fog(0x8a9aa6, 25, 90);
-const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.05, 200);
+scene.fog = new THREE.FogExp2(FOG_COLOR, 0.009);
+const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.05, 2000);
 camera.rotation.order = 'YXZ';
-scene.add(new THREE.HemisphereLight(0xdfe8f0, 0x4a4030, 1.6));
-const sun = new THREE.DirectionalLight(0xfff0d0, 1.6); sun.position.set(-20, 30, 10); scene.add(sun);
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(ARENA_HALF * 2 + 2, ARENA_HALF * 2 + 2), new THREE.MeshLambertMaterial({ color: 0x6b6a4a }));
-ground.rotation.x = -Math.PI / 2; scene.add(ground);
-const grid = new THREE.GridHelper(ARENA_HALF * 2, ARENA_HALF, 0x5a5a3c, 0x5a5a3c); grid.position.y = 0.01; scene.add(grid);
-const addBoxes = (boxes: typeof SOLIDS, color: number) => {
-  const mat = new THREE.MeshLambertMaterial({ color });
-  for (const b of boxes) {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(b.max.x - b.min.x, b.max.y - b.min.y, b.max.z - b.min.z), mat);
-    m.position.set((b.min.x + b.max.x) / 2, (b.min.y + b.max.y) / 2, (b.min.z + b.max.z) / 2);
-    scene.add(m);
+const V = buildVillage(scene, renderer);
+// The sun's shadow frustum was cut for the barn corner; move it over the square.
+V.sun.target.position.set(20, 0, 48);
+V.sun.position.copy(V.sun.target.position).addScaledVector(SUN_DIR, 90);
+V.sun.shadow.camera.top = 20; V.sun.shadow.camera.bottom = -8;
+V.sun.updateMatrixWorld(); V.sun.target.updateMatrixWorld(); V.sun.shadow.camera.updateProjectionMatrix();
+// Market stalls and carts: the extra cover the sim collides with.
+{
+  const mat = new THREE.MeshStandardMaterial({ color: 0x7a5a3a, roughness: 0.9 }), roof = new THREE.MeshStandardMaterial({ color: 0x9a3a2a, roughness: 0.9 });
+  for (const b of EXTRA_COVER) {
+    const w = b.max.x - b.min.x, h = b.max.y - b.min.y, d = b.max.z - b.min.z, cx = (b.min.x + b.max.x) / 2, cz = (b.min.z + b.max.z) / 2;
+    const y0 = GROUND(cx, cz);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(cx, y0 + h / 2, cz); m.castShadow = m.receiveShadow = true; scene.add(m);
+    const t = new THREE.Mesh(new THREE.BoxGeometry(w + 0.2, 0.1, d + 0.2), roof); t.position.set(cx, y0 + h + 0.05, cz); scene.add(t);
   }
-};
-addBoxes(WALLS, 0x8c7f6a);
-addBoxes(COVER, 0x9a6c4a);
+}
 
 const TEAM_COLOR = [0x5b3a8c, 0xd0962a];
 const figures = new Map<number, THREE.Group>();
@@ -131,6 +141,7 @@ function onEvents(evs: GameEvent[]): void {
 
 // ---------- lobby ----------
 const setStatus = (s: string) => { $('status').textContent = s; };
+const difficulty = (): Difficulty => { const v = Q.get('diff') ?? $<HTMLSelectElement>('diff').value; return v === 'medium' || v === 'hard' ? v : 'easy'; };
 const playerName = () => ($<HTMLInputElement>('name').value.trim() || 'Player') .slice(0, 16);
 function enterGame(): void {
   started = true; $('menu').style.display = 'none';
@@ -141,7 +152,7 @@ async function startHost(withNet: boolean): Promise<void> {
   setStatus(withNet ? 'Contacting the relay...' : 'Starting...');
   try {
     const net = withNet ? await openHost(NET) : null;
-    host = new HostSession(net, playerName(), { bots: BOTS });
+    host = new HostSession(net, playerName(), { bots: BOTS, difficulty: difficulty() });
     net?.onJoin(() => { /* the hello handshake does the work */ });
     myId = 0; enterGame();
     $('room').textContent = withNet ? `ROOM ${host.code}  (share this code, max 6)` : 'SOLO';
@@ -222,8 +233,9 @@ setInterval(() => {
 
 // ---------- render ----------
 let lastFrame = performance.now();
+const frameMs: number[] = [];
 function frame(): void {
-  const now = performance.now(), dt = Math.min(0.05, (now - lastFrame) / 1000); lastFrame = now;
+  const now = performance.now(), dt = Math.min(0.05, (now - lastFrame) / 1000); frameMs.push(now - lastFrame); if (frameMs.length > 600) frameMs.shift(); lastFrame = now;
   const vs = views();
   const me = vs.find(v => v.i === myId);
   const g = game();
@@ -231,7 +243,7 @@ function frame(): void {
   if (client && me) {
     if (me.a) {
       const a = axes(), frozen = g.phase === 'freeze' || g.phase === 'waiting';
-      physStep(pred, { forward: frozen ? 0 : a.fwd, strafe: frozen ? 0 : a.str, jump: !frozen && a.jump, crouch: a.crouch, walk: false, yaw }, SOLIDS, dt, FLAT);
+      physStep(pred, { forward: frozen ? 0 : a.fwd, strafe: frozen ? 0 : a.str, jump: !frozen && a.jump, crouch: a.crouch, walk: false, yaw }, SOLIDS, dt, GROUND);
       const ex = me.x - pred.pos.x, ez = me.z - pred.pos.z, err = Math.hypot(ex, ez);
       if (err > 2 || frozen) { pred.pos.x = me.x; pred.pos.z = me.z; pred.pos.y = me.y; pred.vel.x = pred.vel.z = 0; }
       else { pred.pos.x += ex * 0.12; pred.pos.z += ez * 0.12; }
@@ -254,6 +266,8 @@ function frame(): void {
   }
   if (camFrom) { camera.position.set(camFrom.x, camFrom.y + camFrom.eye, camFrom.z); camera.rotation.set(camFrom.pt, camFrom.yw, 0); }
   vm.visible = !!me?.a;
+  V.sky.position.copy(camera.position);
+  V.waterTime.value = now / 1000; V.dustTime.value = now / 1000;
   // figures
   const seen = new Set<number>();
   for (const v of vs) {
@@ -276,7 +290,7 @@ function hud(vs: View[], me: View | undefined, g: ReturnType<typeof game>, now: 
   const mm = Math.floor(Math.max(0, g.tl) / 60), ss = Math.floor(Math.max(0, g.tl) % 60);
   const label = g.phase === 'waiting' ? 'WAITING FOR PLAYERS' : g.phase === 'freeze' ? `GET READY ${Math.ceil(g.tl)}` : g.phase === 'live' ? `${mm}:${String(ss).padStart(2, '0')}` : g.phase === 'matchEnd' ? 'MATCH OVER' : 'ROUND OVER';
   $('top').innerHTML = `RAVENS <b>${g.sc[0]}</b> : <b>${g.sc[1]}</b> VILLAGE &nbsp; ROUND ${g.rd} &nbsp; ${label}`;
-  $('hp').textContent = me ? (me.a ? `HP ${me.hp}` : `ELIMINATED - watching ${vs.find(v => v.i === spec)?.n ?? '-'}`) : '';
+  $('hp').textContent = me ? (me.a ? `HP ${Math.round(me.hp)}` : `ELIMINATED - watching ${vs.find(v => v.i === spec)?.n ?? '-'}`) : '';
   while (feed.length && feed[0].t < now) feed.shift();
   $('feed').innerHTML = feed.map(f => f.s).join('<br>');
   $('banner').textContent = now < bannerUntil ? bannerText : '';
@@ -295,4 +309,6 @@ renderer.setAnimationLoop(frame);
   },
   look: (y: number, p: number) => { yaw = y; pitch = p; },
   fire: () => trigger(),
+  /** 95th percentile of the last 600 frame intervals, in ms. */
+  frameP95: () => { const a = [...frameMs].sort((x, y) => x - y); return a.length ? a[Math.floor(a.length * 0.95)] : 0; },
 };

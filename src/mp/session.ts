@@ -1,5 +1,5 @@
 // Host and client sessions: glue between the sim and a transport. No DOM, no Three.js (unit-testable over loopback).
-import { MpSim } from './sim';
+import { MpSim, type Difficulty } from './sim';
 import { RULES } from '../net/room';
 import { decode, encode, checkVersion, PROTOCOL_VERSION, type InputMsg, type Snap } from '../net/protocol';
 import type { HostNet, ClientNet } from '../net/transport';
@@ -14,8 +14,8 @@ export class HostSession {
   private acc = 0;
   /** Latest snapshot (the host renders from its own sim, but keeps events for the HUD). */
   last: Snap | null = null;
-  constructor(private net: HostNet | null, name: string, opts: { bots: boolean; rng?: () => number }) {
-    this.sim = new MpSim(opts.rng);
+  constructor(private net: HostNet | null, name: string, opts: { bots: boolean; rng?: () => number; difficulty?: Difficulty }) {
+    this.sim = new MpSim(opts.rng, opts.difficulty ?? 'easy');
     this.sim.addHuman(0, name || 'Host');
     if (opts.bots) for (let i = 1; i < RULES.slots; i++) this.sim.addBot(i);
     const botsOn = opts.bots;

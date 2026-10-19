@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { LoopbackHub, bcHost, bcJoin, makeCode, normaliseCode } from '../src/net/transport';
 import { HostSession, ClientSession } from '../src/mp/session';
 import { encode, PROTOCOL_VERSION } from '../src/net/protocol';
-import { lookDir, hitscan, spawnFor, SOLIDS } from '../src/mp/sim';
+import { lookDir, hitscan, spawnFor, SOLIDS, BOUNDS, PROTECT } from '../src/mp/sim';
 import { RULES } from '../src/net/room';
 
 const adv = (h: HostSession, sec: number) => { for (let t = 0; t < sec; t += 0.1) h.advance(0.1); };
@@ -49,13 +49,13 @@ describe('host + client session over loopback', () => {
     const cli = new ClientSession(hub.join('ROOM1'), 'Guest', () => 0);
     await flush();
     expect(cli.status).toBe('ready'); expect(cli.id).toBe(1);          // Village seat
-    adv(host, RULES.freeze + 0.5);
+    adv(host, RULES.freeze + PROTECT + 0.6);   // live, and the 3 s of spawn protection are over
     expect(host.sim.room.phase).toBe('live');
     // The guest (Village, south) aims at the host (Ravens, north) and pulls the trigger until it drops.
     const me = spawnFor(1), foe = spawnFor(0);
     const yaw = Math.atan2(-(foe.x - me.x), -(foe.z - me.z));
     const pitch = Math.atan2(1.2 - 1.64, Math.hypot(foe.x - me.x, foe.z - me.z));
-    for (let i = 0; i < 6 && host.sim.room.phase === 'live'; i++) {
+    for (let i = 0; i < 14 && host.sim.room.phase === 'live'; i++) {
       cli.pull(); cli.sendInput({ fwd: 0, str: 0, yaw, pitch, jump: false, crouch: false });
       await flush(); adv(host, 0.4);
     }
@@ -103,12 +103,12 @@ describe('hitscan and bots', () => {
   });
   it('bodies stand on the flat ground and bots stay inside the walls', () => {
     const hub = new LoopbackHub(), host = new HostSession(hub.host('FLOOR'), 'H', { bots: true });
-    adv(host, 20);
-    for (const b of host.sim.bodies) { expect(Math.abs(b.pos.y)).toBeLessThan(0.05); expect(Math.abs(b.pos.x)).toBeLessThan(22); expect(Math.abs(b.pos.z)).toBeLessThan(22); }
+    adv(host, 40);
+    for (const b of host.sim.bodies) { expect(Math.abs(b.pos.y)).toBeLessThan(0.05); expect(b.pos.x).toBeGreaterThan(BOUNDS.x0); expect(b.pos.x).toBeLessThan(BOUNDS.x1); expect(b.pos.z).toBeGreaterThan(BOUNDS.z0); expect(b.pos.z).toBeLessThan(BOUNDS.z1); }
   });
-  it('a bot match runs 90 s of game time without NaN and scores rounds', () => {
+  it('a bot match runs 300 s of game time without NaN and scores rounds', () => {
     const hub = new LoopbackHub(), host = new HostSession(hub.host('BOTSX'), 'H', { bots: true });
-    for (let i = 0; i < 60 * 90; i++) host.advance(1 / 60);
+    for (let i = 0; i < 60 * 300; i++) host.advance(1 / 60);
     for (const b of host.sim.bodies) expect(Number.isFinite(b.pos.x + b.pos.y + b.pos.z)).toBe(true);
     const sl = host.sim.room.slots;
     expect(sl.reduce((n, s) => n + s.kills, 0)).toBeGreaterThan(0);
