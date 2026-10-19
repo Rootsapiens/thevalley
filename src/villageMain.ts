@@ -1,16 +1,21 @@
 // Chapter 1 slice "Arrival": Lorenzo at the farmer's empty barn, Day 1, 16:41, inside the full village blockout.
-// Walk, look, E to examine or to use gates and doors, follow the hoofprints to the mountain path or cross the
-// stepping stones to the herd trail. Fixed 120 Hz simulation (src/physics.ts) on the terrain, render every frame.
+// Walk, look, E to examine or to use gates, doors and the bell rope, push the barn's pail and stool, follow the hoofprints
+// to the mountain path or cross the stepping stones to the herd trail. Fixed 120 Hz simulation (src/physics.ts, entities
+// in src/entities.ts) on the terrain, render every frame.
 import * as THREE from 'three';
-import { newPlayer, step, eyeHeight, height, overlaps, TUNING, type Input, type PlayerState, type Box } from './physics';
+import { newPlayer, step, eyeHeight, height, TUNING, type Input, type PlayerState, type Box } from './physics';
 import {
   villageSolids, EXAMINABLES, LINES, SPAWN, SPAWN_YAW, MOUNTAIN, BARN, pickExaminable, surfaceAt, zoneEvents,
-  newVillageState, markExamined, bearingDir, groundY, USABLES, leafBox, pickUsable, LOCKED_LINE, type VillageState, type Text,
+  newVillageState, markExamined, bearingDir, groundY, USABLES, leafBox, pickUsable, LOCKED_LINE, BELL_ROPE, PROPS,
+  type VillageState, type Text, type Examinable,
 } from './village';
+import { makeDoor, makeButton, makeProp, useDoor, pressButton, tickEnts, pushFrom, pushScale, easeIO, type Ents, type Push } from './entities';
 import { BUILDINGS, streamX, streamHalf } from './villageMap';
 import { buildVillage, FOG_COLOR } from './villageScene';
 import { villageAudio, measureVillagePeaks } from './villageAudio';
 import { setAnisotropy } from './materials';
+import { placeNpcs } from './npcPlacement';
+import palette from '../studio/art/palette.json';
 
 const DT = 1 / 120;
 const FOV = 70;
@@ -52,23 +57,44 @@ WORLD.forEach((b, n) => {
 const bpSeen = new Uint32Array(WORLD.length);
 let bpStamp = 0;
 const NEAR: Box[] = [];
-/** Static boxes within ~2.5 m of (x, z) plus the gate and door leaves that are solid right now. No allocation. */
+/** Static boxes within ~2.5 m of (x, z) plus the gate and door leaves that are solid right now and the loose props. No allocation. */
 function nearWorld(x: number, z: number): Box[] {
   NEAR.length = 0; bpStamp++;
   for (let i = Math.floor((x - 2.5) / BP); i <= Math.floor((x + 2.5) / BP); i++) for (let j = Math.floor((z - 2.5) / BP); j <= Math.floor((z + 2.5) / BP); j++) {
     const a = bpGrid.get(bpKey(i, j)); if (!a) continue;
     for (const n of a) if (bpSeen[n] !== bpStamp) { bpSeen[n] = bpStamp; NEAR.push(WORLD[n]); }
   }
-  for (let u = 0; u < USABLES.length; u++) if (leafSolid[u]) NEAR.push(leafBoxes[u]);
+  for (const d of ENTS.doors) if (d.solid) NEAR.push(d.box);
+  for (const p of ENTS.props) NEAR.push(p.box);
   return NEAR;
 }
 
-// ---------- Gates and doors: open progress, swing, live collision ----------
-const openT = new Float32Array(USABLES.length), openGoal = new Uint8Array(USABLES.length), leafSolid = new Uint8Array(USABLES.length);
-const leafBoxes: Box[] = USABLES.map(u => leafBox(u, 0, { min: { x: 0, y: 0, z: 0 }, max: { x: 0, y: 0, z: 0 } }));
+// ---------- Entities: gates and doors (index = USABLES index), the bell rope, the pail and the stool ----------
+const ENTS: Ents = { doors: [], buttons: [], props: [], events: [] };
+function resetEnts() {
+  ENTS.doors = USABLES.map(u => makeDoor(u.id, (t, out) => leafBox(u, t, out), { locked: u.locked }));
+  ENTS.buttons = [makeButton(BELL_ROPE.id, BELL_ROPE.target, { wait: 5, press: 0.9 })];
+  ENTS.props = PROPS.map(p => makeProp(p.id, { ...p.pos, y: groundY(p.pos.x, p.pos.z) }, p.half, { follow: p.follow, drag: p.drag }));
+  ENTS.events.length = 0;
+}
+resetEnts();
+const BUTTONS = [BELL_ROPE] as unknown as Examinable[];
 const leafObj = USABLES.map(u => V.leaves.find(l => l.id === u.id)?.obj ?? null);
-for (let u = 0; u < USABLES.length; u++) leafSolid[u] = USABLES[u].locked ? 0 : 1;
-const easeIO = (t: number) => t * t * (3 - 2 * t);
+const push: Push = { x: 0, z: 0, speed: 0, vx: 0, vz: 0 };
+const scrapeT = new Float32Array(PROPS.length);
+let bells = 0;
+/** Entity events to sounds (and the locked prompt). */
+function drainEvents() {
+  for (const ev of ENTS.events) {
+    if (ev.type === 'locked') { audio.play('rattle'); lockT = 1.6; lockU = USABLES.findIndex(u => u.id === ev.id); }
+    else if (ev.type === 'blocked') audio.play('latch', undefined, 0.4);
+    else if (ev.type === 'open' || ev.type === 'close') { audio.play('latch', undefined, 0.9); audio.play('creak', undefined, 0.35); }
+    else if (ev.type === 'shut') audio.play('latch', undefined, 0.7);
+    else if (ev.type === 'fire' && ev.target === 'bell') { bells++; audio.play('bell', 0.35); }
+    else if (ev.type === 'bump') audio.play('bump', ev.id === 'pail' ? 1 : 0, Math.min(1.5, ev.speed / 2));
+  }
+  ENTS.events.length = 0;
+}
 const HOLLOW = BUILDINGS.filter(b => b.hollow);
 /** compileAsync skips the sun's shadow pass, which draws every caster with three's internal MeshDepthMaterial. This
  *  stand-in has the same program key (BackSide from shadowSide, no map, no fog, one shadowed directional light, linear
@@ -83,6 +109,16 @@ function compileShadowDepth(): Promise<unknown> {
   renderer.setRenderTarget(null);
   rt.dispose();
   return p;
+}
+// F3 also marks where the Day 1 NPCs will stand (build step 2 prep, src/npcPlacement.ts): teal = placeable as specified,
+// amber = an open item (no interior yet, floor undecided, inside a solid). One instanced draw, only while F3 is on.
+const NPC_SPOTS = placeNpcs(1);
+const npcMarks = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.22, 1.3, 3, 8), new THREE.MeshBasicMaterial({ toneMapped: false }), NPC_SPOTS.length);
+{
+  const m = new THREE.Matrix4(), ok = new THREE.Color(palette.ruptureTeal), open = new THREE.Color(palette.hudAmber);
+  NPC_SPOTS.forEach((p, i) => { npcMarks.setMatrixAt(i, m.makeTranslation(p.x, p.y + 0.87, p.z)); npcMarks.setColorAt(i, p.issues.length ? open : ok); });
+  npcMarks.visible = false; npcMarks.frustumCulled = false;
+  scene.add(npcMarks);
 }
 const depthReady = compileShadowDepth();
 // Stone and wood texture sets first (4 s at most), so their programs compile here with the maps bound, not in frame 1.
@@ -115,7 +151,7 @@ function subtitle(t: Text, seconds?: number) {
 let player: PlayerState = newPlayer(SPAWN);
 let vs: VillageState = newVillageState();
 let yaw = SPAWN_YAW, pitch = -0.03, storyTime = 0, endT = -1, introDone = false, turnbackCD = 0;
-let target = -1, lastExamine = -1, zoomT = 0, useTarget = -1, lockT = 0, lockU = -1;
+let target = -1, lastExamine = -1, zoomT = 0, useTarget = -1, buttonTarget = -1, lockT = 0, lockU = -1;
 const hl = new Float32Array(EXAMINABLES.length);
 const zoneOut: ('end' | 'turnback')[] = [];
 const pb: Box = { min: { x: 0, y: 0, z: 0 }, max: { x: 0, y: 0, z: 0 } };
@@ -144,7 +180,7 @@ addEventListener('keydown', e => {
   }
   if (e.code === 'KeyE') examine();
   if (e.code === 'KeyR' && endT > 9) restart();
-  if (e.code === 'F3') { e.preventDefault(); devOn = !devOn; dev.style.display = devOn ? 'block' : 'none'; }
+  if (e.code === 'F3') { e.preventDefault(); devOn = !devOn; dev.style.display = devOn ? 'block' : 'none'; npcMarks.visible = devOn; }
 });
 addEventListener('keyup', e => keys.delete(e.code));
 addEventListener('blur', () => keys.clear());
@@ -195,43 +231,34 @@ function readInput(): Input {
 // ---------- Examine / use ----------
 function examine() {
   if (endT >= 0) return;
-  if (target < 0) { if (useTarget >= 0) use(useTarget); return; }
+  if (target < 0) {
+    if (useTarget >= 0) use(useTarget);
+    else if (buttonTarget >= 0 && pressButton(ENTS, ENTS.buttons[buttonTarget])) drainEvents();
+    return;
+  }
   const e = EXAMINABLES[target];
   if (markExamined(vs, e.id)) { audio.play('chime'); clips.classList.remove('pulse'); void clips.offsetWidth; clips.classList.add('pulse'); }
   subtitle(e.line);
   lastExamine = target; zoomT = subTime;
 }
-/** E on a gate or door: swing it (0.75 s), or rattle it if locked. A leaf never closes on the player. */
+/** E on a gate or door: swing it (0.75 s), or rattle it if locked. A leaf never closes on the player. Locked: the prompt
+ *  under the crosshair reads "Locked." at once (not a spoken line, so it never waits for or cuts the subtitle channel). */
 function use(u: number) {
-  const it = USABLES[u];
-  // Locked: the rattle, and the prompt under the crosshair reads "Locked." at once. Not a spoken line, so it never waits
-  // for (or cuts) the subtitle channel; the old subtitle version was dropped whenever a line was still up.
-  if (it.locked) { audio.play('rattle'); lockT = 1.6; lockU = u; return; }
-  if (openGoal[u] === 1 && openT[u] > 0.98) {
-    leafBox(it, 0, _closed);
-    if (overlaps(pb, _closed)) { audio.play('latch', undefined, 0.4); return; }
-  }
-  openGoal[u] = openGoal[u] ? 0 : 1;
-  leafSolid[u] = 0;
-  audio.play('latch', undefined, 0.9);
-  audio.play('creak', undefined, 0.35);
+  useDoor(ENTS, ENTS.doors[u], pb);
+  drainEvents();
 }
-const _closed: Box = { min: { x: 0, y: 0, z: 0 }, max: { x: 0, y: 0, z: 0 } };
 
 // ---------- Simulation ----------
 function tick(input: Input) {
   storyTime += DT;
   if (!introDone && storyTime > 1.4) { introDone = true; if (subTime <= 0) subtitle(LINES.intro, 6.5); }   // never cut off a line
   turnbackCD -= DT;
-  // Leaves swing; one that comes to rest turns solid again as soon as the player is clear of it.
-  for (let u = 0; u < USABLES.length; u++) {
-    if (USABLES[u].locked) continue;
-    const goal = openGoal[u];
-    if (openT[u] !== goal) {
-      openT[u] = goal ? Math.min(1, openT[u] + DT / 0.75) : Math.max(0, openT[u] - DT / 0.75);
-      if (openT[u] === goal) { leafBox(USABLES[u], easeIO(goal), leafBoxes[u]); if (goal === 0) audio.play('latch', undefined, 0.7); }
-    } else if (!leafSolid[u] && !overlaps(pb, leafBoxes[u])) leafSolid[u] = 1;
-  }
+  // Entities first: props the player walks into move ahead of him (and set his pace), leaves swing and turn solid again
+  // once he is clear, buttons recover.
+  pushFrom(input.forward, input.strafe, input.yaw, input.walk, player.crouched, player.onGround && !flying, player.vel, push);
+  input.speedScale = pushScale(ENTS, pb, push);   // same contact as the push itself, so decided before the props move
+  tickEnts(ENTS, DT, pb, push, nearWorld, groundY);
+  if (ENTS.events.length) drainEvents();
   if (flying) {
     // Carpet flight: WASD steers in the look direction (7 m/s), Space climbs, Ctrl or C descends (4 m/s); speed eases in
     // and out over about half a second. No walls while flying; the terrain is the floor.
@@ -273,16 +300,18 @@ function restart() {
   END.yaw1 = Math.atan2(-cave.x, -cave.z);
   fade.style.opacity = '0'; title.classList.remove('show'); rec.classList.remove('stopped');
   playing = false; overlay.style.display = 'flex';
-  for (let u = 0; u < USABLES.length; u++) { openT[u] = 0; openGoal[u] = 0; leafBox(USABLES[u], 0, leafBoxes[u]); leafSolid[u] = USABLES[u].locked ? 0 : 1; }
+  resetEnts();
 }
 
 // ---------- Frame ----------
 let acc = 0, last = performance.now();
 const frameTimes: number[] = [];
-let bobPhase = 0, bobAmp = 0, landDip = 0, landVel = 0, wasGround = true, lastVy = 0, fov = FOV;
+let bobPhase = 0, bobAmp = 0, landDip = 0, landVel = 0, wasGround = true, lastVy = 0, fov = FOV, trauma = 0;
 let indoor = 0, gustPrev = 0, gustRising = false, creakCD = 3, dogAt = 7 + Math.random() * 6;
 const tvBase = V.tvMat.color.clone();
 const ease = (t: number) => { const x = Math.min(1, Math.max(0, t)); return x * x * (3 - 2 * x); };
+/** Smooth camera-shake noise in -1..1 (two incommensurate sines per channel k). */
+const shake = (t: number, k: number) => (Math.sin(t * 37.0 + k * 1.7) + 0.6 * Math.sin(t * 53.3 + k * 4.1)) / 1.6;
 const pad = (n: number) => (n < 10 ? '0' : '') + n;
 let tcFrame = -1, clipCount = -1;
 // F3 dev overlay: frame-time percentiles, CPU ms per frame, draw calls, triangles, player and look state.
@@ -298,7 +327,9 @@ function devOverlay() {
     + `calls ${renderer.info.render.calls}  tris ${renderer.info.render.triangles}\n`
     + `pos ${player.pos.x.toFixed(1)} ${player.pos.y.toFixed(2)} ${player.pos.z.toFixed(1)}  ${player.onGround ? 'ground' : player.sliding ? 'slide' : 'air'}  ${surfaceAt(player.pos.x, player.pos.z)}`
     + `  grid ${Math.floor((player.pos.x + 75) / 5)},${Math.floor((player.pos.z + 20) / 5)}\n`
-    + `look ${target >= 0 ? EXAMINABLES[target].id : useTarget >= 0 ? USABLES[useTarget].id : '-'}  examined ${vs.examined.length}/${EXAMINABLES.length}  near ${NEAR.length}  t ${storyTime.toFixed(1)}`;
+    + `look ${target >= 0 ? EXAMINABLES[target].id : useTarget >= 0 ? USABLES[useTarget].id : buttonTarget >= 0 ? BELL_ROPE.id : '-'}  examined ${vs.examined.length}/${EXAMINABLES.length}  near ${NEAR.length}  t ${storyTime.toFixed(1)}
+`
+    + `npcs ${NPC_SPOTS.length} (${NPC_SPOTS.filter(p => p.issues.length).length} open)  trauma ${trauma.toFixed(2)}  bells ${bells}`;
 }
 
 function frame(now: number) {
@@ -320,7 +351,15 @@ function frame(now: number) {
     if (Math.floor(bobPhase / Math.PI) !== before) audio.play('step', surfaceAt(player.pos.x, player.pos.z), 0.65 + 0.12 * speed);
   }
   bobAmp += ((player.onGround ? Math.min(speed / 3, 1.7) * 0.024 : 0) - bobAmp) * Math.min(1, dt * 8);
-  if (player.onGround && !wasGround && lastVy < -3) { landVel = Math.min(0.9, -lastVy * 0.09); audio.play('step', surfaceAt(player.pos.x, player.pos.z), 1.2); }
+  // Landing: the knees take it (landDip spring), the surface answers, and a hard one shakes the camera (trauma, felt as
+  // trauma squared, so a jump is a nudge and a 3 m drop a jolt).
+  if (player.onGround && !wasGround && lastVy < -3) {
+    landVel = Math.min(0.9, -lastVy * 0.09);
+    audio.play('step', surfaceAt(player.pos.x, player.pos.z), Math.min(1.6, 1.0 - lastVy * 0.04));
+    trauma = Math.min(1, trauma + Math.max(0, (-lastVy - 3.5) / 10));
+  }
+  trauma = Math.max(0, trauma - dt * 1.5);
+  const sh = trauma * trauma;
   wasGround = player.onGround; lastVy = player.vel.y;
   landVel -= (landDip * 140 + landVel * 14) * dt; landDip += landVel * dt;
   const bobY = bobAmp * Math.abs(Math.sin(bobPhase)), bobX = bobAmp * 0.45 * Math.sin(bobPhase);
@@ -352,7 +391,7 @@ function frame(now: number) {
   if (Math.abs(camera.fov - fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
 
   const ride = flying ? 0.035 * Math.sin(t * 1.3) : 0, eyeY = flying ? CARPET_EYE + ride : eyeHeight(player);
-  camera.rotation.set(pitch + swayP, yaw + swayY, -bobX * 0.15);
+  camera.rotation.set(pitch + swayP + sh * 0.05 * shake(t, 1), yaw + swayY + sh * 0.03 * shake(t, 2), -bobX * 0.15 + sh * 0.04 * shake(t, 3));
   const cy = Math.cos(yaw), sy = Math.sin(yaw);
   camera.position.set(player.pos.x + cy * bobX, player.pos.y + eyeY + bobY - bobAmp * 0.5 - landDip, player.pos.z - sy * bobX);
   V.sky.position.copy(camera.position);
@@ -367,6 +406,7 @@ function frame(now: number) {
   dirV.x = -sy * cp; dirV.y = Math.sin(pitch); dirV.z = -cy * cp;
   target = endT >= 0 ? -1 : pickExaminable(eyeV, dirV, EXAMINABLES, SOLIDS);
   useTarget = endT >= 0 || target >= 0 ? -1 : pickUsable(eyeV, dirV, SOLIDS);
+  buttonTarget = endT >= 0 || target >= 0 || useTarget >= 0 ? -1 : pickExaminable(eyeV, dirV, BUTTONS, SOLIDS);
   for (let i = 0; i < EXAMINABLES.length; i++) {
     const h = V.highlights[i];
     hl[i] += ((i === target ? 1 : 0) - hl[i]) * Math.min(1, dt * (i === target ? 10 : 6));
@@ -392,8 +432,21 @@ function frame(now: number) {
     prompt.classList.add('show');
     prompt.classList.remove('seen');
     prompt.classList.toggle('locked', locked);
+  } else if (buttonTarget >= 0) {
+    const n = BELL_ROPE.name;
+    if (promptEn.textContent !== n.en) { promptAr.textContent = n.ar; promptEn.textContent = n.en; }
+    prompt.classList.add('show');
+    prompt.classList.remove('seen', 'locked');
   } else prompt.classList.remove('show');
-  for (let u = 0; u < USABLES.length; u++) { const o = leafObj[u]; if (o) o.rotation.y = USABLES[u].yaw0 + USABLES[u].swing * easeIO(openT[u]); }
+  for (let u = 0; u < USABLES.length; u++) { const o = leafObj[u]; if (o) o.rotation.y = USABLES[u].yaw0 + USABLES[u].swing * easeIO(ENTS.doors[u].open); }
+  // Props follow their entities and scrape while they slide; the bell rope dips with its press.
+  for (let i = 0; i < ENTS.props.length; i++) {
+    const p = ENTS.props[i], m = V.props[i].mesh, sp = Math.hypot(p.vel.x, p.vel.z);
+    m.position.set(p.pos.x, p.pos.y, p.pos.z);
+    scrapeT[i] -= dt;
+    if (sp > 0.25 && scrapeT[i] <= 0) { audio.play('scrape', p.id === 'pail' ? 1 : 0, Math.min(1.3, 0.4 + sp / 2)); scrapeT[i] = 0.09 + 0.12 / sp; }
+  }
+  V.bellRope.position.y = BELL_ROPE.pos.y - 0.35 * Math.sin(Math.PI * ENTS.buttons[0].t);
 
   // Far landmarks: inside the barn corner the ridges stand exactly where the slice put them; walking out into the
   // village they shift with the camera, so the valley sides act ~450 m away and the mountain ~2.8 km (village.md).
@@ -468,7 +521,7 @@ window.__game = {
   state: () => ({
     level: 'village', examined: [...vs.examined], finished: vs.finished, target: target >= 0 ? EXAMINABLES[target].id : null,
     pos: { ...player.pos }, vel: { ...player.vel }, onGround: player.onGround, crouched: player.crouched, yaw, pitch, storyTime,
-    endT, surface: surfaceAt(player.pos.x, player.pos.z), use: useTarget >= 0 ? USABLES[useTarget].id : null, mast: V.mastMat.visible,
+    endT, surface: surfaceAt(player.pos.x, player.pos.z), use: useTarget >= 0 ? USABLES[useTarget].id : null, mast: V.mastMat.visible, trauma,
     // Shape shared with Night Shift so generic e2e helpers keep working: no combat here.
     health: 100, weapon: 'none', hasNailer: false, mag: 0, reserve: 0, kills: 0, enemies: [],
     facility: { breakers: [], doorOpen: false, fired: [], finished: vs.finished },
@@ -482,7 +535,9 @@ window.__game = {
       materials: mats.size, buckets: V.stats, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures };
   },
   examinables: () => EXAMINABLES.map(e => ({ id: e.id, pos: e.pos, from: e.from })),
-  usables: () => USABLES.map((u, i) => ({ id: u.id, kind: u.kind, locked: u.locked, pos: u.pos, from: u.from, open: openT[i], solid: !!leafSolid[i] })),
+  usables: () => USABLES.map((u, i) => ({ id: u.id, kind: u.kind, locked: u.locked, pos: u.pos, from: u.from, open: ENTS.doors[i].open, solid: ENTS.doors[i].solid })),
+  ents: () => ({ bells, props: ENTS.props.map(p => ({ id: p.id, pos: { ...p.pos }, vel: { ...p.vel } })), buttons: ENTS.buttons.map(b => ({ id: b.id, t: b.t, cool: b.cool })) }),
+  buttonTarget: () => (buttonTarget >= 0 ? BELL_ROPE.id : null),
   useTarget: () => (useTarget >= 0 ? USABLES[useTarget].id : null),
   pictures: () => V.pictures,
   carpet: () => { const c = V.carpet.mesh; return { flying, visible: c.visible, x: c.position.x, y: c.position.y, z: c.position.z, yaw: c.rotation.y }; },

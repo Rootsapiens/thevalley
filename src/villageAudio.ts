@@ -125,6 +125,35 @@ export const voices = {
       burst(c, out, s + 0.01, 0.06, 'lowpass', 380, 0.8, 0.35);
     }
   },
+  /** The church bell [3], 22 m up the tower: inharmonic bell partials (hum, prime, minor third, fifth, nominal and up),
+   *  the low ones ringing longest, through a long hall reverb. Two strokes as the bell swings. */
+  bell(c: Ctx, out: AudioNode, t: number, k = 1) {
+    const rv = c.createConvolver(); rv.buffer = reverbIR(c, 4.5);
+    const wet = c.createGain(); wet.gain.value = 0.55; const dry = c.createGain(); dry.gain.value = 0.7;
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3800;
+    lp.connect(dry).connect(out); lp.connect(rv).connect(wet).connect(out);
+    const f0 = 311;
+    for (const [s, gap] of [[0, 0], [1, 1.9]] as const) {
+      const ts = t + gap, a = s ? 0.75 : 1;
+      for (const [r, p, d] of [[0.5, 0.05, 7], [1, 0.07, 5], [1.19, 0.06, 3.2], [1.5, 0.03, 2.4], [2, 0.05, 3], [2.51, 0.025, 1.6], [2.66, 0.02, 1.4], [3.01, 0.015, 1.1], [4.1, 0.01, 0.6]] as const) {
+        const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = f0 * r * (1 + (Math.random() - 0.5) * 0.002);
+        o.connect(envAt(c, lp, ts, p * a * k, 0.004, d)); o.start(ts); o.stop(ts + d + 0.1);
+      }
+      burst(c, lp, ts, 0.03, 'bandpass', 2400, 2, 0.12 * a * k);   // the clapper
+    }
+  },
+  /** A prop dragged over boards: rough noise through a wood (or tin) body, one grain per call. */
+  scrape(c: Ctx, out: AudioNode, t: number, k = 1, metal = false) {
+    burst(c, out, t, rand(0.08, 0.13), 'bandpass', metal ? rand(1800, 2600) : rand(520, 760), metal ? 4 : 1.6, 0.22 * k, 0.02);
+    if (metal) burst(c, out, t + 0.02, 0.06, 'bandpass', rand(4200, 5200), 8, 0.06 * k);
+  },
+  /** A prop knocked against a wall, a post or another prop. */
+  bump(c: Ctx, out: AudioNode, t: number, k = 1, metal = false) {
+    const o = c.createOscillator(); o.type = 'triangle';
+    o.frequency.setValueAtTime(metal ? rand(420, 520) : rand(140, 180), t); o.frequency.exponentialRampToValueAtTime(metal ? 300 : 70, t + 0.12);
+    o.connect(envAt(c, out, t, 0.25 * k, 0.002, metal ? 0.35 : 0.12)); o.start(t); o.stop(t + 0.45);
+    burst(c, out, t, 0.05, 'lowpass', 500, 0.8, 0.3 * k);
+  },
   /** Low swell under the title card. */
   drone(c: Ctx, out: AudioNode, t: number) {
     for (const [f, p] of [[55, 0.09], [82.4, 0.05], [110.3, 0.025]] as const) {
@@ -214,9 +243,12 @@ export function villageAudio() {
       lastWind = c.currentTime;
       windAt(wind, gust, indoor, fade, c.currentTime);
     },
-    play(name: 'step' | 'chime' | 'creak' | 'dog' | 'drone' | 'latch' | 'rattle', arg?: Step | number, k = 1) {
+    /** arg: the surface for 'step', the pan for 'dog', 1 for a metal prop ('scrape', 'bump'), the delay (s) for 'bell'. */
+    play(name: 'step' | 'chime' | 'creak' | 'dog' | 'drone' | 'latch' | 'rattle' | 'bell' | 'scrape' | 'bump', arg?: Step | number, k = 1) {
       if (!c || !master) return;
       const t = c.currentTime + 0.005;
+      if (name === 'bell') { voices.bell(c, master, t + ((arg as number | undefined) ?? 0), k); return; }
+      if (name === 'scrape' || name === 'bump') { voices[name](c, master, t, k, arg === 1); return; }
       if (name === 'step') voices.step(c, master, t, (arg as Step | undefined) ?? 'dirt', k);
       else if (name === 'creak') voices.creak(c, master, t, k);
       else if (name === 'latch') voices.latch(c, master, t, k);
@@ -247,6 +279,9 @@ export async function measureVillagePeaks(): Promise<Record<string, number>> {
   out.wind = await render(8, (c, m) => windAt(windBed(c, m), 1, 1, 1, null));
   out.latch = await render(0.6, (c, m) => voices.latch(c, m, 0.01, 1));
   out.rattle = await render(0.8, (c, m) => voices.rattle(c, m, 0.01));
+  out.bell = await render(9, (c, m) => voices.bell(c, m, 0.01, 1));
+  out.scrape = await render(0.4, (c, m) => voices.scrape(c, m, 0.01, 1.5, true));
+  out.bump = await render(0.6, (c, m) => voices.bump(c, m, 0.01, 1.5, true));
   out.stream = await render(4, (c, m) => streamAt(streamBed(c, m), 1, null));
   // Worst case: full-gust wind + the stream at the stones + creak + chime + latch + a heavy step + a bark at once.
   out.allAtOnce = await render(3, (c, m) => {

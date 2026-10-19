@@ -4,6 +4,7 @@ import {
   villageSolids, EXAMINABLES, LINES, SPAWN, SPAWN_YAW, END_ZONE, TURNBACK_ZONE, MOUNTAIN, trailPoints, bearingDir,
   pickExaminable, surfaceAt, zoneEvents, newVillageState, markExamined, rng, SUN, groundY,
 } from '../src/village';
+import { STONES } from '../src/villageMap';
 /** Main route on foot: farm track, back door, aisle, north door, then the hoofprints across the pasture to the gap. */
 const ROUTE = [[0, 12], [0, -9], [0, -13], [1.5, -15], [25, -38.6], [25.2, -40.5]];
 
@@ -171,6 +172,15 @@ describe('Village slice data', () => {
     expect(surfaceAt(4, 0)).toBe('straw');
     expect(surfaceAt(-12.5, 2)).toBe('stone');
     expect(surfaceAt(0, -18)).toBe('dirt');
+  });
+
+  it('footstep surfaces in the town: church and tower flagstones, house boards, the square, the stepping stones', () => {
+    expect(surfaceAt(14.5, 30.75)).toBe('stone');   // church nave
+    expect(surfaceAt(2.5, 27.5)).toBe('stone');     // tower base
+    expect(surfaceAt(75, 10)).toBe('wood');         // Maryam's house
+    expect(surfaceAt(30, 45)).toBe('stone');        // square cobbles
+    expect(surfaceAt(STONES[3].x, STONES[3].z)).toBe('stone');
+    expect(surfaceAt(37.5, 85)).toBe('dirt');       // valley road
   });
 
   it('examined list records each item once; rng is deterministic', () => {

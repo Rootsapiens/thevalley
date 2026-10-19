@@ -15,6 +15,8 @@ export interface Input {
   crouch: boolean;
   walk: boolean;
   yaw: number;     // radians
+  /** Scales the target ground speed (1 when absent): pushing a prop slows the player to the prop's pace. */
+  speedScale?: number;
 }
 
 export interface PlayerState {
@@ -190,7 +192,7 @@ export function step(p: PlayerState, input: Input, world: Box[], dt: number, gro
   let wz = -cos * input.forward - sin * input.strafe;
   const len = Math.hypot(wx, wz);
   if (len > 1e-4) { wx /= len; wz /= len; } else { wx = 0; wz = 0; }
-  const maxSpeed = p.crouched ? TUNING.crouchSpeed : input.walk ? TUNING.walkSpeed : TUNING.runSpeed;
+  const maxSpeed = (p.crouched ? TUNING.crouchSpeed : input.walk ? TUNING.walkSpeed : TUNING.runSpeed) * (input.speedScale ?? 1);
   const wishSpeed = len > 1e-4 ? maxSpeed : 0;
 
   const wasGround = p.onGround, wasSliding = !!p.sliding;

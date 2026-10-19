@@ -8,7 +8,7 @@
 // sun setting WSW (240 deg). The hoofprints leave the barn and cross the pasture at 45 deg to the wall gap.
 import { overlaps, type Box, type Vec3 } from './physics';
 import {
-  BUILDINGS, GATES, WALLS, STONES, BACK_STEPS, MARYAM_YARD, FOUNTAIN, BENCH, TRANSFORMER, POLES_10KV, POLE_SQUARE, POLICE_CAR,
+  BUILDINGS, GATES, WALLS, STONES, BACK_STEPS, MARYAM_YARD, FOUNTAIN, BENCH, TRANSFORMER, POLES_10KV, POLE_SQUARE, POLICE_CAR, SQUARE,
   GRAVES, OLIVES, TOWN_PINES, TRAIL_END, ROAD_SOUTH, groundY, groundRange, fenceRuns, streamX, streamHalf, waterY, slicePineKept,
   type Building, type DoorSpec, type Face, type Rect,
 } from './villageMap';
@@ -202,6 +202,23 @@ export function doorSteps(b: Building, d: DoorSpec): Tread[] {
   }
   return out;
 }
+
+// ---------- Entities (src/entities.ts): the bell rope in the tower base, the barn's pail and stool ----------
+export interface ButtonSpec { id: string; name: Text; target: string; pos: Vec3; r: number; from: Vec3; top: number }
+export interface PropSpec { id: string; name: Text; pos: Vec3; half: { x: number; y: number; z: number }; follow: number; drag: number }
+const TOWER = BUILDINGS.find(b => b.id === 'tower')!;
+/** The bell rope hangs through the tower base's ceiling (3.3 m) in the east half, clear of the ladder on the north
+ *  wall; pulling its sally rings the bell [3] (target 'bell'). pos is the sally, top where the rope leaves the ceiling. */
+export const BELL_ROPE: ButtonSpec = {
+  id: 'bell-rope', name: { ar: 'حبل الجرس', en: 'Bell rope' }, target: 'bell',
+  pos: { x: TOWER.x1 - 1.2, y: TOWER.floor + 1.35, z: (TOWER.z0 + TOWER.z1) / 2 + 0.3 }, r: 0.3,
+  from: { x: (TOWER.x0 + TOWER.x1) / 2, y: TOWER.floor + 0.01, z: TOWER.z1 - WALL_T - 0.9 }, top: TOWER.floor + 3.3,
+};
+/** The pail and the stool in the barn's east alley (the slice's props, now loose): light things follow a push closely. */
+export const PROPS: PropSpec[] = [
+  { id: 'pail', name: { ar: 'سطل', en: 'Pail' }, pos: { x: 7.2, y: 0, z: -5.4 }, half: { x: 0.16, y: 0.16, z: 0.16 }, follow: 0.75, drag: 7 },
+  { id: 'stool', name: { ar: 'كرسي صغير', en: 'Stool' }, pos: { x: 7.65, y: 0, z: -4.95 }, half: { x: 0.17, y: 0.22, z: 0.17 }, follow: 0.65, drag: 8 },
+];
 
 // ---------- Lit lamps (villageScene builds the fixtures and one point light per lamp) ----------
 /** The two bracket lanterns hang on the barn's z = 0 posts, over the mangers. */
@@ -532,8 +549,14 @@ export function surfaceAt(x: number, z: number): Surface {
     return 'wood';
   }
   if (x > -15 && x < -10.2 && z > -6.5 && z < 9.5) return 'stone';      // flagstones in the farmyard
+  // The town: an enterable building's floor (church and tower flagstones, house boards), the square's cobbles and the
+  // stepping stones; roads, paths, grass and mud stay dirt.
+  for (const b of HOLLOW) if (x > b.x0 + WALL_T && x < b.x1 - WALL_T && z > b.z0 + WALL_T && z < b.z1 - WALL_T) return b.kind === 'church' || b.kind === 'tower' ? 'stone' : 'wood';
+  if (x > SQUARE.x0 && x < SQUARE.x1 && z > SQUARE.z0 && z < SQUARE.z1) return 'stone';
+  for (const s of STONES) if (Math.abs(x - s.x) < s.sx / 2 + 0.15 && Math.abs(z - s.z) < s.sz / 2 + 0.15) return 'stone';
   return 'dirt';
 }
+const HOLLOW = BUILDINGS.filter(b => b.hollow);
 
 // ---------- Examine (pure picking with line of sight) ----------
 export const EXAMINE_RANGE = 3.0;

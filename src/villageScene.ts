@@ -11,7 +11,7 @@ import { VILLAGE_TEX, NORMAL_Y } from './villageTextures';
 import {
   BARN, STALLS, POSTS_Z, LOFT, FARMHOUSE, HOUSES, TROUGH, KENNEL, SHRINE, FENCES, NORTH_WALL_Z, GAP, SOUTH_WALL_Z,
   TRACK, SUN, MOUNTAIN, EXAMINABLES, TRAIL_CTRL, TREES, trailPoints, rng, bearingDir, fencesNow, H3, groundY, SLICE_PINES,
-  LAMPS, LANTERN_SIDE,
+  LAMPS, LANTERN_SIDE, PROPS, BELL_ROPE,
 } from './village';
 import { townFootprints, townFenceRuns, townInteriors, townWarm, buildTown, townBlocked, slicePineKept, townGroundColor, sunHeightMap, type TownScene } from './villageTown';
 
@@ -747,8 +747,7 @@ function buildBarn() {
   put('lit', boxMM(8.1, 0, -9.5, 9.5, 0.86, -8.4, 1), COL.timber.clone().multiplyScalar(0.85));
   put('lit', boxG(8.8, 0.9, -8.95, 1.44, 0.06, 1.14, 0.02, 0, 0), COL.timberDark);
   for (let k = 0; k < 4; k++) put('lit', boxG(8.6 + (k % 2) * 0.55, 0.3 + Math.floor(k / 2) * 0.32, -7.55 + (k % 2) * 0.55, 0.5, 0.42, 0.62, rr(-0.1, 0.1), rr(-0.4, 0.4), rr(-0.15, 0.15)), COL.hessian.clone().multiplyScalar(rr(0.85, 1.1)));
-  put('lit', cylG(7.2, 0, -5.4, 7.2, 0.3, -5.4, 0.15, 0.13, 10), COL.iron.clone().multiplyScalar(1.4));
-  put('lit', cylG(7.6, 0, -5.0, 7.6, 0.42, -5.0, 0.15, 0.15, 6), COL.timber);
+  // The pail and the stool are loose props now (village.ts PROPS, built in buildVillage).
   put('lit', cylG(9.3, 0.05, -2.0, 9.7, 2.0, -2.2, 0.022, 0.022, 4), COL.timberWarm);
   for (const o of [-0.08, 0, 0.08]) put('lit', cylG(9.3 + o * 0.2, 0.05, -2.0 + o, 9.22 + o * 0.2, 0.35, -2.0 + o, 0.006, 0.006, 3), COL.iron);
   for (const z of [2, 3.2, 4.4]) {
@@ -1343,6 +1342,10 @@ export interface VillageScene {
   pictures: TownScene['pictures'];
   /** The "sinafly" carpet: in the scene (hidden) from the start, so its program compiles in the warm-up. */
   carpet: Carpet;
+  /** Loose props (village.ts PROPS): each mesh's origin is its bottom centre, moved by its entity. */
+  props: { id: string; mesh: THREE.Mesh }[];
+  /** The bell rope: its rest position; pulled down by moving the mesh in y. */
+  bellRope: THREE.Mesh;
 }
 
 /** The scene's geometry kit, handed to the town builders (villageTown.ts) at build time. */
@@ -1495,6 +1498,41 @@ export function buildVillage(scene: THREE.Scene, renderer: THREE.WebGLRenderer):
   mark('envmap');
   const carpet = makeCarpet(env, renderer, maxAniso);
   scene.add(carpet.mesh);
+  // Loose props and the bell rope: own meshes on the lit material (moved at runtime), built through put() so they carry
+  // the same colour and bake attributes as the merged world. Props cast no shadow (the sun's map is static).
+  const own = (build: () => void, at: { x: number; y: number; z: number }) => {
+    const parts: THREE.BufferGeometry[] = [];
+    redirect = parts; build(); redirect = null;
+    const g = mergeGeometries(parts)!;
+    for (const p of parts) p.dispose();
+    g.translate(-at.x, -at.y, -at.z);
+    const m = new THREE.Mesh(g, lit);
+    m.position.set(at.x, at.y, at.z); m.receiveShadow = true;
+    scene.add(m);
+    return m;
+  };
+  const props = PROPS.map(s => ({ id: s.id, mesh: own(() => {
+    const { x, y, z } = s.pos;
+    if (s.id === 'pail') {
+      put('lit', cylG(x, y, z, x, y + 0.3, z, 0.13, 0.16, 14), COL.iron.clone().multiplyScalar(1.4));
+      put('lit', new THREE.TorusGeometry(0.16, 0.01, 4, 18).rotateX(Math.PI / 2).translate(x, y + 0.3, z), COL.iron);
+      put('lit', new THREE.TorusGeometry(0.155, 0.006, 4, 12, Math.PI).translate(x, y + 0.3, z), COL.iron);   // handle
+    } else {
+      put('lit', cylG(x, y + 0.39, z, x, y + 0.44, z, 0.17, 0.17, 14), COL.timber);
+      for (let i = 0; i < 3; i++) {
+        const a = i * 2.094 + 0.3;
+        put('lit', cylG(x + Math.cos(a) * 0.15, y, z + Math.sin(a) * 0.15, x + Math.cos(a) * 0.08, y + 0.4, z + Math.sin(a) * 0.08, 0.022, 0.018, 5), COL.timberDark);
+      }
+    }
+  }, s.pos) }));
+  const B0 = BELL_ROPE.pos;
+  const bellRope = own(() => {
+    put('lit', cylG(B0.x, B0.y + 0.27, B0.z, B0.x, BELL_ROPE.top + 0.45, B0.z, 0.012, 0.012, 5), COL.rope);      // up through the ceiling
+    for (let i = 0; i < 6; i++) {   // the striped woollen sally
+      put('lit', cylG(B0.x, B0.y - 0.27 + i * 0.09, B0.z, B0.x, B0.y - 0.18 + i * 0.09, B0.z, 0.036, 0.036, 10), i % 2 ? P('concrete').multiplyScalar(1.15) : P('emergencyRed').multiplyScalar(0.7));
+    }
+    put('lit', cylG(B0.x, B0.y - 0.35, B0.z, B0.x, B0.y - 0.27, B0.z, 0.012, 0.012, 5), COL.rope);
+  }, B0);
   const stats: Record<string, number> = { ...phase };
   const mk = (id: BucketId, m: THREE.Material, cast: boolean, receive: boolean) => {
     if (!buckets[id].length) return null;
@@ -1635,5 +1673,5 @@ export function buildVillage(scene: THREE.Scene, renderer: THREE.WebGLRenderer):
   dust.frustumCulled = false;
   scene.add(dust);
 
-  return { sun, sky, highlights, eastLeaf: leaf, tvMat, flameMat, flame, mastMat, dustTime, stats, leaves: town.leaves, waterTime: town.waterTime, nearRing, farRing, texturesReady, pictures: town.pictures, carpet };
+  return { sun, sky, highlights, eastLeaf: leaf, tvMat, flameMat, flame, mastMat, dustTime, stats, leaves: town.leaves, waterTime: town.waterTime, nearRing, farRing, texturesReady, pictures: town.pictures, carpet, props, bellRope };
 }
