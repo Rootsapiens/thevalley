@@ -1,13 +1,14 @@
 // Standalone multiplayer entry (mp.html). Ravens vs Village in a walled village square, host-authoritative.
 // Query: ?net=local uses BroadcastChannel between tabs (tests); ?bots=0 leaves empty seats empty.
 import * as THREE from 'three';
-import { newPlayer, step as physStep, eyeHeight, TUNING, type PlayerState } from '../physics';
+import { newPlayer, step as physStep, eyeHeight, type PlayerState } from '../physics';
 import { openHost, openClient, normaliseCode, type NetKind, type ClientNet } from '../net/transport';
 import { TEAM_NAMES, type GameEvent, type Phase, type PSnap } from '../net/protocol';
 import { HostSession, ClientSession } from './session';
 import { SOLIDS, GROUND, EXTRA_COVER, spawnFor, type Difficulty } from './sim';
 import { buildVillage, SUN_DIR, FOG_COLOR } from '../villageScene';
 import { setAnisotropy } from '../materials';
+import { Figure, setCharEnv } from './chars';
 
 const Q = new URLSearchParams(location.search);
 const NET: NetKind = Q.get('net') === 'local' ? 'local' : 'peerjs';
@@ -32,6 +33,7 @@ scene.fog = new THREE.FogExp2(FOG_COLOR, 0.009);
 const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.05, 2000);
 camera.rotation.order = 'YXZ';
 const V = buildVillage(scene, renderer);
+setCharEnv(V.env);
 // The sun's shadow frustum was cut for the barn corner; move it over the square.
 V.sun.target.position.set(20, 0, 48);
 V.sun.position.copy(V.sun.target.position).addScaledVector(SUN_DIR, 90);
@@ -39,7 +41,7 @@ V.sun.shadow.camera.top = 20; V.sun.shadow.camera.bottom = -8;
 V.sun.updateMatrixWorld(); V.sun.target.updateMatrixWorld(); V.sun.shadow.camera.updateProjectionMatrix();
 // Market stalls and carts: the extra cover the sim collides with.
 {
-  const mat = new THREE.MeshStandardMaterial({ color: 0x7a5a3a, roughness: 0.9 }), roof = new THREE.MeshStandardMaterial({ color: 0x9a3a2a, roughness: 0.9 });
+  const mat = new THREE.MeshStandardMaterial({ color: 0x7a5a3a, roughness: 0.9, envMap: V.env, envMapIntensity: 1.5, emissive: 0x2a1c10 }), roof = new THREE.MeshStandardMaterial({ color: 0x9a3a2a, roughness: 0.9, envMap: V.env, emissive: 0x2a100c });
   for (const b of EXTRA_COVER) {
     const w = b.max.x - b.min.x, h = b.max.y - b.min.y, d = b.max.z - b.min.z, cx = (b.min.x + b.max.x) / 2, cz = (b.min.z + b.max.z) / 2;
     const y0 = GROUND(cx, cz);
@@ -48,18 +50,11 @@ V.sun.updateMatrixWorld(); V.sun.target.updateMatrixWorld(); V.sun.shadow.camera
   }
 }
 
-const TEAM_COLOR = [0x5b3a8c, 0xd0962a];
-const figures = new Map<number, THREE.Group>();
-function figure(team: number): THREE.Group {
-  const g = new THREE.Group(), mat = new THREE.MeshLambertMaterial({ color: TEAM_COLOR[team] });
-  const body = new THREE.Mesh(new THREE.CapsuleGeometry(TUNING.radius, 1.0, 4, 8), mat); body.position.y = 0.85; g.add(body);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 8), new THREE.MeshLambertMaterial({ color: 0xd8b99a })); head.position.y = 1.62; g.add(head);
-  const gun = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.45), new THREE.MeshLambertMaterial({ color: 0x222222 })); gun.position.set(0.25, 1.25, -0.4); g.add(gun);
-  scene.add(g); return g;
-}
+interface Slot3D { fig: Figure; human: boolean; x: number; z: number }
+const figures = new Map<number, Slot3D>();
 // viewmodel
-const vm = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.1, 0.4), new THREE.MeshLambertMaterial({ color: 0x2a2a2a }));
-vm.position.set(0.22, -0.2, -0.45); camera.add(vm); scene.add(camera);
+const vm = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.045, 0.18), new THREE.MeshStandardMaterial({ color: 0x555a60, roughness: 0.5, metalness: 0.6, envMap: null }));
+vm.position.set(0.14, -0.14, -0.45); camera.add(vm); scene.add(camera);
 
 // ---------- audio (own synthesis, kept quiet) ----------
 let actx: AudioContext | null = null;
@@ -126,6 +121,7 @@ function onEvents(evs: GameEvent[]): void {
       const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(e.x, e.y, e.z), new THREE.Vector3(e.tx, e.ty, e.tz)]);
       const line = new THREE.Line(g, new THREE.LineBasicMaterial({ color: e.hit ? 0xff5030 : 0xffe080 }));
       scene.add(line); tracers.push({ line, life: 0.08 });
+      figures.get(e.i)?.fig.shoot();
       const me = views().find(v => v.i === myId);
       const dist = me ? Math.hypot(me.x - e.x, me.z - e.z) : 10;
       bang(0.3 / (1 + dist * 0.15));
@@ -268,16 +264,20 @@ function frame(): void {
   vm.visible = !!me?.a;
   V.sky.position.copy(camera.position);
   V.waterTime.value = now / 1000; V.dustTime.value = now / 1000;
-  // figures
+  // figures: animated bodies, idle/walk/run by speed, shoot on fire, death on kill
   const seen = new Set<number>();
   for (const v of vs) {
     seen.add(v.i);
     let f = figures.get(v.i);
-    if (!f) { f = figure(v.tm); figures.set(v.i, f); }
-    f.visible = v.a && v.i !== myId;
-    f.position.set(v.x, v.y, v.z); f.rotation.y = v.yw;
+    if (f && (f.human !== v.h || f.fig.team !== v.tm)) { scene.remove(f.fig.group); f.fig.dispose(); figures.delete(v.i); f = undefined; }
+    if (!f) { f = { fig: new Figure(v.i, v.tm, v.h), human: v.h, x: v.x, z: v.z }; scene.add(f.fig.group); figures.set(v.i, f); }
+    const speed = dt > 0 ? Math.hypot(v.x - f.x, v.z - f.z) / dt : 0;
+    f.x = v.x; f.z = v.z;
+    f.fig.update(dt, v.a ? Math.min(speed, 8) : 0, v.a);
+    f.fig.group.visible = v.i !== myId && v.i !== spec && (v.a || f.fig.wasAlive);   // never the body the camera sits in
+    f.fig.group.position.set(v.x, v.y, v.z); f.fig.group.rotation.y = v.yw;
   }
-  for (const [id, f] of figures) if (!seen.has(id)) { scene.remove(f); figures.delete(id); }
+  for (const [id, f] of figures) if (!seen.has(id)) { scene.remove(f.fig.group); f.fig.dispose(); figures.delete(id); }
   for (let i = tracers.length - 1; i >= 0; i--) {
     const t = tracers[i]; t.life -= dt;
     if (t.life <= 0) { scene.remove(t.line); t.line.geometry.dispose(); (t.line.material as THREE.Material).dispose(); tracers.splice(i, 1); }
