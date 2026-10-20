@@ -1,3 +1,6 @@
+## 2026-10-20 — Mobile render scale regression check
+
+- **Verified:** After reducing the village renderer to 1x on screens up to 700px, the Chromium mobile viewport still passed the normal-route Arena-off check: 1 test passed in 26.7s.
 ## 2026-10-20 — Full internal test suite verification
 
 - **Verified:** `npm test -- --run` passed: 20 test files, 194 tests, 0 failures in 8.25s.
