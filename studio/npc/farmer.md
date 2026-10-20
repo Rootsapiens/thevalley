@@ -19,6 +19,12 @@
 - Day 1, trough, after the prologue: "They didn't break out. They walked out." (characters.md [ref] line, speaker attribution to confirm)
 - Day 1, trough: "My wife keeps the light on for me. I'm going back out." (proposed)
 
+**Browser runtime wiring**
+- Stable runtime ID: `npc_farmer`; no story name.
+- `?prologue=1` stages only this NPC as `prologue-search` and disables interaction. He walks slowly from the trough around the barn's west side, passes through the north pasture opening, pauses facing the mountain, then returns. The low-poly figure has a basic walking gait.
+- The default Valley slice starts after the prologue, where he is `post-prologue` and talkable at the trough. This remains an NPC preview route, not a playable Joseph prologue; the current browser slice still starts as Lorenzo.
+- Story order and draft scene beats: `studio/script/prologue-arrival-draft.md`. The search appearance is before the later Lorenzo conversation; do not move the `[ref]` line to him until its source attribution is known.
+
 **Animation / pose needs**
 - stand_idle_tired (hands on hips), walk_slow_searching, look_to_mountain (head up to NE), talk_small, fill_bucket (short loop).
 

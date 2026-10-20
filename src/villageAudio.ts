@@ -3,6 +3,7 @@
 // OfflineAudioContext for peak checks (measureVillagePeaks). Mix: master gain 0.8 into a limiter (-3 dB, 20:1).
 type Ctx = BaseAudioContext;
 export type Step = 'dirt' | 'wood' | 'straw' | 'stone';
+type AmbientVoice = 'moo' | 'straw';
 export type ArenaVoice = 'spark' | 'crank' | 'empty' | 'zap' | 'rootcreak' | 'lash' | 'hurt' | 'rootdie' | 'groan';
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 
@@ -109,6 +110,33 @@ export const voices = {
       }
       o.start(s); o.stop(s + 0.22);
     }
+  },
+  /** A distant barnyard cow: restrained low bellow with two soft vocal formants. */
+  moo(c: Ctx, out: AudioNode, t: number, k = 1) {
+    const o = c.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(rand(88, 96), t);
+    o.frequency.linearRampToValueAtTime(rand(68, 74), t + 0.62);
+    o.frequency.exponentialRampToValueAtTime(rand(76, 82), t + 0.9);
+    const g = c.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.11 * k, t + 0.14);
+    g.gain.setValueAtTime(0.08 * k, t + 0.55);
+    g.gain.linearRampToValueAtTime(0, t + 0.92);
+    for (const [f, q, gain] of [[420, 4, 1], [860, 5, 0.48]] as const) {
+      const formant = c.createBiquadFilter(); formant.type = 'bandpass';
+      formant.frequency.value = f * rand(0.96, 1.04); formant.Q.value = q;
+      const level = c.createGain(); level.gain.value = gain;
+      o.connect(formant).connect(level).connect(g);
+    }
+    g.connect(out); o.start(t); o.stop(t + 0.98);
+  },
+  /** A small straw shift in a stall: three short dry rustles over a soft low thump. */
+  straw(c: Ctx, out: AudioNode, t: number, k = 1) {
+    for (let i = 0; i < 3; i++) {
+      const at = t + i * rand(0.045, 0.075);
+      burst(c, out, at, rand(0.055, 0.095), 'bandpass', rand(2900, 4700), 1.1, 0.085 * k);
+    }
+    burst(c, out, t, 0.1, 'lowpass', 340, 0.8, 0.075 * k, 0.01);
   },
   /** Gate or door latch: a bright iron click, then the knock of the wood against its post. */
   latch(c: Ctx, out: AudioNode, t: number, k = 1) {
@@ -334,6 +362,8 @@ function masterChain(c: Ctx) {
 export function villageAudio() {
   let c: AudioContext | null = null, master: GainNode | null = null, wind: ReturnType<typeof windBed> | null = null, lastWind = 0;
   let stream: ReturnType<typeof streamBed> | null = null, lastStream = 0;
+  let barnRoom: GainNode | null = null, barnAnimals = false;
+  let lastBarnUpdate = 0, nextStrawAt = 0, nextMooAt = 0;
   return {
     start() {
       if (c) { if (c.state === 'suspended') void c.resume(); return; }
@@ -341,6 +371,35 @@ export function villageAudio() {
       master = masterChain(c);
       wind = windBed(c, master);
       stream = streamBed(c, master);
+      const roomSource = c.createBufferSource(); roomSource.buffer = brown(c, 6); roomSource.loop = true;
+      const roomFilter = c.createBiquadFilter(); roomFilter.type = 'lowpass'; roomFilter.frequency.value = 200;
+      barnRoom = c.createGain(); barnRoom.gain.value = 0;
+      roomSource.connect(roomFilter).connect(barnRoom).connect(master); roomSource.start();
+    },
+    /** Barn room tone fades with the listener; animal calls only run while the herd is present. */
+    barn(inside: boolean, animalsPresent: boolean) {
+      if (!c || !barnRoom || c.state !== 'running') return;
+      const now = c.currentTime;
+      if (now - lastBarnUpdate < 0.1) return;
+      lastBarnUpdate = now;
+      barnRoom.gain.setTargetAtTime(inside ? 0.018 : 0, now, 0.35);
+      const animalsActive = inside && animalsPresent;
+      if (animalsActive && !barnAnimals) {
+        nextStrawAt = now + rand(20, 40);
+        nextMooAt = now + rand(40, 90);
+      }
+      barnAnimals = animalsActive;
+      if (!animalsActive) return;
+      if (now >= nextStrawAt) {
+        voices.straw(c, master!, now + 0.005, 0.55);
+        nextStrawAt = now + rand(20, 40);
+      }
+      if (now >= nextMooAt) {
+        const pan = rand(-0.55, 0.55);
+        const p = c.createStereoPanner(); p.pan.value = pan; p.connect(master!);
+        voices.moo(c, p, now + 0.005, 0.52);
+        nextMooAt = now + rand(40, 90);
+      }
     },
     /** Stream loudness 0..1 (by the listener's distance to the water). */
     stream(level: number) {
@@ -357,7 +416,7 @@ export function villageAudio() {
     },
     /** arg: the surface for 'step', the pan for 'dog', 1 for a metal prop ('scrape', 'bump'), the delay (s) for 'bell',
      *  1 = start / 0 = stop for 'rec'; arena: the pan for the walkers' sounds, the seconds for 'crank'. */
-    play(name: 'step' | 'chime' | 'creak' | 'dog' | 'drone' | 'latch' | 'rattle' | 'bell' | 'scrape' | 'bump' | 'rec' | ArenaVoice, arg?: Step | number, k = 1) {
+    play(name: 'step' | 'chime' | 'creak' | 'dog' | 'drone' | 'latch' | 'rattle' | 'bell' | 'scrape' | 'bump' | 'rec' | AmbientVoice | ArenaVoice, arg?: Step | number, k = 1) {
       if (!c || !master) return;
       const t = c.currentTime + 0.005;
       if (name === 'crank') { voices.crank(c, master, t, (arg as number | undefined) ?? 1.3); return; }
@@ -368,6 +427,7 @@ export function villageAudio() {
         return;
       }
       if (name === 'bell') { voices.bell(c, master, t + ((arg as number | undefined) ?? 0), k); return; }
+      if (name === 'moo' || name === 'straw') { voices[name](c, master, t, k); return; }
       if (name === 'scrape' || name === 'bump') { voices[name](c, master, t, k, arg === 1); return; }
       if (name === 'rec') { voices.rec(c, master, t, arg === 1); return; }
       if (name === 'step') voices.step(c, master, t, (arg as Step | undefined) ?? 'dirt', k);
@@ -396,6 +456,8 @@ export async function measureVillagePeaks(): Promise<Record<string, number>> {
   out.chime = await render(2, (c, m) => voices.chime(c, m, 0.01));
   out.creak = await render(1.5, (c, m) => voices.creak(c, m, 0.01, 1));
   out.dog = await render(4, (c, m) => voices.dog(c, m, 0.01, 0));
+  out.moo = await render(1.2, (c, m) => voices.moo(c, m, 0.01, 0.52));
+  out.straw = await render(0.5, (c, m) => voices.straw(c, m, 0.01, 0.55));
   out.drone = await render(10.5, (c, m) => voices.drone(c, m, 0.01));
   out.wind = await render(8, (c, m) => windAt(windBed(c, m), 1, 1, 1, null));
   out.latch = await render(0.6, (c, m) => voices.latch(c, m, 0.01, 1));

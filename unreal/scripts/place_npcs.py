@@ -6,10 +6,11 @@ Run headless (what run_npcs.ps1 does):
       -script="<repo>\\unreal\\scripts\\place_npcs.py" -unattended -nosplash -nop4
 Or inside the editor: Tools > Execute Python Script... > this file.
 
-One placeholder actor per NPC: an engine BasicShapes Cylinder scaled to 50 x 50 x 180 cm (the project references no
-mannequin, and BasicShapes has no capsule), standing on its floor point. Actor label = NPC id, outliner folder "NPCs".
-Tags: OV_NPC, npc:<id>, spawnDay:<n>, cuffed:<true|false>, floorKnown:<true|false>, and floor_to_confirm when the
-floor height is not decided. Those NPCs are NOT placed at a guessed height: their floor is game y = 0 (UE Z = 0).
+The unnamed Farmer uses the Village_WorkerMale mesh and lantern. Maryam, the priest, the farmer's wife and six square
+villagers use the six textured Quaternius RPG character skins. Police, Moreno, Omar and Elia remain cylinder placeholders.
+In the default post-prologue BarnSlice the Farmer is visible and talkable at the trough. His `storyWindow:ch1_day1_prologue`
+and `talkableAfter:prologue` tags are staging metadata for the future narrative controller; no controller is wired into
+this UE trial. Actor label = NPC id, outliner folder "NPCs". Unknown-height NPCs sit at game y = 0 (UE Z = 0), never at a guessed height.
 
 Re-runnable: every actor tagged OV_NPC is deleted before placing, so a re-run replaces the NPCs instead of duplicating
 them. NPC actors do not carry OV_AUTO, so a barn rebuild (build_barn_level.py) leaves them alone.
@@ -50,6 +51,19 @@ FOLDER = "NPCs"
 EXPECTED_COUNT = 15
 BODY_CM = (50.0, 50.0, 180.0)              # placeholder body: diameter x diameter x height
 MESH_PATH = "/Engine/BasicShapes/Cylinder.Cylinder"   # 100 cm, pivot at the centre
+FARMER_MESH_PATH = "/Game/OmegaValley/Characters/Players/Village_WorkerMale/Worker_Male"
+VILLAGER_CAST = {
+    "npc_maryam": "Monk",
+    "npc_priest": "Cleric",
+    "npc_farmers_wife": "Ranger",
+    "npc_square_villager_1": "Rogue",
+    "npc_square_villager_2": "Warrior",
+    "npc_square_villager_3": "Wizard",
+    "npc_square_villager_4": "Monk",
+    "npc_square_villager_5": "Ranger",
+    "npc_square_villager_6": "Cleric",
+}
+VILLAGER_ASSET_ROOT = "/Game/OmegaValley/Characters/Villagers/RPGCharacterPack"
 
 
 # ---------- Pure part (no unreal) ----------
@@ -66,6 +80,10 @@ def plan_npc(npc):
     yaw = U.bearing_to_yaw(U.game_yaw_to_bearing(npc["yaw"]))
     tags = [TAG, "npc:" + npc["id"], "spawnDay:%d" % npc["spawnDay"], "cuffed:" + _b(npc["cuffed"]),
             "floorKnown:" + _b(npc["floorKnown"])]
+    if npc["id"] == "npc_farmer":
+        tags += ["storyWindow:ch1_day1_prologue", "talkableAfter:prologue", "role:farmer",
+                 "state:post_prologue", "talkable:true", "behavior:slow_searching", "lookToward:mountain"]
+        yaw = U.bearing_to_yaw(45.0)
     if not npc["floorKnown"]:
         tags.append("floor_to_confirm")
     return {"label": npc["id"], "feet": feet, "location": centre, "yaw": yaw,
@@ -103,7 +121,88 @@ def clear_npcs(eas):
     return n
 
 
+def spawn_farmer(eas, plan):
+    """Create the unnamed Farmer as a recognizable worker; keep him out of the default post-prologue trial state."""
+    mesh = unreal.EditorAssetLibrary.load_asset(FARMER_MESH_PATH)
+    if not mesh:
+        raise RuntimeError("Farmer skeletal mesh missing at %s; run run_player_characters.ps1 first" % FARMER_MESH_PATH)
+    # Skeletal mesh pivot is at the feet; unlike the cylinder placeholder, do not raise it by half a body height.
+    a = eas.spawn_actor_from_class(unreal.SkeletalMeshActor, unreal.Vector(*plan["feet"]),
+                                   unreal.Rotator(roll=0.0, pitch=0.0, yaw=plan["yaw"]))
+    a.set_actor_label("npc_farmer")
+    a.set_folder_path(FOLDER)
+    a.set_editor_property("tags", [unreal.Name(t) for t in plan["tags"]])
+    a.skeletal_mesh_component.set_skinned_asset_and_update(mesh)
+    a.skeletal_mesh_component.set_editor_property("animation_mode", unreal.AnimationMode.ANIMATION_SINGLE_NODE)
+    # BarnSlice starts in the approved post-prologue state, so the Farmer is present and talkable there.
+    a.set_actor_scale3d(unreal.Vector(1.0, 1.0, 1.0))
+
+    # A simple unlit search lantern, positioned beside the worker's right hand. It shares the Farmer's stable ID and
+    # event tags so an event controller can toggle the complete prop set together.
+    prop_tags = list(plan["tags"]) + ["npc_prop:farmer_lantern"]
+    lantern = eas.spawn_actor_from_class(unreal.StaticMeshActor,
+                                         unreal.Vector(plan["feet"][0] + 32.0,
+                                                       plan["feet"][1],
+                                                       plan["feet"][2] + 98.0),
+                                         unreal.Rotator(roll=0.0, pitch=0.0, yaw=plan["yaw"]))
+    lantern.set_actor_label("npc_farmer_lantern")
+    lantern.set_folder_path(FOLDER + "/npc_farmer")
+    lantern.set_editor_property("tags", [unreal.Name(t) for t in prop_tags])
+    lantern.static_mesh_component.set_static_mesh(unreal.EditorAssetLibrary.load_asset("/Engine/BasicShapes/Cylinder.Cylinder"))
+    lantern.static_mesh_component.set_editor_property("mobility", unreal.ComponentMobility.MOVABLE)
+    lantern.set_actor_scale3d(unreal.Vector(0.10, 0.10, 0.22))
+    try:
+        lantern.attach_to_actor(a, unreal.Name(""), unreal.AttachLocation.KEEP_WORLD, unreal.AttachRotation.KEEP_WORLD,
+                                unreal.AttachScale.KEEP_WORLD, False)
+    except Exception as exc:
+        unreal.log_warning("[OV NPC] lantern not attached to Farmer: %s" % exc)
+    return a
+
+
+def mark_event_gated_default(a, npc_id):
+    """Keep Omar/Elia offstage until a validated story snapshot supplies their event state."""
+    if npc_id not in ("npc_omar", "npc_elia"):
+        return
+    tags = [unreal.Name(t) for t in _actor_tags(a)]
+    tags.extend((unreal.Name("storyStateRequired:true"), unreal.Name("storyStage:uninitialized"),
+                 unreal.Name("storyTalkable:false")))
+    a.set_editor_property("tags", tags)
+    a.set_actor_hidden_in_game(True)
+    try:
+        a.set_is_temporarily_hidden_in_editor(True)
+    except Exception as exc:
+        unreal.log_warning("[OV NPC] could not hide uninitialized %s in editor: %s" % (npc_id, exc))
+
+
+def _actor_tags(a):
+    return [str(tag) for tag in a.get_editor_property("tags")]
+
+
 def spawn_npc(eas, body, plan):
+    if "npc:npc_farmer" in plan["tags"]:
+        return spawn_farmer(eas, plan)
+    npc_id = next((tag[4:] for tag in plan["tags"] if tag.startswith("npc:")), "")
+    cast = VILLAGER_CAST.get(npc_id)
+    if cast:
+        mesh_path = VILLAGER_ASSET_ROOT + "/" + cast + "/" + cast
+        material_path = VILLAGER_ASSET_ROOT + "/Materials/M_OV_Villager_" + cast
+        mesh = unreal.EditorAssetLibrary.load_asset(mesh_path)
+        material = unreal.EditorAssetLibrary.load_asset(material_path)
+        if not mesh or not material:
+            raise RuntimeError("Villager skin not imported: %s; run run_villager_characters.ps1 first" % cast)
+        a = eas.spawn_actor_from_class(unreal.SkeletalMeshActor, unreal.Vector(*plan["feet"]),
+                                       unreal.Rotator(roll=0.0, pitch=0.0, yaw=plan["yaw"]))
+        a.set_actor_label(plan["label"])
+        a.set_folder_path(FOLDER)
+        a.set_editor_property("tags", [unreal.Name(t) for t in plan["tags"] + ["skin:village_rpg:" + cast.lower()]])
+        component = a.skeletal_mesh_component
+        component.set_skinned_asset_and_update(mesh)
+        component.set_editor_property("animation_mode", unreal.AnimationMode.ANIMATION_SINGLE_NODE)
+        for slot in range(max(1, len(mesh.get_editor_property("materials")))):
+            component.set_material(slot, material)
+        a.set_actor_scale3d(unreal.Vector(1.0, 1.0, 1.0))
+        mark_event_gated_default(a, npc_id)
+        return a
     a = eas.spawn_actor_from_class(unreal.StaticMeshActor, unreal.Vector(*plan["location"]),
                                    unreal.Rotator(roll=0.0, pitch=0.0, yaw=plan["yaw"]))
     a.set_actor_label(plan["label"])
@@ -113,6 +212,7 @@ def spawn_npc(eas, body, plan):
     smc.set_static_mesh(body)
     smc.set_editor_property("mobility", unreal.ComponentMobility.MOVABLE)
     a.set_actor_scale3d(unreal.Vector(*plan["scale"]))
+    mark_event_gated_default(a, npc_id)
     return a
 
 
@@ -145,9 +245,9 @@ def main():
         s = d["checks"]["sample"]
         a, plan = placed[s["id"]]
         l = a.get_actor_location()
-        exp = plan["location"]
+        exp = plan["feet"] if s["id"] == "npc_farmer" else plan["location"]
         sample_ok = abs(l.x - exp[0]) < 1.0 and abs(l.y - exp[1]) < 1.0 and abs(l.z - exp[2]) < 1.0
-        log("sample %s: expected (%.0f, %.0f, %.0f) cm, actor (%.1f, %.1f, %.1f) -> %s" % (
+        log("sample %s: expected actor pivot (%.0f, %.0f, %.0f) cm, actor (%.1f, %.1f, %.1f) -> %s" % (
             s["id"], exp[0], exp[1], exp[2], l.x, l.y, l.z, "OK" if sample_ok else "MISMATCH"))
         B.save_all()
         tbc = [n["id"] for n in d["npcs"] if not n["floorKnown"]]

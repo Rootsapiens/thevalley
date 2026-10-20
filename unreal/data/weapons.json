@@ -1,0 +1,28 @@
+{
+  "_doc": "Player weapons for the UE5 prototype. Our own designs on Quaternius CC0 meshes (unreal/assets/guns). Edit, then run unreal/scripts/run_bots.ps1 -SkipImport (or make_weapons.py alone) to rebuild BP_OV_WeaponRig. Units: rate in shots/s, damage per pellet, spread = cone half-angle in degrees, recoil in degrees of view kick per shot, range in metres, view offset and length in cm (camera space: forward, right, up).",
+  "weapons": [
+    {
+      "id": "pistol", "name": "Field Pistol", "key": "One", "mesh": "Pistol_1",
+      "auto": false, "ratePerSec": 5.0, "damage": 25, "pellets": 1, "spreadDeg": 0.8,
+      "recoilPitchDeg": 1.2, "recoilYawDeg": 0.3, "magazine": 12, "reloadSec": 1.4, "rangeM": 60,
+      "viewLengthCm": 20, "viewOffsetCm": [24, 11, -11], "kickCm": 2.0
+    },
+    {
+      "id": "smg", "name": "Rattler SMG", "key": "Two", "mesh": "SubmachineGun_1",
+      "auto": true, "ratePerSec": 11.0, "damage": 13, "pellets": 1, "spreadDeg": 2.6,
+      "recoilPitchDeg": 0.6, "recoilYawDeg": 0.45, "magazine": 30, "reloadSec": 2.1, "rangeM": 45,
+      "viewLengthCm": 38, "viewOffsetCm": [26, 12, -13], "kickCm": 1.2
+    },
+    {
+      "id": "shotgun", "name": "Barn Scatter", "key": "Three", "mesh": "Shotgun_1",
+      "auto": false, "ratePerSec": 1.1, "damage": 9, "pellets": 9, "spreadDeg": 6.0,
+      "recoilPitchDeg": 3.5, "recoilYawDeg": 0.8, "magazine": 6, "reloadSec": 2.8, "rangeM": 25,
+      "viewLengthCm": 62, "viewOffsetCm": [28, 12, -14], "kickCm": 5.0
+    }
+  ],
+  "importedNotWired": ["AssaultRifle_1"],
+  "fx": {
+    "flashSec": 0.05, "flashCandela": 400, "decalSizeCm": 5, "decalLifeSec": 12,
+    "impactScale": 0.05, "playerHp": 100
+  }
+}

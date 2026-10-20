@@ -26,28 +26,41 @@ try:
 except NameError:   # some exec modes do not set __file__
     HERE = None
 PROJECT_DIR = os.path.abspath(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()))
-REPO = os.path.normpath(os.path.join(PROJECT_DIR, "..", ".."))
-SCRIPTS = HERE or os.path.join(REPO, "unreal", "scripts")
+SCRIPTS = HERE or os.path.join(PROJECT_DIR, "..", "scripts")
 if SCRIPTS not in sys.path:
     sys.path.insert(0, SCRIPTS)
 import ov_units as U  # noqa: E402
+import ov_paths  # noqa: E402
 
-DATA = os.environ.get("OV_DATA") or os.path.join(REPO, "unreal", "data", "village-barn.json")
+REPO = ov_paths.repo_dir(PROJECT_DIR)
+DATA = ov_paths.data_file(PROJECT_DIR)
 RESULT = os.path.join(os.path.abspath(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_saved_dir())), "ov_build_result.json")
 MAP = "/Game/OmegaValley/Maps/BarnSlice"
 MAT_DIR = "/Game/OmegaValley/Materials"
 TAG = "OV_AUTO"
 
 # ---------- Look tunables (first things to tweak during the trial) ----------
-SUN_LUX = 10.0               # DirectionalLight intensity; SkyAtmosphere attenuates it at 4 deg
+# Optional overrides without editing this file: <unreal>/data/look.json, e.g. {"SUN_LUX": 30, "EXPOSURE_BIAS": 0.5}.
+SUN_LUX = 25.0               # DirectionalLight, lux. No SkyAtmosphere (the sky is valley-sky.jpg), so no attenuation
 SUN_KELVIN = 2000.0          # decisions-noor.md: warm orange, ~2000 K
-SKY_LIGHT_INTENSITY = 1.0
-EXPOSURE_BIAS = 0.0          # manual exposure compensation (auto exposure is off project-wide)
-FOG_DENSITY = 0.012
+SKY_INTENSITY = 2.5          # valley-sky.jpg emissive multiplier (backdrop + real-time SkyLight capture)
+SKY_LIGHT_INTENSITY = 2.2      # lifts the shaded north and east faces (readability)
+SKY_RADIUS_CM = 2000000.0    # backdrop sphere, 20 km; fog stops at FOG_CUTOFF_CM so the painted sky stays clean
+EXPOSURE_BIAS = 0.0          # auto exposure (histogram) clamped to AE_MIN_EV..AE_MAX_EV (EV100)
+AE_MIN_EV = 1.0             # first MRQ pass sat on -1.0 and blew every sunlit wall out
+AE_MAX_EV = 3.0
+LOCAL_SHADOW_CONTRAST = 0.7  # local exposure: lifts barn interiors and the shaded east walls (readability)
+FOG_DENSITY = 0.006
 FOG_FALLOFF = 0.2
 FOG_START_CM = 1500.0
+FOG_CUTOFF_CM = 1500000.0
 FOG_HAZE_SRGB = "#2A3440"    # palette fogHaze: cool blue
-FOG_INSCATTER_SCALE = 3.0
+FOG_INSCATTER_SCALE = 4.0
+LANTERN_CD = 60.0            # aisle lanterns (candela), ~1900 K; post lanterns get POST_LANTERN_CD
+POST_LANTERN_CD = 25.0
+LANTERN_KELVIN = 1900.0
+SHOW_MOUNTAIN_MESH = False   # the painted mountain in valley-sky.jpg (cave measured at 45.09 deg) reads better than the cone;
+                             # the cone and cave slab stay in the level (hidden) as the measured reference
 # Mountain proxy (world-bible.md: cave mouth 2.8 km NE, ~280 m above the village; peak 2,350 m vs ~900 m)
 MOUNTAIN_RADIUS_M = 2500.0
 
@@ -88,6 +101,17 @@ def srgb_to_linear(hexstr):
     return out
 
 
+def load_look():
+    """Overrides from <unreal>/data/look.json (upper-case tunables only)."""
+    p = os.path.join(ov_paths.unreal_dir(PROJECT_DIR), "data", "look.json")
+    if os.path.isfile(p):
+        with open(p, encoding="utf-8") as fh:
+            for k, v in json.load(fh).items():
+                if k.isupper() and k in globals():
+                    globals()[k] = v
+                    log("look.json: %s = %s" % (k, v))
+
+
 # ---------- Level ----------
 def open_or_create_level(path):
     les = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
@@ -123,70 +147,6 @@ def clear_generated():
             n += 1
     if n:
         log("removed %d generated actors from the previous build" % n)
-
-
-# ---------- Materials ----------
-def ensure_base_material():
-    path = MAT_DIR + "/M_OV_Base"
-    if EAL.does_asset_exist(path):
-        return EAL.load_asset(path)
-    m = AT.create_asset("M_OV_Base", MAT_DIR, unreal.Material, unreal.MaterialFactoryNew())
-    col = MEL.create_material_expression(m, unreal.MaterialExpressionVectorParameter, -500, -200)
-    col.set_editor_property("parameter_name", "Color")
-    col.set_editor_property("default_value", unreal.LinearColor(0.5, 0.5, 0.5, 1.0))
-    rough = MEL.create_material_expression(m, unreal.MaterialExpressionScalarParameter, -500, 50)
-    rough.set_editor_property("parameter_name", "Roughness")
-    rough.set_editor_property("default_value", 0.85)
-    emi = MEL.create_material_expression(m, unreal.MaterialExpressionVectorParameter, -500, 250)
-    emi.set_editor_property("parameter_name", "Emissive")
-    emi.set_editor_property("default_value", unreal.LinearColor(0.0, 0.0, 0.0, 1.0))
-    MEL.connect_material_property(col, "", unreal.MaterialProperty.MP_BASE_COLOR)
-    MEL.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
-    MEL.connect_material_property(emi, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
-    MEL.recompile_material(m)
-    EAL.save_loaded_asset(m)
-    return m
-
-
-# name: (sRGB hex, roughness, emissive linear rgb or None)
-PALETTE = {
-    "ground": ("#3E3B2C", 0.95, None),     # wet dry-grass and mud, late November
-    "wood": ("#5A4636", 0.85, None),       # weathered barn boards
-    "woodDark": ("#3A2D24", 0.9, None),
-    "stone": ("#77716A", 0.9, None),
-    "straw": ("#A88E55", 0.95, None),
-    "sacks": ("#8A7A5E", 0.95, None),
-    "roof": ("#6E3527", 0.75, None),       # red clay tiles (Aktham's roof-tiles-red)
-    "plaster": ("#9C9384", 0.9, None),
-    "fence": ("#6B5844", 0.9, None),
-    "mud": ("#241E17", 1.0, None),         # hoofprints
-    "rock": ("#A39D94", 0.9, None),        # mountain face: the brightest surface in the opening shot
-    "rockShade": ("#6F6A64", 0.9, None),
-    "cave": ("#030303", 1.0, None),
-    "tvWindow": ("#101418", 0.3, (0.35, 0.42, 0.55)),   # black-and-white TV glow
-    "candle": ("#FFB46B", 0.5, (6.0, 2.6, 0.7)),
-}
-
-
-def ensure_materials():
-    base = ensure_base_material()
-    mats = {}
-    for name, (hexc, rough, emissive) in PALETTE.items():
-        path = "%s/MI_OV_%s" % (MAT_DIR, name)
-        if EAL.does_asset_exist(path):
-            mi = EAL.load_asset(path)
-        else:
-            mi = AT.create_asset("MI_OV_" + name, MAT_DIR, unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
-        MEL.set_material_instance_parent(mi, base)
-        r, g, b = srgb_to_linear(hexc)
-        MEL.set_material_instance_vector_parameter_value(mi, "Color", unreal.LinearColor(r, g, b, 1.0))
-        MEL.set_material_instance_scalar_parameter_value(mi, "Roughness", rough)
-        e = emissive or (0.0, 0.0, 0.0)
-        MEL.set_material_instance_vector_parameter_value(mi, "Emissive", unreal.LinearColor(e[0], e[1], e[2], 1.0))
-        MEL.update_material_instance(mi)
-        EAL.save_loaded_asset(mi)
-        mats[name] = mi
-    return mats
 
 
 # ---------- Spawning ----------
@@ -352,7 +312,7 @@ def build_yard(d, mats):
             gbox(sh["x"] - 0.03, top["y"], sh["z"] - 0.03, sh["x"] + 0.03, top["y"] + 0.12, sh["z"] + 0.03, mats["candle"], "Shrine_Candle", "Yard")
             p = spawn(unreal.PointLight, U.loc(sh["x"], top["y"] + 0.35, sh["z"]), None, "Shrine_CandleLight", "Lights")
             lc = p.get_component_by_class(unreal.PointLightComponent)
-            set_props(lc, [("intensity", 3.0), ("attenuation_radius", 350.0), ("use_temperature", True), ("temperature", 1800.0),
+            set_props(lc, [("intensity_units", unreal.LightUnits.CANDELAS), ("intensity", 4.0), ("attenuation_radius", 450.0), ("use_temperature", True), ("temperature", 1800.0),
                            ("mobility", unreal.ComponentMobility.MOVABLE)])
         elif b["group"] == "stone-wall":
             c, s = U.box_to_ue(b)
@@ -431,17 +391,30 @@ def build_mountain(d, mats):
     p = U.bearing_point(cave["bearing"], cave["distanceM"])
     shape("Cube", U.loc(p["x"], cave["riseM"] + 1.5, p["z"]), (35 * 100, cave["widthM"] * 100, 3 * 100), mats["cave"], "CaveMouth", "Mountain",
           rot(pitch=slope, yaw=U.bearing_to_yaw(cave["bearing"])), cast_shadow=False)
+    if not SHOW_MOUNTAIN_MESH:
+        for a in EAS.get_all_level_actors():
+            if a.get_actor_label().startswith(("Mountain", "CaveMouth")):
+                a.set_actor_hidden_in_game(True)
 
 
-def build_lighting(d):
+def build_lighting(d, sky_mi):
     sun = d["lighting"]["sun"]
     pitch, yaw, _ = U.sun_rotation(sun["bearing"], sun["elevation"])
     a = spawn(unreal.DirectionalLight, (0, 0, 50000), rot(pitch=pitch, yaw=yaw), "Sun_240_4", "Lights")
     lc = a.get_component_by_class(unreal.DirectionalLightComponent)
     set_props(lc, [("mobility", unreal.ComponentMobility.MOVABLE), ("intensity", SUN_LUX), ("use_temperature", True),
-                   ("temperature", SUN_KELVIN), ("atmosphere_sun_light", True), ("cast_shadows", True), ("light_source_angle", 0.53)])
+                   ("temperature", SUN_KELVIN), ("atmosphere_sun_light", False), ("cast_shadows", True), ("light_source_angle", 0.53),
+                   ("volumetric_scattering_intensity", 2.0)])
     STATS["sun"] = a
-    sky = spawn(unreal.SkyAtmosphere, (0, 0, 0), None, "SkyAtmosphere", "Lights")
+    # Backdrop: valley-sky.jpg on a 20 km sphere (unlit, IsSky). No SkyAtmosphere: the painted sky is the reference.
+    if sky_mi:
+        s = shape("Sphere", (0, 0, 0), (SKY_RADIUS_CM * 2,) * 3, sky_mi, "SkyBackdrop_ValleySky", "Lights", cast_shadow=False)
+        smc = s.static_mesh_component
+        smc.set_collision_profile_name("NoCollision")
+        set_props(smc, [("mobility", unreal.ComponentMobility.MOVABLE), ("affect_distance_field_lighting", False),
+                        ("affect_dynamic_indirect_lighting", False), ("visible_in_ray_tracing", False)])
+    else:
+        spawn(unreal.SkyAtmosphere, (0, 0, 0), None, "SkyAtmosphere", "Lights")
     sl = spawn(unreal.SkyLight, (0, 0, 1000), None, "SkyLight", "Lights")
     slc = sl.get_component_by_class(unreal.SkyLightComponent)
     set_props(slc, [("mobility", unreal.ComponentMobility.MOVABLE), ("real_time_capture", True), ("intensity", SKY_LIGHT_INTENSITY)])
@@ -450,24 +423,106 @@ def build_lighting(d):
     r, g, b = [c * FOG_INSCATTER_SCALE for c in srgb_to_linear(FOG_HAZE_SRGB)]
     set_props(fc, [("fog_density", FOG_DENSITY), ("fog_height_falloff", FOG_FALLOFF), ("start_distance", FOG_START_CM),
                    (("fog_inscattering_luminance", "fog_inscattering_color"), unreal.LinearColor(r, g, b, 1.0)),
-                   ("enable_volumetric_fog", True)])
+                   ("fog_cutoff_distance", FOG_CUTOFF_CM), ("enable_volumetric_fog", True)])
     ppv = spawn(unreal.PostProcessVolume, (0, 0, 0), None, "PostProcess_Dusk", "Lights")
     ppv.set_editor_property("unbound", True)
     s = ppv.get_editor_property("settings")
     set_props(s, [
-        ("override_auto_exposure_method", True), ("auto_exposure_method", unreal.AutoExposureMethod.AEM_MANUAL),
+        ("override_auto_exposure_method", True), ("auto_exposure_method", unreal.AutoExposureMethod.AEM_HISTOGRAM),
         ("override_auto_exposure_apply_physical_camera_exposure", True), ("auto_exposure_apply_physical_camera_exposure", False),
         ("override_auto_exposure_bias", True), ("auto_exposure_bias", EXPOSURE_BIAS),
+        ("override_auto_exposure_min_brightness", True), ("auto_exposure_min_brightness", AE_MIN_EV),
+        ("override_auto_exposure_max_brightness", True), ("auto_exposure_max_brightness", AE_MAX_EV),
+        ("override_auto_exposure_speed_up", True), ("auto_exposure_speed_up", 2.0),
+        ("override_auto_exposure_speed_down", True), ("auto_exposure_speed_down", 1.5),
+        ("override_local_exposure_shadow_contrast_scale", True), ("local_exposure_shadow_contrast_scale", LOCAL_SHADOW_CONTRAST),
+        ("override_local_exposure_highlight_contrast_scale", True), ("local_exposure_highlight_contrast_scale", 0.8),
         ("override_dynamic_global_illumination_method", True),
         ("dynamic_global_illumination_method", unreal.DynamicGlobalIlluminationMethod.LUMEN),
         ("override_reflection_method", True), ("reflection_method", unreal.ReflectionMethod.LUMEN),
-        ("override_white_temp", True), ("white_temp", 6500.0),
-        ("override_vignette_intensity", True), ("vignette_intensity", 0.35),
-        ("override_bloom_intensity", True), ("bloom_intensity", 0.4),
+        ("override_white_temp", True), ("white_temp", 6000.0),
+        ("override_vignette_intensity", True), ("vignette_intensity", 0.3),
+        ("override_color_saturation", True), ("color_saturation", unreal.Vector4(0.88, 0.88, 0.88, 1.0)),
+        ("override_bloom_intensity", True), ("bloom_intensity", 0.5),
         ("override_motion_blur_amount", True), ("motion_blur_amount", 0.0),
     ])
     ppv.set_editor_property("settings", s)
-    _ = sky
+
+
+def point_light(loc_cm, cd, radius_cm, label, shadows=True, kelvin=None):
+    p = spawn(unreal.PointLight, loc_cm, None, label, "Lights/Lanterns")
+    lc = p.get_component_by_class(unreal.PointLightComponent)
+    set_props(lc, [("mobility", unreal.ComponentMobility.MOVABLE), ("intensity_units", unreal.LightUnits.CANDELAS),
+                   ("intensity", cd), ("attenuation_radius", radius_cm), ("use_temperature", True),
+                   ("temperature", kelvin or LANTERN_KELVIN), ("source_radius", 4.0), ("cast_shadows", shadows),
+                   ("volumetric_scattering_intensity", 1.5)])
+    return p
+
+
+def lantern(mats, x, y, z, cd, radius_cm, label, shadows=True, chain_to=None):
+    """Storm lantern (game m, centre of the glass): emissive glass, iron caps, optional chain up to y=chain_to."""
+    for part, (y0, y1, w, mat) in {"Glass": (y - 0.14, y + 0.14, 0.18, "lantern"), "Cap": (y + 0.14, y + 0.19, 0.24, "iron"),
+                                   "Base": (y - 0.18, y - 0.14, 0.22, "iron")}.items():
+        b = {"min": {"x": x - w / 2, "y": y0, "z": z - w / 2}, "max": {"x": x + w / 2, "y": y1, "z": z + w / 2}}
+        c, s = U.box_to_ue(b)
+        shape("Cube", c, s, mats[mat], "%s_%s" % (label, part), "Lights/Lanterns", cast_shadow=False)
+    if chain_to:
+        ln = chain_to - (y + 0.19)
+        shape("Cylinder", U.loc(x, y + 0.19 + ln / 2, z), (2, 2, ln * 100), mats["iron"], label + "_Chain", "Lights/Lanterns",
+              cast_shadow=False)
+    return point_light(U.loc(x, y, z), cd, radius_cm, label + "_Light", shadows)
+
+
+def build_lanterns(d, mats):
+    """Warm lanterns inside the barn (decisions: the barn reads by lantern light at dusk), one by the farmhouse door."""
+    B = d["layout"]["barn"]
+    eave = B["eave"]
+    n = 0
+    for z in (-4.0, 0.0, 4.0):        # tie beams over the post pairs, each with a lantern over the aisle
+        gbox(B["x0"] + 0.25, eave - 0.3, z - 0.12, B["x1"] - 0.25, eave - 0.05, z + 0.12, mats["woodDark"], "Barn_TieBeam%+d" % z, "Barn")
+        lantern(mats, 0.0, 3.4, z, LANTERN_CD, 1400.0, "Lantern_Aisle%+d" % z, shadows=True, chain_to=eave - 0.3)
+        n += 1
+    for x in (-5.82, 5.82):           # on the posts nearest each door, facing the aisle
+        for z in (-8.0, 8.0):
+            lantern(mats, x, 2.0, z, POST_LANTERN_CD, 900.0, "Lantern_Post%+d%+d" % (x, z), shadows=False)
+            n += 1
+    fh = d["layout"]["farmhouse"]
+    lantern(mats, fh["x1"] + 0.2, 2.3, 1.5, 15.0, 900.0, "Lantern_Farmhouse", shadows=True)
+    log("lanterns: %d (+1 farmhouse)" % n)
+
+
+def cine_cam(label, pos, bearing, pitch, fov_v_deg=None, focal_mm=None):
+    """CineCamera at game-metre pos, looking along a compass bearing; 36 x 20.25 mm back (16:9)."""
+    cam = spawn(unreal.CineCameraActor, U.loc(pos[0], pos[1], pos[2]), rot(pitch=pitch, yaw=U.bearing_to_yaw(bearing)), label, "Cameras")
+    cc = cam.get_cine_camera_component()
+    fb = cc.get_editor_property("filmback")
+    set_props(fb, [("sensor_width", 36.0), ("sensor_height", 20.25)])
+    cc.set_editor_property("filmback", fb)
+    lens = cc.get_editor_property("lens_settings")
+    set_props(lens, [("min_focal_length", 8.0)])
+    cc.set_editor_property("lens_settings", lens)
+    focal = focal_mm or (20.25 / 2) / math.tan(math.radians(fov_v_deg / 2))
+    set_props(cc, [("current_focal_length", focal)])
+    fs = cc.get_editor_property("focus_settings")
+    set_props(fs, [("focus_method", unreal.CameraFocusMethod.DISABLE)])
+    cc.set_editor_property("focus_settings", fs)
+    return cam
+
+
+def look_at(src, dst):
+    """(bearing, pitch) from game point src to dst (x east, y up, z south)."""
+    dx, dy, dn = dst[0] - src[0], dst[1] - src[1], -(dst[2] - src[2])
+    return math.degrees(math.atan2(dx, dn)) % 360.0, math.degrees(math.atan2(dy, math.hypot(dx, dn)))
+
+
+# Stills for the trial (LS_Stills): label, eye (game m), target (game m), vertical FOV or focal mm.
+STILLS = [
+    ("Still_Yard", (-27.0, 3.0, 22.0), (0.0, 2.5, 0.0), 60.0, None),
+    ("Still_Aerial", (-48.0, 32.0, 46.0), (2.0, 0.0, -6.0), 55.0, None),
+    ("Still_BarnInterior", (0.6, 1.64, 8.4), (0.0, 1.3, -10.0), 70.0, None),
+    ("Still_DoorNorth", (0.6, 1.7, -18.0), (0.0, 1.6, 0.0), 60.0, None),
+    ("Still_Mountain", (4.0, 1.64, 21.5), None, None, 35.0),
+]
 
 
 def build_markers(d):
@@ -477,25 +532,20 @@ def build_markers(d):
     # PlayerStart: location is the capsule centre (half-height 92 cm) standing on the spawn point.
     spawn(unreal.PlayerStart, (p["x"] * 100, p["z"] * 100, p["y"] * 100 + 92), rot(yaw=ue_yaw), "PlayerStart_Spawn", "Gameplay")
     # Opening-shot camera: Lorenzo's eye at the spawn, three.js FOV 70 deg vertical -> 14.46 mm on a 36 x 20.25 mm back.
-    cam = spawn(unreal.CineCameraActor, U.loc(p["x"], p["y"] + sp["eyeHeight"], p["z"]), rot(pitch=-1.72, yaw=ue_yaw), "OV_OpeningCam", "Gameplay")
-    cc = cam.get_cine_camera_component()
-    fb = cc.get_editor_property("filmback")
-    set_props(fb, [("sensor_width", 36.0), ("sensor_height", 20.25)])
-    cc.set_editor_property("filmback", fb)
-    lens = cc.get_editor_property("lens_settings")
-    set_props(lens, [("min_focal_length", 8.0)])
-    cc.set_editor_property("lens_settings", lens)
-    focal = (20.25 / 2) / math.tan(math.radians(sp["fovDeg"] / 2))
-    set_props(cc, [("current_focal_length", focal)])
-    fs = cc.get_editor_property("focus_settings")
-    set_props(fs, [("focus_method", unreal.CameraFocusMethod.DISABLE)])
-    cc.set_editor_property("focus_settings", fs)
-    # The standalone perf run (run_trial.ps1) looks through this camera: reproducible framing.
-    set_props(cam, [("auto_activate_for_player", unreal.AutoReceiveInput.PLAYER0)])
+    # Not auto-activated: the player's first-person camera owns the view; LS_OpeningDolly cuts to this camera at start.
+    cam = cine_cam("OV_OpeningCam", (p["x"], p["y"] + sp["eyeHeight"], p["z"]), sp["bearing"], -1.72, fov_v_deg=sp["fovDeg"])
+    stills = [cam]
+    cave = d["landmarks"]["caveMouth"]
+    for label, eye, tgt, fov, focal in STILLS:
+        if tgt is None:              # the mountain still looks at the cave mouth
+            tp = U.bearing_point(cave["bearing"], cave["distanceM"], cave["riseM"])
+            tgt = (tp["x"], tp["y"], tp["z"])
+        b, pt = look_at(eye, tgt)
+        stills.append(cine_cam(label, eye, b, pt, fov_v_deg=fov, focal_mm=focal))
     for e in d["examinables"]:
         tp = spawn(unreal.TargetPoint, U.loc_v(e["pos"]), None, "Ex_%s" % e["id"], "Examinables")
         tp.set_editor_property("tags", list(tp.get_editor_property("tags")) + [unreal.Name("examinable:" + e["id"])])
-    return cam
+    return cam, stills
 
 
 def check_landmark(d):
@@ -522,9 +572,11 @@ def main():
         with open(DATA, encoding="utf-8") as fh:
             d = json.load(fh)
         log("data: %s (%s, %d boxes)" % (DATA, d["source"]["sha256"], len(d["boxes"])))
+        load_look()
         open_or_create_level(MAP)
         clear_generated()
-        mats = ensure_materials()
+        import ov_materials
+        mats, sky_mi, result["materials"] = ov_materials.ensure_materials(SKY_INTENSITY)
         build_ground(d, mats)
         build_barn(d, mats)
         build_yard(d, mats)
@@ -532,8 +584,9 @@ def main():
         build_trees(d, mats)
         build_trail(d, mats)
         build_mountain(d, mats)
-        build_lighting(d)
-        cam = build_markers(d)
+        build_lighting(d, sky_mi)
+        build_lanterns(d, mats)
+        cam, stills = build_markers(d)
         result["landmark"] = check_landmark(d)
         try:
             import make_opening_dolly
@@ -541,6 +594,12 @@ def main():
         except Exception as e:
             warn("opening dolly not built: %s" % e)
             result["sequence"] = None
+        try:
+            import make_stills
+            result["stills"] = make_stills.main(stills)
+        except Exception as e:
+            warn("stills sequence not built: %s | %s" % (e, traceback.format_exc()))
+            result["stills"] = None
         save_all()
         result.update(ok=bool(result["landmark"]["ok"]), actors=STATS["actors"], seconds=round(time.time() - t0, 1),
                       engine=unreal.SystemLibrary.get_engine_version(), source=d["source"]["sha256"])

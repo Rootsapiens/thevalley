@@ -115,6 +115,26 @@ export const rectDist = (x: number, z: number, r: { x0: number; x1: number; z0: 
   const dx = Math.max(r.x0 - x, 0, x - r.x1), dz = Math.max(r.z0 - z, 0, z - r.z1);
   return Math.sqrt(dx * dx + dz * dz);
 };
+
+// Single source of truth for both the rendered mesh and physics outside the authored village map.
+const SLICE_WALK = [
+  { x0: -28, x1: 22, z0: -13.5, z1: 27 },
+  { x0: -14, x1: 28, z0: -38.5, z1: -13.5 },
+  { x0: 20, x1: 60, z0: -75, z1: -38 },
+];
+function sliceHeight(x: number, z: number): number {
+  let d = Infinity;
+  for (const r of SLICE_WALK) d = Math.min(d, rectDist(x, z, r));
+  const far = Math.max(0, Math.hypot(x, z + 5) - 70);
+  return smooth(1.0, 6, d) * (fbm(x * 0.07, z * 0.07) - 0.45) * 1.2
+    + (x < -40 ? (-40 - x) * 0.05 : 0) * smooth(0, 30, d) + far * 0.02;
+}
+export function villageTerrainHeight(x: number, z: number): number {
+  if (z < NORTH_WALL_Z - 0.1 || (x > -28 && x < -14.1 && z < -13.6)) return sliceHeight(x, z);
+  if (x < -28 && z < -20) { const w = smooth(-27, -20.5, z); return sliceHeight(x, z) * (1 - w) + groundY(x, z) * w; }
+  const inMap = x > -77 && x < 127 && z > -22 && z < 112;
+  return groundY(x, z) + (inMap ? 0 : smooth(0, 25, Math.max(-77 - x, x - 127, -22 - z, z - 112)) * (fbm(x * 0.07, z * 0.07) - 0.45) * 2.4);
+}
 /** Ground-contact occluders near a point: the slice's own list plus the town's (bucketed on a 4 m grid). */
 let FENCES_NOW: [number, number, number, number][] = [];
 let groundGeo: THREE.BufferGeometry | null = null;
@@ -923,7 +943,7 @@ function buildFences() {
 }
 
 /** Ground: a fine grid around the play space (vertex colours: grass, mud lane, ruts) and a coarse outer plane. */
-function buildGround() {
+function buildGround(height: (x: number, z: number) => number = villageTerrainHeight) {
   const lane: [number, number][] = TRAIL_CTRL.slice(3);
   const segDist = (x: number, z: number, pts: [number, number][]) => {
     let d = Infinity;
@@ -934,21 +954,6 @@ function buildGround() {
       d = Math.min(d, Math.sqrt(ex * ex + ez * ez));
     }
     return d;
-  };
-  const walk = [{ x0: -28, x1: 22, z0: -13.5, z1: 27 }, { x0: -14, x1: 28, z0: -38.5, z1: -13.5 }, { x0: 20, x1: 60, z0: -75, z1: -38 }];
-  /** The slice's ground relief: flat where the slice walked, soft fields beyond. Still used north of the wall. */
-  const sliceHeight = (x: number, z: number) => {
-    let d = Infinity;
-    for (const r of walk) d = Math.min(d, rectDist(x, z, r));
-    const far = Math.max(0, Math.hypot(x, z + 5) - 70);
-    return smooth(1.0, 6, d) * (fbm(x * 0.07, z * 0.07) - 0.45) * 1.2 + (x < -40 ? (-40 - x) * 0.05 : 0) * smooth(0, 30, d) + far * 0.02;
-  };
-  /** Full village: the physics terrain (groundY) wherever the player can go; the slice's fields north of the wall. */
-  const height = (x: number, z: number) => {
-    if (z < NORTH_WALL_Z - 0.1 || (x > -28 && x < -14.1 && z < -13.6)) return sliceHeight(x, z);
-    if (x < -28 && z < -20) { const w = smooth(-27, -20.5, z); return sliceHeight(x, z) * (1 - w) + groundY(x, z) * w; }
-    const inMap = x > -77 && x < 127 && z > -22 && z < 112;
-    return groundY(x, z) + (inMap ? 0 : smooth(0, 25, Math.max(-77 - x, x - 127, -22 - z, z - 112)) * (fbm(x * 0.07, z * 0.07) - 0.45) * 2.4);
   };
   const town = { gravel: COL.gravel, mud: COL.mud, cobble: COL.cobble, mudWet: COL.mudWet };
   const color = (x: number, z: number, out: THREE.Color) => {
@@ -988,8 +993,10 @@ function buildGround() {
   const DX = 74 / 106, DZ = 106 / 151;   // the slice's inner ground spacing
   const fine = grid(-40 - 60 * DX, -66, 307, 263, DX, DZ);
   const fb = { x0: -40 - 60 * DX, x1: -40 + 247 * DX, z0: -66, z1: -66 + 263 * DZ };
-  const mid = grid(-200, -180, 160, 160, 2.8, 2.8, fb);
-  const coarse = grid(-600, -600, 100, 100, 12, 12, { x0: -200, x1: 248, z0: -180, z1: 268 });
+  // Keep the quarry, mine and cave route on the same 2.8 m terrain lattice as East Valley; the coarse mesh
+  // remains underneath as distant scenery, but must not show through the playable Chapter 2 ground.
+  const mid = grid(-200, -180, 220, 160, 2.8, 2.8, fb);
+  const coarse = grid(-600, -600, 100, 100, 12, 12, { x0: -200, x1: 416, z0: -180, z1: 268 });
   const cache = new THREE.Color();
   groundGeo = mergeGeometries([fine, mid, coarse])!;
   for (const g of [fine, mid, coarse]) g.dispose();
@@ -1353,6 +1360,8 @@ export interface VillageScene {
   bellRope: THREE.Mesh;
   /** The sky's PMREM environment (the NPC batch shares it). */
   env: THREE.Texture;
+  /** Ground sampler used by the rendered mesh, including the low-amplitude outer-valley relief. */
+  terrainHeight: (x: number, z: number) => number;
 }
 
 /** The scene's geometry kit, handed to the town builders (villageTown.ts) at build time. */
@@ -1369,7 +1378,14 @@ export interface Kit {
   waterMaterial: (m: THREE.MeshStandardMaterial) => void;
 }
 
-export function buildVillage(scene: THREE.Scene, renderer: THREE.WebGLRenderer): VillageScene {
+export function buildVillage(scene: THREE.Scene, renderer: THREE.WebGLRenderer, chapterTwo = false): VillageScene {
+  // In Chapter 2, the mine track drops through a broad open cut before entering the lower gallery.
+  // This same sampler drives the terrain mesh, player physics, mine floor, props, and collision placement.
+  const terrainHeight = chapterTwo ? (x: number, z: number) => {
+    const along = smooth(258, 278, x) * (1 - smooth(352, 375, x));
+    const across = 1 - smooth(4.2, 7.2, Math.abs(z - 40));
+    return villageTerrainHeight(x, z) - 7 * along * across;
+  } : villageTerrainHeight;
   for (const k of Object.keys(buckets) as BucketId[]) buckets[k].length = 0;
   exGeos.clear();
   FENCES_NOW = fencesNow();
@@ -1386,7 +1402,7 @@ export function buildVillage(scene: THREE.Scene, renderer: THREE.WebGLRenderer):
   buildBarn(); mark('barn');
   buildFarm(); mark('farm');
   buildFences(); mark('fences');
-  buildGround(); mark('ground');
+  buildGround(terrainHeight); mark('ground');
   buildTrees(); mark('trees');
 
   // Materials: one per bucket.
@@ -1680,5 +1696,5 @@ export function buildVillage(scene: THREE.Scene, renderer: THREE.WebGLRenderer):
   dust.frustumCulled = false;
   scene.add(dust);
 
-  return { sun, sky, highlights, eastLeaf: leaf, tvMat, flameMat, flame, mastMat, dustTime, stats, leaves: town.leaves, waterTime: town.waterTime, nearRing, farRing, texturesReady, pictures: town.pictures, carpet, props, bellRope, env };
+  return { sun, sky, highlights, eastLeaf: leaf, tvMat, flameMat, flame, mastMat, dustTime, stats, leaves: town.leaves, waterTime: town.waterTime, nearRing, farRing, texturesReady, pictures: town.pictures, carpet, props, bellRope, env, terrainHeight };
 }

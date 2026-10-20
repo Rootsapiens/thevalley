@@ -10,6 +10,17 @@
     #app canvas { display: block; }
     #crosshair { position: fixed; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px; background: #FFB000; pointer-events: none; }
     #hud { position: fixed; left: 24px; bottom: 20px; color: #FFB000; font-size: 20px; letter-spacing: 2px; text-shadow: 0 0 6px #07090C; pointer-events: none; }
+    #story-objective { position: fixed; left: 42px; top: 72px; display: none; padding: 8px 12px; color: #efe9da;
+      background: rgba(7,9,12,.58); border-left: 2px solid #FFB000; text-shadow: 0 1px 4px #07090C; pointer-events: none; }
+    #story-objective b { display: block; color: #FFB000; font: 11px "Consolas", monospace; letter-spacing: 2px; }
+    #story-objective span { display: block; margin-top: 3px; font: 16px "Segoe UI", Tahoma, sans-serif; }
+    #evidence-ledger { position: fixed; right: 24px; top: 72px; display: none; min-width: 220px; padding: 8px 10px;
+      color: #efe9da; background: rgba(7,9,12,.58); border-right: 2px solid #FFB000; font: 12px "Consolas", monospace; pointer-events: none; }
+    #evidence-ledger b { display: block; color: #FFB000; letter-spacing: 2px; margin-bottom: 4px; }
+    #family-photo-card { position: fixed; right: 36px; bottom: 36px; width: 170px; height: 112px; display: none; align-items: center;
+      justify-content: center; text-align: center; color: #332a1d; background: #ded2b8; border: 7px solid #f2ead8;
+      box-shadow: 0 3px 18px rgba(0,0,0,.55); font: 11px "Consolas", monospace; letter-spacing: 1px; pointer-events: none; }
+    #family-photo-card span { display: block; border: 1px solid rgba(51,42,29,.45); padding: 15px 10px; }
     #overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
       background: rgba(7,9,12,.75); color: #e8e2d0; cursor: pointer; text-align: center; z-index: 10; }
     #overlay h1 { color: #FFB000; letter-spacing: 8px; margin: 0 0 12px; }
@@ -26,7 +37,9 @@
     @keyframes low-blink { 50% { opacity: .35; } }
     #ammo { position: fixed; right: 24px; bottom: 20px; color: #FFB000; font-size: 20px; letter-spacing: 2px; text-shadow: 0 0 6px #07090C; pointer-events: none; }
     #ammo b { font-size: 30px; }
-    #toast { position: fixed; top: 22%; width: 100%; text-align: center; color: #FFB000; letter-spacing: 4px; transition: opacity .3s; opacity: 0; pointer-events: none; }
+    #toast { position: fixed; top: 164px; left: 24px; width: fit-content; max-width: min(340px, calc(100vw - 48px)); box-sizing: border-box;
+      padding: 8px 12px; border-left: 2px solid #FFB000; background: rgba(7,9,12,.8); color: #FFB000;
+      text-align: left; letter-spacing: 2px; line-height: 1.35; transition: opacity .3s; opacity: 0; pointer-events: none; }
     #hurt { position: fixed; inset: 0; background: radial-gradient(transparent 40%, #D62828); opacity: 0; pointer-events: none; }
     #death { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; background: rgba(54,10,10,.6); color: #e8e2d0; pointer-events: none; }
     #sub { position: fixed; left: 50%; bottom: 8%; transform: translateX(-50%); width: min(900px, 86vw); text-align: center; color: #efe9da;
@@ -70,6 +83,10 @@
     #focus.show { opacity: .75; }
     #focus i { position: absolute; width: 10px; height: 10px; border: 0 solid #efe9da; }
     #focus.locked i { border-color: #FFB000; }
+    #focus-status { display: none; position: fixed; top: calc(50% + 62px); left: 50%; transform: translateX(-50%);
+      padding: 3px 6px; border: 1px solid #FFB000; border-radius: 2px; background: rgba(7,9,12,.82); color: #FFB000;
+      font: 10px "Segoe UI", system-ui, sans-serif; letter-spacing: .04em; white-space: nowrap; text-shadow: 0 1px 2px #07090C; }
+    #focus.locked #focus-status { display: block; }
     #focus i:nth-child(1) { left: 0; top: 0; border-left-width: 1px; border-top-width: 1px; }
     #focus i:nth-child(2) { right: 0; top: 0; border-right-width: 1px; border-top-width: 1px; }
     #focus i:nth-child(3) { left: 0; bottom: 0; border-left-width: 1px; border-bottom-width: 1px; }
@@ -106,8 +123,11 @@
   <div id="frame"><i></i><i></i><i></i><i></i></div>
   <div id="crosshair"></div>
   <div id="rec"><i></i><b id="rec-label">STBY</b><span id="tc">16:41:12:00</span><span id="clips">0/12</span><span id="batt" title="100%"><i id="batt-fill"></i></span></div>
-  <div id="focus"><i></i><i></i><i></i><i></i></div>
+  <div id="focus"><i></i><i></i><i></i><i></i><span id="focus-status" role="status" aria-live="polite">إطار ثابت · FRAME LOCKED</span></div>
   <div id="prompt"><kbd>E</kbd><span id="prompt-ar" lang="ar" dir="rtl"></span><span id="prompt-en"></span></div>
+  <div id="story-objective"><b>OBJECTIVE</b><span id="objective-ar" lang="ar" dir="rtl">اتبع آثار الحوافر نحو الجبل</span><span id="objective-en" lang="en">Follow the hoofprints to the mountain</span></div>
+  <div id="evidence-ledger"><b>أدلة اختيارية · OPTIONAL EVIDENCE</b><span id="evidence-photo">الصورة: 0/4 · Photo: 0/4</span><br><span id="evidence-testimonies">الإفادات: 0/3 · Statements: 0/3</span><br><span>P — اعرض صورة العائلة · show photo</span></div>
+  <div id="family-photo-card"><span>صورة العائلة<br>FAMILY PHOTOGRAPH</span></div>
   <div id="hud"></div>
   <div id="ammo"></div>
   <div id="toast"></div>
@@ -137,6 +157,54 @@
   </div>
   <script>
     document.getElementById('multiplayer').addEventListener('click', event => event.stopPropagation());
+    const storyParams = new URLSearchParams(location.search);
+    const prologueMode = storyParams.get('prologue') === '1';
+    const dayTwo = storyParams.get('day') === '2';
+    const chapterTwo = storyParams.get('chapter') === '2';
+    const chapterThree = storyParams.get('chapter') === '3';
+    const singlePlayer = document.getElementById('single-player');
+    if (prologueMode) {
+      document.querySelector('#overlay .ar').textContent = 'الفصل التمهيدي — جوزيف';
+      document.querySelector('#overlay > p:nth-of-type(2)').textContent = 'Prologue — Joseph, Night 0';
+      document.querySelector('#overlay > p:nth-of-type(3)').textContent = 'Follow the hoofprints toward the mountain.';
+      document.querySelector('#overlay > p:nth-of-type(4)').textContent = 'WASD walk · Mouse look · Shift jog · Esc release mouse';
+      document.querySelector('#title h2').textContent = 'الفصل التمهيدي — جوزيف';
+      document.querySelector('#title .again').textContent = 'R — continue as Lorenzo';
+    } else if (chapterTwo) {
+      document.querySelector('#overlay .ar').textContent = 'الفصل الثاني — طريق الغربان · لورينزو';
+      document.querySelector('#overlay > p:nth-of-type(2)').textContent = 'Chapter 2 — The Ravens’ Road · Lorenzo · Day 3';
+      document.querySelector('#overlay > p:nth-of-type(3)').textContent = 'Follow the village road east toward the quarry.';
+      document.querySelector('#title .ar').textContent = 'الفصل الثاني — طريق الغربان';
+      document.querySelector('#title h2').textContent = 'THE RAVENS’ ROAD';
+      document.querySelector('#title > p:nth-of-type(2)').textContent = 'CHAPTER 2 — THE RAVENS’ ROAD';
+      document.querySelector('#title-stats').textContent = 'CHAPTER 2 · DAY 3';
+    } else if (chapterThree) {
+      document.querySelector('#overlay .ar').textContent = 'الفصل الثالث — الإشارة · لورينزو';
+      document.querySelector('#overlay > p:nth-of-type(2)').textContent = 'Chapter 3 — The Signal · Lorenzo · Night 3';
+      document.querySelector('#overlay > p:nth-of-type(3)').textContent = 'Keep vigil in the church. Reach the bell tower and send the footage before 05:10.';
+      document.querySelector('#overlay > p:nth-of-type(4)').textContent = 'WASD walk · Mouse look · E talk / hold to upload · Shift jog';
+      document.querySelector('#title .ar').textContent = 'الفصل الثالث — الإشارة';
+      document.querySelector('#title h2').textContent = 'THE SIGNAL';
+      document.querySelector('#title > p:nth-of-type(2)').textContent = 'CHAPTER 3 — THE SIGNAL';
+      document.querySelector('#title-stats').textContent = 'CHAPTER 3 · DAY 3 · DEADLINE 05:10';
+      document.querySelector('#title .again').textContent = 'R — play again';
+      document.querySelector('#end h1').textContent = 'THE SIGNAL';
+      document.querySelector('#end h2').textContent = 'CHAPTER 3';
+    } else if (dayTwo) {
+      document.querySelector('#overlay .ar').textContent = 'الفصل الأول — اليوم الثاني · إيليا';
+      document.querySelector('#overlay > p:nth-of-type(2)').textContent = 'Chapter 1 — Day 2 · Moreno assigns Elia her cover';
+      document.querySelector('#overlay > p:nth-of-type(3)').textContent = 'Find Elia on the café balcony.';
+      document.querySelector('#title .ar').textContent = 'الفصل الأول — اليوم الثاني';
+      document.querySelector('#title h2').textContent = 'مهمة إيليا السرية';
+      document.querySelector('#title-stats').textContent = 'MORENO ASSIGNS ELIA · DAY 2';
+    }
+    singlePlayer.addEventListener('click', event => {
+      if (!prologueMode && !chapterTwo && !chapterThree && sessionStorage.getItem('ov-prologue-complete') !== '1') {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        location.search = '?prologue=1';
+      }
+    });
   </script>
   <script type="module" src="/src/main.ts"></script>
 </body>

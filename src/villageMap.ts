@@ -154,14 +154,15 @@ export const BUILDINGS: Building[] = [
   bld({ id: 'priest', kind: 'house', cells: [21, 9, 22, 10], x0: 30.5, x1: 39.5, z0: 26.5, z1: 34, eave: 5.6, ridgeAlongX: true, roof: 'gable',
     doors: [D('w', 30, 'locked')], lit: 0.5 }),
   // The square's west side: the old school, now the police post [6].
+  // Enterable since build step 2: Moreno's table and Omar's chair inside (src/interiors.ts).
   bld({ id: 'school', kind: 'school', landmark: 6, cells: [11, 12, 12, 14], x0: -19.5, x1: -10.5, z0: 40.5, z1: 54.5, eave: 6.8, ridgeAlongX: false, roof: 'gable',
-    doors: [D('e', 47.5, 'locked', undefined, 1.5, 2.6)], lit: 0 }),
+    doors: [D('e', 47.5, 'open', 'door-post', 1.5, 2.6)], lit: 0.35, hollow: true }),
   // East of the square.
   bld({ id: 'house-e1', kind: 'house', cells: [26, 12, 27, 13], x0: 55.5, x1: 64, z0: 41, z1: 49, eave: 5.2, ridgeAlongX: false, roof: 'gable',
     doors: [D('w', 45, 'locked')], lit: 0.5 }),
   // South side: the café-shop [5] with rooms upstairs, then the houses and barns down the valley road.
   bld({ id: 'cafe', kind: 'cafe', landmark: 5, cells: [15, 16, 18, 17], x0: 0.5, x1: 19.5, z0: 60.5, z1: 69.5, eave: 6.6, ridgeAlongX: true, roof: 'gable',
-    doors: [D('n', 7, 'locked', undefined, 1.4, 2.4)], lit: 0.7 }),
+    doors: [D('n', 7, 'open', 'door-cafe', 1.4, 2.4)], lit: 0.7, hollow: true }),
   bld({ id: 'house-sw1', kind: 'house', cells: [12, 16, 13, 17], x0: -14.5, x1: -6, z0: 60.5, z1: 68.5, eave: 5.0, ridgeAlongX: true, roof: 'gable',
     doors: [D('n', -9, 'locked')], lit: 0.4 }),
   bld({ id: 'house-se1', kind: 'house', cells: [25, 16, 26, 17], x0: 50.5, x1: 59, z0: 60.5, z1: 69, eave: 5.4, ridgeAlongX: true, roof: 'gable',

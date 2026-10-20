@@ -1,0 +1,152 @@
+{
+ "Soldier_Male": {
+  "tris": 2994,
+  "height_m": 1.85,
+  "clips": [
+   "death",
+   "hit",
+   "idle",
+   "punch",
+   "run",
+   "shoot",
+   "walk",
+   "walk_carry"
+  ],
+  "bytes": 463088,
+  "scale": 0.5721,
+  "mats": [
+   "Skin",
+   "Main",
+   "Black",
+   "DarkGreen",
+   "Face",
+   "Helmet"
+  ]
+ },
+ "Soldier_Female": {
+  "tris": 7066,
+  "height_m": 1.72,
+  "clips": [
+   "death",
+   "hit",
+   "idle",
+   "punch",
+   "run",
+   "shoot",
+   "walk",
+   "walk_carry"
+  ],
+  "bytes": 675452,
+  "scale": 0.5445,
+  "mats": [
+   "Skin",
+   "Main",
+   "Black",
+   "DarkGreen",
+   "Face",
+   "Hair"
+  ]
+ },
+ "Worker_Male": {
+  "tris": 2524,
+  "height_m": 1.78,
+  "clips": [
+   "death",
+   "hit",
+   "idle",
+   "punch",
+   "run",
+   "shoot",
+   "walk",
+   "walk_carry"
+  ],
+  "bytes": 424648,
+  "scale": 0.5417,
+  "mats": [
+   "Skin",
+   "Shirt",
+   "Vest",
+   "Pants",
+   "Hat",
+   "Face"
+  ]
+ },
+ "Worker_Female": {
+  "tris": 5856,
+  "height_m": 1.66,
+  "clips": [
+   "death",
+   "hit",
+   "idle",
+   "punch",
+   "run",
+   "shoot",
+   "walk",
+   "walk_carry"
+  ],
+  "bytes": 610844,
+  "scale": 0.4914,
+  "mats": [
+   "Skin",
+   "Shirt",
+   "Vest",
+   "Pants",
+   "Hat",
+   "Face",
+   "Hair"
+  ]
+ },
+ "Cowboy_Male": {
+  "tris": 3176,
+  "height_m": 1.8,
+  "clips": [
+   "death",
+   "hit",
+   "idle",
+   "punch",
+   "run",
+   "shoot",
+   "walk",
+   "walk_carry"
+  ],
+  "bytes": 475388,
+  "scale": 0.5191,
+  "mats": [
+   "Skin",
+   "Jacket",
+   "Top",
+   "Scarf",
+   "HatBrown",
+   "Pants",
+   "Face",
+   "HatLightBrown",
+   "Hair"
+  ]
+ },
+ "OldClassy_Female": {
+  "tris": 7008,
+  "height_m": 1.62,
+  "clips": [
+   "death",
+   "hit",
+   "idle",
+   "punch",
+   "run",
+   "shoot",
+   "walk",
+   "walk_carry"
+  ],
+  "bytes": 675372,
+  "scale": 0.4352,
+  "mats": [
+   "Skin",
+   "Pants",
+   "Shirt",
+   "Detail",
+   "Belt",
+   "Face",
+   "Hat",
+   "Hair"
+  ]
+ }
+}

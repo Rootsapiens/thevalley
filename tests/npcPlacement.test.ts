@@ -13,10 +13,11 @@ describe('NPC placement prep (build step 2)', () => {
     for (const p of ps.filter(q => !q.issues.length)) expect(Number.isFinite(p.y), p.id).toBe(true);
   });
 
-  it('puts Maryam on her house floor and the priest inside the church', () => {
+  it('puts Maryam on her house floor, the priest inside the church and Moreno in the post', () => {
     const by = Object.fromEntries(placeNpcs(1).map(p => [p.id, p]));
     expect(by.npc_maryam.room).toBe('maryam');
     expect(by.npc_maryam.y).toBeCloseTo(-3.88, 1);
     expect(by.npc_priest.room).toBe('church');
+    expect(by.npc_moreno.room).toBe('school');   // inside post [6] since it has an interior (src/interiors.ts)
   });
 });

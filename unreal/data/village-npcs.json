@@ -1,7 +1,7 @@
 {
  "source": {
   "file": "src/npcData.ts",
-  "sha256": "55c43a7a5e15051c",
+  "sha256": "0a043f70a4d4905f",
   "exporter": "scripts/export-npcs.ts"
  },
  "units": "game metres, x east, y up, z south; yaw radians, 0 = north, + = left",
@@ -30,12 +30,17 @@
    "triggers": [
     {
      "id": "maryam_door",
-     "line": "Have you seen my son? He had the cow's rope with him.",
+     "line": "Have you seen my son, Joseph? His bed was empty this morning.",
+     "status": "proposed"
+    },
+    {
+     "id": "maryam_confirmed_missing",
+     "line": "I waited, then checked the house. He has not come back.",
      "status": "proposed"
     },
     {
      "id": "maryam_posters",
-     "line": "I put those up myself. Nobody has called.",
+     "line": "I drew them myself. Nobody has knocked on my door.",
      "status": "proposed"
     },
     {
@@ -51,11 +56,11 @@
    "spawnDay": 1,
    "position": {
     "x": -15,
-    "y": 0,
+    "y": 0.02,
     "z": 47.5
    },
-   "yaw": 0,
-   "floorKnown": false,
+   "yaw": -1.571,
+   "floorKnown": true,
    "cuffed": true,
    "triggers": [
     {
@@ -65,7 +70,7 @@
     },
     {
      "id": "omar_watcher",
-     "line": "Who is that woman who keeps looking at me?",
+     "line": "She says she's my girlfriend. I don't remember her face.",
      "status": "proposed"
     }
    ]
@@ -76,11 +81,11 @@
    "spawnDay": 2,
    "position": {
     "x": 9,
-    "y": 0,
-    "z": 60.3
+    "y": 3.27,
+    "z": 59.9
    },
    "yaw": 0,
-   "floorKnown": false,
+   "floorKnown": true,
    "cuffed": false,
    "triggers": [
     {
@@ -90,7 +95,7 @@
     },
     {
      "id": "elia_photos",
-     "line": "Are you the one putting up the photos?",
+     "line": "You're the one showing people a photo of a missing man?",
      "status": "proposed"
     },
     {
@@ -106,21 +111,21 @@
    "spawnDay": 1,
    "position": {
     "x": -15.5,
-    "y": 0,
+    "y": 0.02,
     "z": 45
    },
-   "yaw": 0,
-   "floorKnown": false,
+   "yaw": 1.571,
+   "floorKnown": true,
    "cuffed": false,
    "triggers": [
     {
      "id": "moreno_reporter",
-     "line": "You're the reporter who was asking about Joseph. What do you want from me?",
+     "line": "You're the one with the camera, asking about a missing man. What do you want from me?",
      "status": "proposed"
     },
     {
      "id": "moreno_said",
-     "line": "Did he say anything when they brought him in?",
+     "line": "He says he remembers nothing. A man like him remembers everything.",
      "status": "proposed"
     },
     {
@@ -135,11 +140,11 @@
    "role": "Police officer, guards the car (unnamed)",
    "spawnDay": 1,
    "position": {
-    "x": -8,
+    "x": -5.3,
     "y": 0,
-    "z": 44.6
+    "z": 44.2
    },
-   "yaw": 0,
+   "yaw": -1.571,
    "floorKnown": true,
    "cuffed": false,
    "triggers": [
@@ -155,12 +160,12 @@
    "role": "Police officer, school doorway (unnamed)",
    "spawnDay": 1,
    "position": {
-    "x": -11.5,
+    "x": -9.4,
     "y": 0,
-    "z": 47.5
+    "z": 45.8
    },
-   "yaw": 0,
-   "floorKnown": false,
+   "yaw": -1.571,
+   "floorKnown": true,
    "cuffed": false,
    "triggers": [
     {
@@ -175,11 +180,11 @@
    "role": "Village priest (unnamed)",
    "spawnDay": 1,
    "position": {
-    "x": 14.5,
+    "x": 18.5,
     "y": 0,
-    "z": 28.5
+    "z": 31
    },
-   "yaw": 0,
+   "yaw": -1.571,
    "floorKnown": true,
    "cuffed": false,
    "triggers": [
@@ -190,7 +195,7 @@
     },
     {
      "id": "priest_ladder",
-     "line": "The ladder is old. Mind the fourth flight.",
+     "line": "The ladder is old, four flights. If it's signal you want, it's only up by the bells.",
      "status": "proposed"
     },
     {
@@ -215,7 +220,7 @@
    "triggers": [
     {
      "id": "farmer_light",
-     "line": "My wife keeps the light on for me. I'm going back out.",
+     "line": "I'm going back out before it gets dark.",
      "status": "proposed"
     }
    ]
@@ -225,22 +230,17 @@
    "role": "Farmer's wife (unnamed)",
    "spawnDay": 1,
    "position": {
-    "x": -21,
+    "x": -14.2,
     "y": 0,
-    "z": 0
+    "z": 0.4
    },
-   "yaw": 0,
-   "floorKnown": false,
+   "yaw": -1.571,
+   "floorKnown": true,
    "cuffed": false,
    "triggers": [
     {
      "id": "wife_back",
      "line": "He'll come back. He always does.",
-     "status": "proposed"
-    },
-    {
-     "id": "wife_cow",
-     "line": "The cow was the first one to go. She walked up the hill.",
      "status": "proposed"
     }
    ]
@@ -260,7 +260,7 @@
    "triggers": [
     {
      "id": "npc_square_villager_1_animals",
-     "line": "Have you seen the animals? They just walked up the hill.",
+     "line": "It's the Ravens. Who else takes a whole herd in one night?",
      "status": "proposed"
     },
     {
@@ -285,7 +285,7 @@
    "triggers": [
     {
      "id": "npc_square_villager_2_animals",
-     "line": "Have you seen the animals? They just walked up the hill.",
+     "line": "It's the Ravens. Who else takes a whole herd in one night?",
      "status": "proposed"
     },
     {
@@ -310,7 +310,7 @@
    "triggers": [
     {
      "id": "npc_square_villager_3_animals",
-     "line": "Have you seen the animals? They just walked up the hill.",
+     "line": "It's the Ravens. Who else takes a whole herd in one night?",
      "status": "proposed"
     },
     {
@@ -335,7 +335,7 @@
    "triggers": [
     {
      "id": "npc_square_villager_4_animals",
-     "line": "Have you seen the animals? They just walked up the hill.",
+     "line": "It's the Ravens. Who else takes a whole herd in one night?",
      "status": "proposed"
     },
     {
@@ -360,7 +360,7 @@
    "triggers": [
     {
      "id": "npc_square_villager_5_animals",
-     "line": "Have you seen the animals? They just walked up the hill.",
+     "line": "It's the Ravens. Who else takes a whole herd in one night?",
      "status": "proposed"
     },
     {
@@ -385,7 +385,7 @@
    "triggers": [
     {
      "id": "npc_square_villager_6_animals",
-     "line": "Have you seen the animals? They just walked up the hill.",
+     "line": "It's the Ravens. Who else takes a whole herd in one night?",
      "status": "proposed"
     },
     {

@@ -4,7 +4,7 @@ The camera starts at Lorenzo's eye on the spawn point, framed like the web build
 sunlit mountain over the pasture on the right), and dollies 3 m toward the barn's north corner while panning 6 deg
 right toward the cave mouth (bearing 45). Called by build_barn_level.py with the OV_OpeningCam actor; can also run
 alone in an open BarnSlice level (Tools > Execute Python Script).
-Render it with Movie Render Queue (Window > Cinematics > Movie Render Queue) for the trial's cinematic deliverable.
+It auto-plays when the level starts (play.ps1). Rendered to frames by render_mrq.py (run_trial.ps1 step 4).
 """
 import os
 import sys
@@ -84,7 +84,9 @@ def main(cam=None):
     cs.set_range(0, frames)
     cs.set_camera_binding_id(_binding_id(seq, binding))
 
-    # A LevelSequenceActor in the level so the cinematic is one click away (no auto-play: the perf run must stay still).
+    # A LevelSequenceActor that auto-plays at BeginPlay: the game opens on the dolly, then hands the view back to the
+    # first-person pawn at the spawn. Input is locked and the pawn hidden while it plays. render_mrq.py switches the
+    # auto-play off in memory before Movie Render Queue renders; run_trial.ps1 skips the first 15 s of each perf capture.
     for a in eas.get_all_level_actors():
         if a.get_actor_label() == "LS_OpeningDolly_Player":
             eas.destroy_actor(a)
@@ -96,6 +98,18 @@ def main(cam=None):
         lsa.set_sequence(seq)
     except Exception:
         lsa.set_editor_property("level_sequence_asset", seq)
+    ps = lsa.get_editor_property("playback_settings")
+    for k, v in (("auto_play", True), ("disable_movement_input", True), ("disable_look_at_input", True), ("hide_player", True),
+                 ("hide_hud", True), ("pause_at_end", False)):
+        try:
+            ps.set_editor_property(k, v)
+        except Exception as e:
+            unreal.log_warning("[OV] playback_settings.%s: %s" % (k, e))
+    lsa.set_editor_property("playback_settings", ps)
+    try:
+        lsa.set_editor_property("auto_play", True)       # newer engines moved bAutoPlay onto the actor
+    except Exception:
+        pass
     eal.save_loaded_asset(seq)
     unreal.log("[OV] %s: %d frames @ %d fps, dolly %.1f m, pan %.0f deg" % (path, frames, FPS, DOLLY_M, PAN_DEG))
     return {"asset": path, "frames": frames, "fps": FPS}

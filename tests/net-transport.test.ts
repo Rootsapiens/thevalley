@@ -107,7 +107,7 @@ describe('hitscan and bots', () => {
     for (const b of host.sim.bodies) { expect(Math.abs(b.pos.y)).toBeLessThan(0.05); expect(b.pos.x).toBeGreaterThan(BOUNDS.x0); expect(b.pos.x).toBeLessThan(BOUNDS.x1); expect(b.pos.z).toBeGreaterThan(BOUNDS.z0); expect(b.pos.z).toBeLessThan(BOUNDS.z1); }
   });
   it('a bot match runs 300 s of game time without NaN and scores rounds', () => {
-    const hub = new LoopbackHub(), host = new HostSession(hub.host('BOTSX'), 'H', { bots: true });
+    const hub = new LoopbackHub(), host = new HostSession(hub.host('BOTSX'), 'H', { bots: true, rng: (() => { let s = 5; return () => ((s = (s * 16807) % 2147483647) / 2147483647); })() });
     for (let i = 0; i < 60 * 300; i++) host.advance(1 / 60);
     for (const b of host.sim.bodies) expect(Number.isFinite(b.pos.x + b.pos.y + b.pos.z)).toBe(true);
     const sl = host.sim.room.slots;

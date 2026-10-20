@@ -13,6 +13,7 @@ import {
   type Building, type DoorSpec, type Face, type Rect,
 } from './villageMap';
 export { groundY } from './villageMap';
+import { furnitureBoxes } from './interiors';
 
 export interface Text { ar: string; en: string }
 export interface Solid { box: Box; tag?: 'invisible' }
@@ -102,7 +103,7 @@ export const SPAWN: Vec3 = { x: 4, y: 0.01, z: 21.5 };
 export const SPAWN_YAW = -22 * Math.PI / 180;
 
 // ---------- Collision ----------
-export function villageSolids(): Solid[] {
+export function villageSolids(options: { eastValleyOpen?: boolean; southFarmlandOpen?: boolean } = {}): Solid[] {
   const s: Solid[] = [];
   const add = (x0: number, z0: number, x1: number, z1: number, h: number, y = 0, tag?: 'invisible') =>
     s.push({ box: { min: { x: Math.min(x0, x1), y, z: Math.min(z0, z1) }, max: { x: Math.max(x0, x1), y: y + h, z: Math.max(z0, z1) } }, tag });
@@ -153,7 +154,13 @@ export function villageSolids(): Solid[] {
   add(GAP.x0, -44.5, GAP.x1, -44, 3, 0, 'invisible');
   add(GAP.x0 - 0.5, -44, GAP.x0, NORTH_WALL_Z, 3, 0, 'invisible');
   add(GAP.x1, -44, GAP.x1 + 0.5, NORTH_WALL_Z, 3, 0, 'invisible');
-  townSolids(s);
+  townSolids(s, options);
+  // The café balcony stairs are part of the built Day 2 exterior (villageTown.cafeExtras).
+  const cafe = BUILDINGS.find(b => b.id === 'cafe')!;
+  for (let i = 0; i < 17; i++) {
+    const top = cafe.floor + (3.25 / 17) * (i + 1), z0 = cafe.z0 - 5.1 + i * 0.22;
+    add(cafe.x0 + 8.6, z0, cafe.x0 + 10.15, z0 + 0.22, top - cafe.floor, cafe.floor);
+  }
   return s;
 }
 
@@ -265,7 +272,7 @@ export function churchLayout(b: Building): ChurchLayout {
   return { cz, pews, columns, altar: { x0: b.x1 - 2.6, x1: b.x1 - 1.6, z0: cz - 1.2, z1: cz + 1.2 }, pictures };
 }
 
-export function townSolids(s: Solid[]) {
+export function townSolids(s: Solid[], options: { eastValleyOpen?: boolean; southFarmlandOpen?: boolean } = {}) {
   // Buildings: solid blocks; the enterable ones are shells with an interior floor and door gaps (doors fill them).
   for (const b of BUILDINGS) {
     const top = b.floor + b.eave + (b.kind === 'tower' ? 7 : 0.5);
@@ -285,7 +292,9 @@ export function townSolids(s: Solid[]) {
       wall({ x0: b.x0, x1: b.x1, z0: b.z0, z1: b.z0 + t }); wall({ x0: b.x0, x1: b.x1, z0: b.z1 - t, z1: b.z1 });
       wall({ x0: b.x0, x1: b.x0 + t, z0: b.z0 + t, z1: b.z1 - t }); wall({ x0: b.x1 - t, x1: b.x1, z0: b.z0 + t, z1: b.z1 - t });
       s.push({ box: yb(b.x0 + t, b.z0 + t, b.x1 - t, b.z1 - t, b.base, b.floor) });                 // interior floor
-      s.push({ box: yb(b.x0, b.z0, b.x1, b.z1, b.floor + b.eave - 0.25, top + 0.5) });               // ceiling
+      // Ceiling: the house rooms' boards at 2.7 m (villageTown shell), so a jump never puts the eye through them.
+      const ceil = b.kind === 'house' || b.kind === 'school' || b.kind === 'cafe' ? b.floor + 2.7 : b.floor + b.eave - 0.25;
+      s.push({ box: yb(b.x0, b.z0, b.x1, b.z1, ceil, top + 0.5) });
       for (const g of gaps) s.push({ box: yb(g.x0, g.z0, g.x1, g.z1, b.base, b.floor) });            // sills
       if (b.kind === 'church') {   // pews, columns and the altar are solid
         const L = churchLayout(b);
@@ -296,6 +305,8 @@ export function townSolids(s: Solid[]) {
     }
     for (const d of b.doors) for (const st of doorSteps(b, d)) s.push({ box: yb(st.x0, st.z0, st.x1, st.z1, st.top - 1.5, st.top) });
   }
+  // Furniture of the furnished rooms (src/interiors.ts): tables, chairs, cupboards, the bar.
+  for (const f of furnitureBoxes()) s.push({ box: { min: { ...f.min }, max: { ...f.max } } });
   // Tower base: the ladder up the north wall (climbing comes with Chapter 3).
   const T = BUILDINGS.find(b => b.id === 'tower')!;
   s.push({ box: yb(T.x0 + 1.7, T.z0 + WALL_T, T.x1 - 1.7, T.z0 + WALL_T + 0.3, T.floor, T.floor + 3.2) });
@@ -340,8 +351,9 @@ export function townSolids(s: Solid[]) {
   // Map edges the fences leave open: the ravine north and south, past the trail end, down the valley road.
   s.push({ box: yb(96, -20.6, 113, -20.2, -12, 3), tag: 'invisible' });
   s.push({ box: yb(96, 110.2, 113, 110.6, -14, 3), tag: 'invisible' });
-  s.push({ box: yb(125.1, 10, 125.6, 15, -8, 3), tag: 'invisible' });
-  s.push({ box: yb(33.5, 110.6, 41.5, 111, -3, 3), tag: 'invisible' });
+  // Chapter 1 closes at the existing capture gate; Chapter 2 opens only the trail seam into East Valley.
+  if (!options.eastValleyOpen) s.push({ box: yb(125.1, 10, 125.6, 15, -8, 3), tag: 'invisible' });
+  if (!options.southFarmlandOpen) s.push({ box: yb(33.5, 110.6, 41.5, 111, -3, 3), tag: 'invisible' });
 }
 
 // ---------- Usable gates and doors (E) ----------
@@ -365,6 +377,8 @@ const NAMES: Record<string, Text> = {
   'door-church': { ar: 'باب الكنيسة', en: 'Church door' },
   'door-tower': { ar: 'باب البرج', en: 'Tower door' },
   'door-maryam': { ar: 'باب بيت مريم', en: "Maryam's door" },
+  'door-post': { ar: 'باب المخفر', en: 'Police post door' },
+  'door-cafe': { ar: 'باب المقهى', en: 'Café door' },
 };
 const DOOR_NAME: Text = { ar: 'باب', en: 'Door' };
 export const LOCKED_LINE: Text = { ar: 'مقفل.', en: 'Locked.' };
@@ -612,9 +626,9 @@ export function markExamined(s: VillageState, id: string): boolean {
 }
 
 /** Zone events for a player box: 'end' once (sets finished), 'turnback' whenever inside. Pass `out` to reuse an array. */
-export function zoneEvents(s: VillageState, player: Box, out: ('end' | 'turnback')[] = []): ('end' | 'turnback')[] {
+export function zoneEvents(s: VillageState, player: Box, out: ('end' | 'turnback')[] = [], endEnabled = true): ('end' | 'turnback')[] {
   out.length = 0;
-  if (!s.finished && (overlaps(player, END_ZONE.box) || overlaps(player, TRAIL_END_ZONE.box))) { s.finished = true; out.push('end'); }
+  if (endEnabled && !s.finished && (overlaps(player, END_ZONE.box) || overlaps(player, TRAIL_END_ZONE.box))) { s.finished = true; out.push('end'); }
   if (overlaps(player, TURNBACK_ZONE.box)) out.push('turnback');
   return out;
 }

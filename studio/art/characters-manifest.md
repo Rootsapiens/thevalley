@@ -21,6 +21,14 @@ Source zips (not shipped): `art-src/models/characters/quaternius-uacp/pack.zip` 
 `art-src/models/characters/quaternius-ual/pack.zip` sha256 18ff1a72...c2 (14.5 MB). Neither zip has a licence file for the
 character pack; CC0 is as stated on the OpenGameArt page (the UAL zip has License.txt = CC0 1.0).
 
+## Unreal-only villager cast
+
+`art-src/models/characters/quaternius-rpg-character-pack/` contains the free Quaternius RPG Character Pack source FBXs and
+matching textures downloaded on 2026-10-20. It includes Cleric, Monk, Ranger, Rogue, Warrior and Wizard, all rigged and
+animated. The pack is CC0 and is imported only into the Unreal trial at
+`/Game/OmegaValley/Characters/Villagers/RPGCharacterPack`; it is not used by the web build. Source:
+https://quaternius.com/packs/rpgcharacters.html.
+
 ## Honest notes
 - The original six people are stylised low-poly "chibi" figures (big head, short legs). The operator variants add
   lightweight tactical silhouette gear but keep that source body style; they are not photorealistic models.

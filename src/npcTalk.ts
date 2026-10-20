@@ -3,7 +3,7 @@
 // log. Idle: breathing phase, glances, turning to the player. Pure, no Three.js (src/npcFigures.ts draws the actors).
 import { ORDER, npcsAtDay, type NpcId, type NpcSpec, type NpcTrigger } from './npcData';
 import { placeNpcs } from './npcPlacement';
-import { FOUNTAIN } from './villageMap';
+import { FOUNTAIN, groundY } from './villageMap';
 import { rayBox, rng, type Solid, type Text } from './village';
 import type { Box, Vec3 } from './physics';
 
@@ -11,6 +11,8 @@ import type { Box, Vec3 } from './physics';
 export interface Story {
   chapter: number;
   day: number;
+  /** Joseph's opening prologue, before Lorenzo's post-prologue arrival. */
+  prologue?: boolean;
   /** Binding events done (a prefix of ORDER). */
   events: readonly string[];
   flags: ReadonlySet<string>;
@@ -38,6 +40,7 @@ export const linesFor = (npc: NpcSpec, s: Story): NpcTrigger[] => npc.triggers.f
 /** The line E plays next: the first allowed line not heard yet, in authored order; once all are heard, the last one
  *  again. Marks it heard. null when the NPC has nothing to say in this story state. */
 export function nextLine(npc: NpcSpec, s: Story, heard: Set<string>): NpcTrigger | null {
+  if (npc.talkable === false) return null;
   const ls = linesFor(npc, s);
   if (!ls.length) return null;
   const t = ls.find(l => !heard.has(l.id)) ?? ls[ls.length - 1];
@@ -95,6 +98,10 @@ export interface Actor {
   talk: number; line: string | null;
   /** Breathing period (s) and phase, per actor. */
   breathT: number; breathP: number;
+  /** Farmer's prologue route state; gait fields drive the low-poly walk pose. */
+  searchWaypoint: number; searchDirection: -1 | 1; searchPause: number; walkPhase: number; walkWeight: number;
+  /** Set after Maryam tells Lorenzo that Joseph did not return; she walks through the yard gate to the square. */
+  maryamMoving: boolean;
   rand: () => number;
 }
 export const STAND = { chest: 1.3, head: 1.62, half: 0.24, height: 1.78 };
@@ -102,18 +109,36 @@ export const SEAT = { chest: 0.9, head: 1.2, half: 0.32, height: 1.3 };
 const deg = Math.PI / 180;
 const yawTo = (dx: number, dz: number) => Math.atan2(-dx, -dz);
 export const wrapA = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+const MOUNTAIN_YAW = yawTo(Math.sin(45 * deg), -Math.cos(45 * deg));
+/** Route skirts the barn's west wall, crosses its north face and the pasture opening, then pauses in the field. */
+const FARMER_SEARCH_ROUTE = [
+  { x: -12.5, z: 8.5 },  // trough
+  { x: -12.5, z: -12.4 },
+  { x: 0, z: -12.4 },
+  { x: 0, z: -15.5 },    // through the pasture opening in the north fence
+];
+/** From Maryam's kitchen, through her yard gate and along the village path to the square's east edge. */
+const MARYAM_SEARCH_ROUTE = [
+  { x: 74.0, z: 15.0 },    // south door of house [7]
+  { x: 77.5, z: 21.8 },   // yard gate, approached from inside
+  { x: 77.5, z: 23.8 },   // path outside the gate
+  { x: 77.5, z: 37.5 },
+  { x: 62.0, z: 37.5 },
+  { x: 49.0, z: 37.5 },
+  { x: 43.5, z: 43.0 },   // square, clear of fountain, bench and villagers
+];
 
 /** The NPCs of a story state, standing where npcPlacement resolves them (floor y, room). NPCs whose spot still has an
  *  open placement issue (no interior, floor undecided, inside a solid) are left out rather than guessed. */
 export function makeActors(s: Story): Actor[] {
-  const opts = { chapter: s.chapter, events: s.events, medicalCheckComplete: s.medicalCheckComplete };
+  const opts = { chapter: s.chapter, day: s.day, prologue: s.prologue, events: s.events, medicalCheckComplete: s.medicalCheckComplete };
   const specs = npcsAtDay(s.day, opts), places = placeNpcs(s.day, opts);
   const ok = places.map((p, i) => ({ p, spec: specs[i] })).filter(q => !q.p.issues.length);
   const group = ok.filter(q => CAST[q.spec.id].rest === 'group');
   return ok.map(({ p, spec }, index) => {
     const cast = CAST[spec.id];
     let rest = spec.yaw;
-    if (cast.rest === 'mountain') rest = yawTo(Math.sin(45 * deg), -Math.cos(45 * deg));
+    if (cast.rest === 'mountain') rest = MOUNTAIN_YAW;
     else if (cast.rest === 'group') {
       let best: { x: number; z: number } = FOUNTAIN, bd = 5;
       for (const o of group) {
@@ -127,7 +152,9 @@ export function makeActors(s: Story): Actor[] {
     return {
       id: spec.id, spec, index, x: p.x, y: p.y, z: p.z, rest, seated: spec.id === 'npc_omar' && spec.stage === 'police-post',
       indoors: p.room !== null, yaw: rest, headYaw: 0, headPitch: 0, glance: 0, glancePitch: 0, nextGlance: 1 + rand() * 4,
-      talk: 0, line: null, breathT: 3.4 + rand() * 1.4, breathP: rand() * Math.PI * 2, rand,
+      talk: 0, line: null, breathT: 3.4 + rand() * 1.4, breathP: rand() * Math.PI * 2,
+      searchWaypoint: 1, searchDirection: 1, searchPause: spec.stage === 'prologue-search' ? 1.0 : 0,
+      walkPhase: 0, walkWeight: 0, maryamMoving: false, rand,
     };
   });
 }
@@ -152,10 +179,102 @@ function turn(a: number, target: number, dt: number, rate: number, max: number):
   return wrapA(a + s);
 }
 
+/** Slow round trip from the trough to the pasture opening, then a deliberate pause facing the mountain. */
+function tickFarmerSearch(a: Actor, dt: number, px: number, pz: number, t: number): void {
+  if (a.spec.id !== 'npc_farmer' || a.spec.stage !== 'prologue-search') {
+    a.walkWeight += (0 - a.walkWeight) * Math.min(1, dt * 5);
+    return;
+  }
+  if (Math.hypot(px - a.x, pz - a.z) < NEAR) {
+    a.walkWeight += (0 - a.walkWeight) * Math.min(1, dt * 5);
+    return;
+  }
+  if (a.searchPause > 0) {
+    a.searchPause = Math.max(0, a.searchPause - dt);
+    a.walkWeight += (0 - a.walkWeight) * Math.min(1, dt * 5);
+    return;
+  }
+
+  const target = FARMER_SEARCH_ROUTE[a.searchWaypoint];
+  const dx = target.x - a.x, dz = target.z - a.z, distance = Math.hypot(dx, dz);
+  if (distance < 0.08) {
+    a.x = target.x; a.z = target.z;
+    a.walkWeight = 0;
+    const atPasture = a.searchDirection > 0 && a.searchWaypoint === FARMER_SEARCH_ROUTE.length - 1;
+    const atTrough = a.searchDirection < 0 && a.searchWaypoint === 0;
+    if (atPasture) {
+      a.searchDirection = -1;
+      a.searchWaypoint--;
+      a.searchPause = 5.0;
+      a.rest = MOUNTAIN_YAW;
+      a.glance = 0;
+      a.glancePitch = 0.1;
+      a.nextGlance = t + 5.2;
+    } else if (atTrough) {
+      a.searchDirection = 1;
+      a.searchWaypoint++;
+      a.searchPause = 2.2;
+      a.rest = MOUNTAIN_YAW;
+      a.glance = 0;
+      a.glancePitch = 0.05;
+      a.nextGlance = t + 2.4;
+    } else a.searchWaypoint += a.searchDirection;
+    return;
+  }
+
+  const yaw = yawTo(dx, dz), speed = 0.58;
+  a.rest = yaw;
+  a.walkWeight += (1 - a.walkWeight) * Math.min(1, dt * 5);
+  a.walkPhase += dt * Math.PI * 2 * 1.45;
+  const stride = Math.min(distance, speed * dt);
+  a.x += dx / distance * stride;
+  a.z += dz / distance * stride;
+}
+
+/** Begin the one-way route after Maryam confirms Joseph has not come home. */
+export function startMaryamSearch(a: Actor): boolean {
+  if (a.id !== 'npc_maryam' || a.spec.stage !== 'maryam-home' || a.maryamMoving) return false;
+  a.spec.stage = 'maryam-going-square';
+  a.maryamMoving = true;
+  a.searchWaypoint = 0;
+  a.indoors = false;
+  return true;
+}
+
+function tickMaryamSearch(a: Actor, dt: number, px: number, pz: number): void {
+  if (!a.maryamMoving || a.talk > 0) return;
+  if (Math.hypot(px - a.x, pz - a.z) < NEAR) {
+    a.walkWeight += (0 - a.walkWeight) * Math.min(1, dt * 5);
+    return;
+  }
+  const target = MARYAM_SEARCH_ROUTE[a.searchWaypoint];
+  if (!target) {
+    a.maryamMoving = false;
+    a.spec.stage = 'maryam-square';
+    a.walkWeight = 0;
+    return;
+  }
+  const dx = target.x - a.x, dz = target.z - a.z, distance = Math.hypot(dx, dz);
+  if (distance < 0.08) {
+    a.x = target.x; a.z = target.z; a.y = groundY(a.x, a.z);
+    a.searchWaypoint++;
+    return;
+  }
+  const stride = Math.min(distance, 0.62 * dt);
+  a.rest = yawTo(dx, dz);
+  a.walkWeight += (1 - a.walkWeight) * Math.min(1, dt * 5);
+  a.walkPhase += dt * Math.PI * 2 * 1.4;
+  a.x += dx / distance * stride;
+  a.z += dz / distance * stride;
+  a.y = groundY(a.x, a.z);
+}
+
 /** One idle/attention step (render rate). Near the player (or while speaking) the body turns to him and the head
  *  follows him within a neck's reach; otherwise the actor drifts back to rest and glances about: ahead, aside, or (out
  *  of doors) up at the mountain. Omar keeps his chair and his head down; he looks up only while he speaks. */
 export function tickActor(a: Actor, dt: number, px: number, py: number, pz: number, t: number): void {
+  tickFarmerSearch(a, dt, px, pz, t);
+  tickMaryamSearch(a, dt, px, pz);
   const dx = px - a.x, dz = pz - a.z, d = Math.hypot(dx, dz), face = yawTo(dx, dz);
   const near = d < NEAR || a.talk > 0;
   a.yaw = turn(a.yaw, near && !a.seated ? face : a.rest, dt, 3, 2.4);

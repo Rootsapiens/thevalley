@@ -65,7 +65,7 @@ test('village tour: gates, a locked door, the back gate, the stepping stones, th
 
   // A locked door rattles and says so in the prompt at once, without touching a spoken line that may still be up
   // (under SwiftShader the sim runs slower than real time, so the opening line is often still showing here).
-  await useIt(page, 'locked-cafe');
+  await useIt(page, 'locked-house-e1');
   await expect(page.locator('#prompt-en')).toHaveText(LOCKED_LINE.en);
   await expect(page.locator('#prompt-ar')).toHaveText(LOCKED_LINE.ar);
   await expect(page.locator('#prompt')).toHaveClass(/locked/);

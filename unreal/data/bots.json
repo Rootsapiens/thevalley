@@ -1,0 +1,21 @@
+{
+  "_doc": "Root creatures (world-bible section 4) for the UE5 prototype. Our own design; the tier idea (Easy/Medium/Hard) is the only thing taken from shooter bots. Edit, then run unreal/scripts/run_bots.ps1 -SkipImport. Tier numbers are written into each placed bot by place_bots.py. Units: seconds, cm/s, cm, accuracy = chance a released lash lands (0..1). Positions: game metres (x east, y up, z south), converted by ov_units.py.",
+  "tiers": {
+    "Easy":   {"reactionSec": 0.9,  "accuracy": 0.45, "walkSpeed": 200, "chaseSpeed": 320, "health": 70,  "windupSec": 0.9,  "cooldownSec": 2.2, "damage": 8},
+    "Medium": {"reactionSec": 0.5,  "accuracy": 0.70, "walkSpeed": 240, "chaseSpeed": 420, "health": 100, "windupSec": 0.6,  "cooldownSec": 1.6, "damage": 12},
+    "Hard":   {"reactionSec": 0.25, "accuracy": 0.90, "walkSpeed": 280, "chaseSpeed": 520, "health": 140, "windupSec": 0.45, "cooldownSec": 1.1, "damage": 16}
+  },
+  "common": {
+    "lashRangeCm": 400, "sightRangeCm": 4000, "fovDeg": 120, "painSec": 0.35,
+    "shockDamage": 45, "shockWindowSec": 0.3, "retreatSec": 3.0, "retreatDistCm": 900,
+    "patrolRadiusCm": 900, "idleSec": 2.0, "lostSec": 5.0, "deathLifeSec": 3.0
+  },
+  "_canon": "lash reach 4 m and a 0.6 s warning (Medium windup) from world-bible section 4; shock = a burst of damage pushes the roots back for a short time (rule 6).",
+  "arena": {"map": "/Game/OmegaValley/Maps/BotArena", "sizeM": 60, "wallM": 3, "playerStart": {"x": 0, "y": 0, "z": 20, "bearing": 0}},
+  "bots": [
+    {"id": "root_easy_1",   "tier": "Easy",   "pos": {"x": -4,  "y": 0, "z": -6}},
+    {"id": "root_medium_1", "tier": "Medium", "pos": {"x": 8,   "y": 0, "z": -10}},
+    {"id": "root_medium_2", "tier": "Medium", "pos": {"x": -14, "y": 0, "z": -18}},
+    {"id": "root_hard_1",   "tier": "Hard",   "pos": {"x": 2,   "y": 0, "z": -22}}
+  ]
+}

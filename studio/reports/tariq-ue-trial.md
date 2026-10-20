@@ -1,0 +1,12 @@
+# Tariq: UE5 trial, barn slice (2026-10-19 05:47)
+- UE 5.8.3 | Intel(R) Iris(R) Xe Graphics | 16 GB | 1920x1080 windowed, VSync off, TSR | first 15 s dropped | other UE editors open now: 2
+- Epic 100%: 10.2 fps avg | p50 82.4 ms | p95 92.5 ms | GPU 89.4 / game 10.1 / render 82.9 ms | 1500 frames | 60 fps FAIL
+- Epic 67%: 15.7 fps avg | p50 48.7 ms | p95 59.2 ms | GPU 72.4 / game 10.5 / render 50.4 ms | 1500 frames | 60 fps FAIL
+- High 100%: 11.4 fps avg | p50 65.5 ms | p95 76.0 ms | GPU 77.7 / game 10.7 / render 64.3 ms | 1500 frames | 60 fps FAIL
+- High 67%: 23.4 fps avg | p50 30.9 ms | p95 34.2 ms | GPU 36.8 / game 8.8 / render 31.8 ms | 1500 frames | 60 fps FAIL
+- Rebuild from JSON: 10.2 s script / 85.6 s wall | 474 actors | 9 textured + 11 flat materials | export 0.2 s
+- Landmark shrine: expected (2255, -3730) cm, got (2255.0, -3730.0) | sun pitch/yaw -4.0 / -30.0 (expect -4 / -30)
+- Village map (run_village.ps1): ok True | 1704 actors, 9.2 s script | terrain bounds err 0.0 cm | tower got (250.0, 2750.0) cm, expected (250, 2750) | stills studio/stills/ue-village-*.png
+- MRQ (incl. shader warm-up): 434.3 s wall | stills 270 frames | dolly 240 frames
+- Size: UE Content+Config 133.8 MB | 432.2 MB packaged Win64 Shipping (228 s) | web dist 3.5 MB
+- Stills: studio/stills/ue-openingcam.png, studio/stills/ue-yard.png, studio/stills/ue-aerial.png, studio/stills/ue-barninterior.png, studio/stills/ue-doornorth.png, studio/stills/ue-mountain.png, studio/stills/ue-dolly-000.jpg, studio/stills/ue-dolly-120.jpg, studio/stills/ue-dolly-239.jpg

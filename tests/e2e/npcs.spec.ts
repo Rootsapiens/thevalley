@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { watchPage, expectNoProblems, waitForGame, startPlay } from './helpers';
 import { NPCS, type NpcId } from '../../src/npcData';
 import { CAST } from '../../src/npcTalk';
+import { USABLES } from '../../src/village';
 
 // Build step 2 end to end: talk to three NPCs with the real E key (their lines in order, AR over EN, under the
 // speaker's role), then film one with the real right mouse button (REC, the shot logged, the battery drawn down).
@@ -73,6 +74,22 @@ test('NPCs: talk to three with E (lines in order), film one with RMB', async ({ 
   expect(s.film.rec).toBe(false);
   expect(s.film.battery).toBeLessThan(1);
   expect(s.film.battery).toBeGreaterThan(0.9);
+
+  // The police post has an interior now: its door opens with E, and Moreno stands inside at his table.
+  const door = USABLES.find(u => u.id === 'door-post')!;
+  await page.evaluate(([x, y, z]) => (window as unknown as { __game: G }).__game.teleport(x, y, z), [door.from.x, door.from.y, door.from.z] as const);
+  let aimed = false;
+  for (let k = 0; k < 60 && !aimed; k++) {
+    await page.evaluate(([x, y, z, fx, fy, fz]) => { const dx = x - fx, dy = y - (fy + 1.64), dz = z - fz; (window as unknown as { __game: G }).__game.look(Math.atan2(-dx, -dz), Math.atan2(dy, Math.hypot(dx, dz))); },
+      [door.pos.x, door.pos.y, door.pos.z, door.from.x, door.from.y, door.from.z] as const);
+    await page.waitForTimeout(100);
+    aimed = await page.evaluate(() => (window as unknown as { __game: { useTarget: () => string | null } }).__game.useTarget()) === 'door-post';
+  }
+  expect(aimed, 'prompt on the post door').toBe(true);
+  await page.keyboard.press('KeyE');
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __game: { usables: () => { id: string; open: number }[] } }).__game.usables().find(u => u.id === 'door-post')!.open), { timeout: 60_000, intervals: [200] }).toBe(1);
+  await face(page, 'npc_moreno', -13.6, 45.2);
+  await talk(page, 'npc_moreno', 'moreno_reporter');
 
   await expectNoProblems(problems);
 });

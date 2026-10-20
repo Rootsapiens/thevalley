@@ -39,7 +39,8 @@ describe('NPC talk (src/npcTalk.ts)', () => {
     expect(say(v, story(), heard, 3)).toEqual(['npc_square_villager_1_animals', 'npc_square_villager_1_omar', 'npc_square_villager_1_omar']);
     expect(talkedOut(v, story(), heard)).toBe(true);
     expect(say(NPCS.npc_moreno, story(), new Set(), 3)).toEqual(['moreno_reporter', 'moreno_said', 'moreno_said']);
-    expect(say(NPCS.npc_priest, story(), new Set(), 3)).toEqual(['priest_altar', 'priest_ladder', 'priest_ladder']);
+    expect(say(NPCS.npc_priest, story(), new Set(), 3)).toEqual(['priest_altar', 'priest_altar', 'priest_altar']);
+    expect(say(NPCS.npc_priest, story({ chapter: 3, day: 3 }), new Set(), 2)).toEqual(['priest_ladder', 'priest_ladder']);
   });
 
   it('respects the binding events: before Omar is found nobody speaks of him and the door guard has nothing to say', () => {
@@ -57,7 +58,7 @@ describe('NPC talk (src/npcTalk.ts)', () => {
     const seen = story({ flags: new Set(['posters']) });
     expect(talkedOut(NPCS.npc_maryam, seen, heard)).toBe(false);
     expect(say(NPCS.npc_maryam, seen, heard, 1)).toEqual(['maryam_posters']);
-    expect(say(NPCS.npc_priest, seen, new Set(), 3)).toEqual(['priest_altar', 'priest_ladder', 'priest_mother']);
+    expect(say(NPCS.npc_priest, seen, new Set(), 3)).toEqual(['priest_altar', 'priest_mother', 'priest_mother']);
   });
 
   it('keeps lines of other chapters and days out of Chapter 1, Day 1', () => {

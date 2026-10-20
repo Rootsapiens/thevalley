@@ -1,161 +1,96 @@
 <#
 .SYNOPSIS
-  One command for the UE5 barn-slice trial: find engine -> export JSON -> build level -> warm-up -> perf + screenshot
-  -> studio\reports\tariq-ue-trial.md.
+  One command for the UE5 barn-slice trial: export JSON -> template -> build level -> MRQ stills (= shader warm-up)
+  -> perf runs -> <repo>\studio\reports\tariq-ue-trial.md (numbers only, <= 12 lines).
 .DESCRIPTION
-  1. find_engine.ps1: newest UE 5.x, writes EngineAssociation into OmegaValley.uproject.
-  2. node scripts\export-village-json.mjs (read-only on src\) -> unreal\data\village-barn.json.
-  3. UnrealEditor-Cmd -run=pythonscript -script=build_barn_level.py (falls back to the full editor with
-     -ExecutePythonScript if the commandlet cannot open levels on this engine version).
-  4. Warm-up game run (compiles and caches shaders), then one measured run per scalability level:
-     -game, VSync off, -csvCaptureFrames, -ExecCmds "stat unit, HighResShot". It looks through OV_OpeningCam.
-  5. Writes the report (numbers only, <= 12 lines) and copies the screenshot to studio\stills\ue-trial-barn-dusk.png.
-  Optional -Npcs: after step 3, runs run_npcs.ps1 (export-npcs.ts + place_npcs.py) so the NPCs are in the level.
-  Never installs, signs in or accepts licences. Touches nothing outside unreal\, studio\reports, studio\stills.
+  Project: the mirror %USERPROFILE%\OVUnreal\unreal\OmegaValley (see ov_env.ps1). Repo: Desktop\OmegaValley.
+  1. find_engine.ps1: newest UE 5.x.
+  2. node <repo>\scripts\export-village-json.mjs (read-only on src\) -> <repo>\unreal\data\village-barn.json, copied to the project's data\.
+  3. install_fp_template.ps1 (engine First Person template, WASD + mouse look), then
+     UnrealEditor-Cmd -run=pythonscript -script=build_barn_level.py (textures, materials, level, LS_OpeningDolly, LS_Stills).
+  4. render_mrq.ps1: Movie Render Queue stills + dolly. MRQ waits for every shader, so this is also the warm-up.
+  5. Perf: one -game run per config (default Epic/High x 100/67 %), VSync off, -csvCaptureFrames. The first 15 s of each
+     capture are dropped (level load + the 8 s opening dolly); the view is then the player's at the spawn (opening framing).
+  6. Optional -Package: RunUAT BuildCookRun Win64 Shipping -> unreal\build (size + seconds).
+  Never installs, signs in or accepts licences.
 .EXAMPLE
-  powershell -ExecutionPolicy Bypass -File unreal\scripts\run_trial.ps1
-  powershell -ExecutionPolicy Bypass -File unreal\scripts\run_trial.ps1 -SkipBuild -Scalability 2 -ScreenPercentage 67
-  powershell -ExecutionPolicy Bypass -File unreal\scripts\run_trial.ps1 -Package     # also cook + package, for build size
-  powershell -ExecutionPolicy Bypass -File unreal\scripts\run_trial.ps1 -Npcs        # also place the village NPCs
+  powershell -ExecutionPolicy Bypass -File run_trial.ps1
+  powershell -ExecutionPolicy Bypass -File run_trial.ps1 -SkipExport -SkipBuild -SkipStills -Configs 2:67
 #>
 [CmdletBinding()]
 param(
-  [int]$Frames = 1200,
+  [int]$Frames = 1500,
   [int]$ResX = 1920,
   [int]$ResY = 1080,
-  [int[]]$Scalability = @(3, 2),      # 3 = Epic, 2 = High (Lumen needs >= 2)
-  [int]$ScreenPercentage = 100,
-  [int]$TimeoutSec = 900,            # level build
-  [int]$WarmupTimeoutSec = 2400,     # the first shader compile on an iGPU laptop can take 20-40 min
+  [string]$Configs = '3:100,2:100,3:67,2:67',   # scalability:screen-percentage, comma list (3 Epic, 2 High)
+  [double]$SkipSeconds = 15,
+  [int]$TimeoutSec = 1800,
   [switch]$SkipExport,
   [switch]$SkipBuild,
-  [switch]$SkipWarmup,
+  [switch]$SkipStills,
+  [switch]$SkipPerf,
   [switch]$Package,
-  [switch]$Npcs,                     # also place the village NPCs (run_npcs.ps1) before the game runs
-  [ValidateSet('Commandlet', 'Editor')][string]$BuildMode = 'Commandlet'
+  [string]$MrqJobs = 'stills,dolly'
 )
-$ErrorActionPreference = 'Stop'
-$Inv = [Globalization.CultureInfo]::InvariantCulture
+. (Join-Path $PSScriptRoot 'ov_env.ps1')
+$Report = Join-Path $Repo 'studio\reports\tariq-ue-trial.md'
+$Json = Join-Path $DataDir 'village-barn.json'
+$eng = Get-OvEngine
+$state = Join-Path $Saved 'ov_trial_state.json'      # numbers from earlier steps survive -Skip* re-runs
+$S = if (Test-Path $state) { Get-Content $state -Raw | ConvertFrom-Json } else { [pscustomobject]@{} }
+function Keep([string]$k, $v) { $S | Add-Member -NotePropertyName $k -NotePropertyValue $v -Force; $S | ConvertTo-Json -Depth 6 | Set-Content $state -Encoding UTF8 }
 
-$Repo    = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
-$Proj    = Join-Path $Repo 'unreal\OmegaValley\OmegaValley.uproject'
-$ProjDir = Split-Path $Proj
-$Saved   = Join-Path $ProjDir 'Saved'
-$Map     = '/Game/OmegaValley/Maps/BarnSlice'
-$Report  = Join-Path $Repo 'studio\reports\tariq-ue-trial.md'
-$Still   = Join-Path $Repo 'studio\stills\ue-trial-barn-dusk.png'
-$Json    = Join-Path $Repo 'unreal\data\village-barn.json'
-New-Item -ItemType Directory -Force -Path (Join-Path $Saved 'Logs') | Out-Null
-
-function Say([string]$m) { Write-Host ("[run_trial] " + $m) }
-function Q([string]$s) { '"' + $s + '"' }
-function MB([string]$path) {
-  if (-not (Test-Path $path)) { return $null }
-  $b = (Get-ChildItem $path -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum
-  [math]::Round([double]$b / 1MB, 1)
-}
-function F([double]$v, [int]$d = 1) { $v.ToString("F$d", $Inv) }
-
-# Runs an engine process with a hard timeout. $Until (optional) is polled; when it returns $true the process is stopped.
-function Invoke-Engine([string]$Exe, [string]$ArgLine, [int]$Timeout, [scriptblock]$Until = $null) {
-  Say ("> " + (Split-Path $Exe -Leaf) + " " + $ArgLine)
-  $p = Start-Process -FilePath $Exe -ArgumentList $ArgLine -PassThru -WindowStyle Normal
-  $null = $p.Handle                                      # keeps ExitCode readable after exit
-  $sw = [Diagnostics.Stopwatch]::StartNew()
-  while (-not $p.HasExited) {
-    Start-Sleep -Seconds 2
-    if ($Until -and (& $Until)) { Say 'capture complete, closing'; Start-Sleep -Seconds 3; if (-not $p.HasExited) { $p.Kill() }; break }
-    if ($sw.Elapsed.TotalSeconds -gt $Timeout) { Say "timeout after $Timeout s, killing"; $p.Kill(); break }
-  }
-  $p.WaitForExit()
-  [pscustomobject]@{ Seconds = [math]::Round($sw.Elapsed.TotalSeconds, 1); ExitCode = $p.ExitCode }
-}
-
-# ---------- 1. Engine ----------
-$eng = & (Join-Path $PSScriptRoot 'find_engine.ps1') -Project $Proj | Select-Object -Last 1
-
-# ---------- 2. Export the barn slice ----------
-$exportSec = $null
+# ---------- 2. Export ----------
 if (-not $SkipExport) {
-  if (Get-Command node -ErrorAction SilentlyContinue) {
-    $sw = [Diagnostics.Stopwatch]::StartNew()
-    & node (Join-Path $Repo 'scripts\export-village-json.mjs') $Json
-    if ($LASTEXITCODE -ne 0) { throw 'export-village-json.mjs failed' }
-    $exportSec = [math]::Round($sw.Elapsed.TotalSeconds, 1)
-  } elseif (-not (Test-Path $Json)) { throw 'node not found and unreal\data\village-barn.json missing' }
-  else { Say 'node not found: using the committed village-barn.json' }
+  $sw = [Diagnostics.Stopwatch]::StartNew()
+  $repoJson = Join-Path $Repo 'unreal\data\village-barn.json'
+  & node (Join-Path $Repo 'scripts\export-village-json.mjs') $repoJson
+  if ($LASTEXITCODE -ne 0) { throw 'export-village-json.mjs failed' }
+  if ($repoJson -ne $Json) { Copy-Item $repoJson $Json -Force }
+  Keep 'exportSec' ([math]::Round($sw.Elapsed.TotalSeconds, 1))
 }
 
-# ---------- 3. Build the level ----------
-$resultFile = Join-Path $Saved 'ov_build_result.json'
-$build = $null
+# ---------- 3. Template + build ----------
 if (-not $SkipBuild) {
-  $script = Join-Path $PSScriptRoot 'build_barn_level.py'
+  & (Join-Path $PSScriptRoot 'install_fp_template.ps1')
+  $resultFile = Join-Path $Saved 'ov_build_result.json'
+  if (Test-Path $resultFile) { Remove-Item $resultFile }
   $env:OV_DATA = $Json
-  $modes = if ($BuildMode -eq 'Commandlet') { @('Commandlet', 'Editor') } else { @('Editor') }
-  foreach ($mode in $modes) {
-    if (Test-Path $resultFile) { Remove-Item $resultFile }
-    $log = Join-Path $Saved "Logs\ov_build_$mode.log"
-    if ($mode -eq 'Commandlet') {
-      $r = Invoke-Engine $eng.EditorCmd ((Q $Proj) + " -run=pythonscript -script=" + (Q $script) + " -unattended -nosplash -nop4 -NoSound -abslog=" + (Q $log)) $TimeoutSec
-    } else {
-      $wrap = Join-Path $Saved 'ov_build_and_quit.py'
-      $code = "import runpy, unreal`ntry:`n    runpy.run_path(r'$script', run_name='__ov__')`nfinally:`n    unreal.SystemLibrary.quit_editor()`n"
-      [IO.File]::WriteAllText($wrap, $code, (New-Object System.Text.UTF8Encoding($false)))
-      $r = Invoke-Engine $eng.Editor ((Q $Proj) + " -ExecutePythonScript=" + (Q $wrap) + " -unattended -nosplash -nop4 -NoSound -abslog=" + (Q $log)) $TimeoutSec
-    }
-    if (Test-Path $resultFile) {
-      $build = Get-Content $resultFile -Raw | ConvertFrom-Json
-      $build | Add-Member -NotePropertyName WallSeconds -NotePropertyValue $r.Seconds -Force
-      $build | Add-Member -NotePropertyName Mode -NotePropertyValue $mode -Force
-      if ($build.ok) { break }
-      Say ("build ($mode) reported a problem: " + $build.error)
-    } else { Say "build ($mode) wrote no result; see $log" }
-  }
-  if (-not $build -or -not $build.ok) { throw "Level build failed. Logs: $Saved\Logs\ov_build_*.log" }
-  Say ("level built: {0} actors, {1} s in script, {2} s wall ({3})" -f $build.actors, $build.seconds, $build.WallSeconds, $build.Mode)
+  $log = Join-Path $Saved 'Logs\ov_build.log'
+  $r = Invoke-Engine $eng.EditorCmd ((Q $Proj) + " -run=pythonscript -script=" + (Q (Join-Path $Scripts 'build_barn_level.py')) +
+    " -unattended -nosplash -nop4 -NoSound -abslog=" + (Q $log)) $TimeoutSec
+  if (-not (Test-Path $resultFile)) { throw "build wrote no result; see $log" }
+  $b = Get-Content $resultFile -Raw | ConvertFrom-Json
+  if (-not $b.ok) { throw ("build failed: " + $b.error) }
+  $b | Add-Member -NotePropertyName WallSeconds -NotePropertyValue $r.Seconds -Force
+  Keep 'build' $b
+  Say ("level built: {0} actors, {1} s script, {2} s wall" -f $b.actors, $b.seconds, $r.Seconds)
 }
 
-# ---------- 3b. Optional: village NPCs ----------
-if ($Npcs) {
-  $npcArgs = @{ TimeoutSec = $TimeoutSec; BuildMode = $BuildMode }
-  if ($SkipExport) { $npcArgs.SkipExport = $true }
-  & (Join-Path $PSScriptRoot 'run_npcs.ps1') @npcArgs
+# ---------- 4. Stills (MRQ) ----------
+if (-not $SkipStills) {
+  $m = & (Join-Path $PSScriptRoot 'render_mrq.ps1') -Jobs $MrqJobs | Select-Object -Last 1
+  Keep 'mrq' $m
 }
 
-# ---------- 4. Warm-up + measured runs ----------
-$csvDir = Join-Path $Saved 'Profiling\CSV'
-$shotDir = Join-Path $Saved 'Screenshots'
+# ---------- 5. Perf ----------
 function New-Csv([datetime]$since) {
-  if (-not (Test-Path $csvDir)) { return $null }
-  Get-ChildItem $csvDir -Filter *.csv -File | Where-Object { $_.LastWriteTime -gt $since } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-}
-function Game-Args([int]$sg, [int]$frames, [bool]$shot) {
-  $cmds = @('t.MaxFPS 0', 'r.VSync 0', "scalability $sg", "r.ScreenPercentage $ScreenPercentage", 'stat unit')
-  if ($shot) { $cmds += "HighResShot ${ResX}x${ResY}" }
-  (Q $Proj) + " $Map -game -windowed -ResX=$ResX -ResY=$ResY -nosplash -unattended -nop4 -NoSound -NoVerifyGC -log" +
-    " -csvCaptureFrames=$frames -csvExitOnCompletion -ExecCmds=" + (Q ($cmds -join ','))
-}
-function Run-Game([int]$sg, [int]$frames, [bool]$shot, [string]$tag) {
-  $since = Get-Date
-  # Stop once the CSV has been quiet for 30 s (in case this engine version ignores -csvExitOnCompletion).
-  $until = { $c = New-Csv $since; $c -and ((Get-Date) - $c.LastWriteTime).TotalSeconds -gt 30 }
-  $limit = if ($tag -eq 'warmup') { $WarmupTimeoutSec } else { 300 + [int]($frames / 10) }
-  $r = Invoke-Engine $eng.Editor ((Game-Args $sg $frames $shot) + " -abslog=" + (Q (Join-Path $Saved "Logs\ov_game_$tag.log"))) $limit $until
-  [pscustomobject]@{ Since = $since; Seconds = $r.Seconds; Csv = (New-Csv $since) }
+  $dirs = Saved-Dirs $eng | ForEach-Object { Join-Path $_ 'Profiling\CSV' } | Where-Object { Test-Path $_ }
+  if (-not $dirs) { return $null }
+  Get-ChildItem $dirs -Filter *.csv -File | Where-Object { $_.LastWriteTime -gt $since -and $_.Length -gt 0 } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 }
 function Read-Perf($csvFile) {
-  if (-not $csvFile) { return $null }
+  if (-not $csvFile -or $csvFile.Length -eq 0) { return $null }
   $lines = @(Get-Content $csvFile.FullName)
   if ($lines.Count -lt 3) { return $null }
   $hdr = $lines[0].Split(',') | ForEach-Object { $_.Trim() }
-  $col = @{}
-  foreach ($n in 'FrameTime', 'GameThreadTime', 'RenderThreadTime', 'GPUTime') { $col[$n] = [array]::IndexOf($hdr, $n) }
+  $names = 'FrameTime', 'GameThreadTime', 'RenderThreadTime', 'GPUTime'
+  $col = @{}; foreach ($n in $names) { $col[$n] = [array]::IndexOf($hdr, $n) }
   if ($col['FrameTime'] -lt 0) { return $null }
   $rows = New-Object System.Collections.Generic.List[double[]]
   foreach ($l in $lines[1..($lines.Count - 1)]) {
-    $c = $l.Split(','); $v = New-Object double[] 4; $ok = $true; $i = 0
-    foreach ($n in 'FrameTime', 'GameThreadTime', 'RenderThreadTime', 'GPUTime') {
+    $c = $l.Split(','); $v = New-Object double[] 4; $i = 0; $ok = $true
+    foreach ($n in $names) {
       $x = 0.0
       if ($col[$n] -ge 0 -and $col[$n] -lt $c.Count -and [double]::TryParse($c[$col[$n]], [Globalization.NumberStyles]::Float, $Inv, [ref]$x)) { $v[$i] = $x }
       elseif ($n -eq 'FrameTime') { $ok = $false }
@@ -163,70 +98,79 @@ function Read-Perf($csvFile) {
     }
     if ($ok) { $rows.Add($v) }
   }
-  $skip = [int]($rows.Count * 0.1)                       # drop the first 10 % (load hitches)
-  $use = $rows | Select-Object -Skip $skip
-  if (-not $use) { return $null }
+  $t = 0.0; $use = New-Object System.Collections.Generic.List[double[]]
+  foreach ($v in $rows) { $t += $v[0] / 1000.0; if ($t -gt $SkipSeconds) { $use.Add($v) } }
+  if ($use.Count -lt 30) { return $null }
   $ft = @($use | ForEach-Object { $_[0] } | Sort-Object)
   $avg = { param($k) ($use | ForEach-Object { $_[$k] } | Measure-Object -Average).Average }
-  $mean = & $avg 0
-  [pscustomobject]@{
-    Frames = $ft.Count; Fps = 1000.0 / $mean; FrameMs = $mean
-    P95 = $ft[[int][math]::Floor(0.95 * ($ft.Count - 1))]; P99 = $ft[[int][math]::Floor(0.99 * ($ft.Count - 1))]
-    GameMs = (& $avg 1); RenderMs = (& $avg 2); GpuMs = (& $avg 3)
+  $q = { param($p) $ft[[int][math]::Floor($p * ($ft.Count - 1))] }
+  [pscustomobject]@{ Frames = $ft.Count; Fps = 1000.0 / (& $avg 0); P50 = (& $q 0.5); P95 = (& $q 0.95); P99 = (& $q 0.99)
+    GameMs = (& $avg 1); RenderMs = (& $avg 2); GpuMs = (& $avg 3); Csv = $csvFile.FullName }
+}
+if (-not $SkipPerf) {
+  $perf = @()
+  foreach ($cfg in ($Configs -split '[,\s]+' | Where-Object { $_ })) {
+    $sg, $sp = $cfg.Split(':') | ForEach-Object { [int]$_ }
+    $since = Get-Date
+    $cmds = @('t.MaxFPS 0', 'r.VSync 0', "scalability $sg", "r.ScreenPercentage $sp")
+    $tag = "sg${sg}_sp${sp}"
+    $a = (Q $Proj) + " $Map -game -windowed -ResX=$ResX -ResY=$ResY -nosplash -unattended -nop4 -NoSound -NoVerifyGC -log" +
+      " -csvCaptureFrames=$Frames -csvExitOnCompletion -ExecCmds=" + (Q ($cmds -join ',')) + " -abslog=" + (Q (Join-Path $Saved "Logs\ov_game_$tag.log"))
+    # -csvExitOnCompletion does not quit this build, so stop once the log says the CSV is written.
+    $glog = Join-Path $Saved "Logs\ov_game_$tag.log"
+    if (Test-Path $glog) { Remove-Item $glog -Force }      # an old log already says "CSV finalize time"
+    # The CSV file is created empty at start and filled when the capture ends ("CSV finalize time" in the log).
+    $r = Invoke-Engine $eng.Editor $a (600 + [int]($Frames / 5)) { (Test-Path $glog) -and (Select-String -Path $glog -Pattern "CSV finalize time" -Quiet) }
+    $p = Read-Perf (New-Csv $since)
+    $perf += [pscustomobject]@{ Sg = $sg; Sp = $sp; Perf = $p; Seconds = $r.Seconds }
+    if ($p) { Say ("{0}: {1} fps avg, p50 {2} ms, p95 {3} ms, GPU {4} ms" -f $tag, (F $p.Fps), (F $p.P50), (F $p.P95), (F $p.GpuMs)) } else { Say "${tag}: no CSV" }
   }
+  # Merge with earlier runs: a -Configs subset only replaces the configs it measured.
+  $old = @(@($S.perf) | Where-Object { $o = $_; $o -and -not ($perf | Where-Object { $_.Sg -eq $o.Sg -and $_.Sp -eq $o.Sp }) })
+  Keep 'perf' (@($old) + @($perf) | Sort-Object @{e = { - [int]$_.Sg } }, @{e = { - [int]$_.Sp } })
 }
 
-$warm = $null
-if (-not $SkipWarmup) { Say 'warm-up run (shader compile + cache)'; $warm = Run-Game $Scalability[0] 600 $false 'warmup' }
-$runs = @()
-$first = $true
-foreach ($sg in $Scalability) {
-  Say "measured run, scalability $sg"
-  $g = Run-Game $sg $Frames $first "sg$sg"
-  $runs += [pscustomobject]@{ Sg = $sg; Perf = (Read-Perf $g.Csv); Since = $g.Since; Csv = $g.Csv }
-  if ($first) {
-    $shot = if (Test-Path $shotDir) { Get-ChildItem $shotDir -Recurse -Filter *.png -File | Where-Object { $_.LastWriteTime -gt $g.Since } | Sort-Object LastWriteTime -Descending | Select-Object -First 1 }
-    if ($shot) { Copy-Item $shot.FullName $Still -Force }
-  }
-  $first = $false
-}
-
-# ---------- 5. Optional package (build size) ----------
-$pkgMB = $null; $pkgSec = $null
+# ---------- 6. Package ----------
 if ($Package) {
-  $out = Join-Path $Repo 'unreal\build'
+  $out = Join-Path $UDir 'build'
   $sw = [Diagnostics.Stopwatch]::StartNew()
   & cmd /c ((Q $eng.RunUAT) + " BuildCookRun -project=" + (Q $Proj) + " -noP4 -platform=Win64 -clientconfig=Shipping -cook -map=$Map" +
-    " -stage -pak -iostore -compressed -archive -archivedirectory=" + (Q $out) + " -unattended -utf8output -nocompileeditor")
-  $pkgSec = [math]::Round($sw.Elapsed.TotalSeconds, 0)
-  if ($LASTEXITCODE -eq 0) { $pkgMB = MB $out } else { Say "BuildCookRun failed ($LASTEXITCODE)" }
+    " -stage -pak -iostore -compressed -archive -archivedirectory=" + (Q $out) + " -unrealexe=" + (Q $eng.EditorCmd) + " -unattended -utf8output -nodebuginfo" +
+    " > " + (Q (Join-Path $Saved 'Logs\ov_package.log')) + " 2>&1")
+  $ok = $LASTEXITCODE -eq 0
+  Keep 'package' ([pscustomobject]@{ ok = $ok; seconds = [math]::Round($sw.Elapsed.TotalSeconds, 0); mb = $(if ($ok) { MB $out } else { $null }); dir = $out })
+  Say ("package: ok={0} {1} s {2} MB" -f $ok, $S.package.seconds, $S.package.mb)
 }
 
-# ---------- 6. Report (numbers only, <= 12 lines) ----------
+# ---------- 7. Report (numbers only, <= 12 lines) ----------
 $gpu = (Get-CimInstance Win32_VideoController | Select-Object -First 1).Name
 $ramGB = [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB, 0)
-$lines = @()
-$lines += "# Tariq: UE5 trial, barn slice ($(Get-Date -Format 'yyyy-MM-dd HH:mm'))"
-$lines += "- UE $($eng.Version) | $gpu | $ramGB GB RAM | ${ResX}x${ResY} windowed, VSync off, screen % $ScreenPercentage"
-foreach ($r in $runs) {
-  $name = @{ 0 = 'Low'; 1 = 'Medium'; 2 = 'High'; 3 = 'Epic'; 4 = 'Cinematic' }[$r.Sg]
-  if ($r.Perf) {
-    $p = $r.Perf; $pass = if ($p.Fps -ge 60) { 'PASS' } else { 'FAIL' }
-    $lines += "- $name (sg $($r.Sg)): $(F $p.Fps) fps avg | p95 $(F $p.P95) ms | 1% low $(F (1000.0 / $p.P99)) fps | game $(F $p.GameMs) / render $(F $p.RenderMs) / GPU $(F $p.GpuMs) ms | $($p.Frames) frames | 60 fps $pass"
-  } else { $lines += "- $name (sg $($r.Sg)): no CSV captured (see Saved\Logs\ov_game_sg$($r.Sg).log)" }
+$L = @("# Tariq: UE5 trial, barn slice ($(Get-Date -Format 'yyyy-MM-dd HH:mm'))")
+$others = @(Get-Process UnrealEditor -ErrorAction SilentlyContinue).Count
+$L += "- UE $($eng.Version) | $gpu | $ramGB GB | ${ResX}x${ResY} windowed, VSync off, TSR | first $SkipSeconds s dropped | other UE editors open now: $others"
+$nm = @{ 0 = 'Low'; 1 = 'Medium'; 2 = 'High'; 3 = 'Epic'; 4 = 'Cinematic' }
+foreach ($x in @($S.perf)) {
+  if (-not $x) { continue }
+  $p = $x.Perf
+  if ($p) { $L += "- $($nm[[int]$x.Sg]) $($x.Sp)%: $(F $p.Fps) fps avg | p50 $(F $p.P50) ms | p95 $(F $p.P95) ms | GPU $(F $p.GpuMs) / game $(F $p.GameMs) / render $(F $p.RenderMs) ms | $($p.Frames) frames | 60 fps $(if ($p.Fps -ge 60) {'PASS'} else {'FAIL'})" }
+  else { $L += "- $($nm[[int]$x.Sg]) $($x.Sp)%: no CSV captured" }
 }
-if ($build) {
-  $lines += "- Level rebuild from JSON: $($build.seconds) s script, $($build.WallSeconds) s incl. editor start | $($build.actors) actors | JSON export $exportSec s"
-  $lc = $build.landmark
-  $lines += "- Landmark shrine: expected (2255, -3730) cm, got ($($lc.shrineCm[0]), $($lc.shrineCm[1])) | sun pitch/yaw $($lc.sunPitchYaw[0]) / $($lc.sunPitchYaw[1]) (expect -4 / -30)"
+if ($S.build) {
+  $b = $S.build; $lc = $b.landmark
+  $L += "- Rebuild from JSON: $($b.seconds) s script / $($b.WallSeconds) s wall | $($b.actors) actors | $($b.materials.textured) textured + $($b.materials.flat) flat materials | export $($S.exportSec) s"
+  $L += "- Landmark shrine: expected (2255, -3730) cm, got ($($lc.shrineCm[0]), $($lc.shrineCm[1])) | sun pitch/yaw $($lc.sunPitchYaw[0]) / $($lc.sunPitchYaw[1]) (expect -4 / -30)"
 }
-if ($warm) { $lines += "- Warm-up run (shader compile): $($warm.Seconds) s" }
-$webMB = MB (Join-Path $Repo 'dist')
+$vr = Join-Path $Saved 'ov_village_result.json'
+if (Test-Path $vr) {
+  $v = Get-Content $vr -Raw | ConvertFrom-Json
+  $L += "- Village map (run_village.ps1): ok $($v.ok) | $($v.actors) actors, $($v.seconds) s script | terrain bounds err $($v.terrain.maxErrCm) cm | tower got ($($v.tower.got -join ', ')) cm, expected (250, 2750) | stills studio/stills/ue-village-*.png"
+}
+if ($S.mrq) { $L += "- MRQ (incl. shader warm-up): $($S.mrq.WallSeconds) s wall | stills $($S.mrq.jobs.stills.frames) frames | dolly $($S.mrq.jobs.dolly.frames) frames" }
 $ueMB = (MB (Join-Path $ProjDir 'Content')) + (MB (Join-Path $ProjDir 'Config'))
-$pk = if ($pkgMB) { "$pkgMB MB packaged Win64 Shipping ($pkgSec s)" } else { 'package not run (-Package)' }
-$lines += "- Size: UE Content+Config $ueMB MB | $pk | web dist $webMB MB"
-$lines += "- Screenshot: " + $(if (Test-Path $Still) { 'studio/stills/ue-trial-barn-dusk.png (frame 1 after warm-up)' } else { 'none captured' })
-$lines = $lines | Select-Object -First 12
-[IO.File]::WriteAllText($Report, (($lines -join "`r`n") + "`r`n"), (New-Object System.Text.UTF8Encoding($false)))
+$pk = if ($S.package -and $S.package.ok) { "$($S.package.mb) MB packaged Win64 Shipping ($($S.package.seconds) s)" } else { 'package: not run / failed' }
+$L += "- Size: UE Content+Config $ueMB MB | $pk | web dist $(MB (Join-Path $Repo 'dist')) MB"
+if ($S.mrq -and $S.mrq.Copied) { $L += "- Stills: " + (@($S.mrq.Copied) -join ', ') }
+$L = $L | Select-Object -First 12
+[IO.File]::WriteAllText($Report, (($L -join "`r`n") + "`r`n"), (New-Object System.Text.UTF8Encoding($false)))
 Say "report: $Report"
-$lines | ForEach-Object { Write-Host $_ }
+$L | ForEach-Object { Write-Host $_ }

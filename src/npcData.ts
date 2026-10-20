@@ -1,6 +1,9 @@
 // NPC data layer for the village slice. Pure TypeScript, no Three.js import, so it stays testable.
 // Source of truth: studio/npc/README.md and the per-NPC spec files. Positions are metres, +Y up, +Z south.
 // Landmark numbers are copied from src/villageMap.ts and src/village.ts (cited per entry).
+import { BUILDINGS } from './villageMap';
+
+const CAFE_BALCONY_Y = BUILDINGS.find(b => b.id === 'cafe')!.floor + 3.25;
 
 export type NpcId =
   | 'npc_maryam'
@@ -62,14 +65,18 @@ export interface NpcSpec {
   floorKnown: boolean;
   /** true only for Omar, cuffed while seated at post [6] in Ch1. */
   cuffed: boolean;
+  /** False for staged appearances where an NPC is on-screen but not yet available to talk to. */
+  talkable?: boolean;
   triggers: NpcTrigger[];
   /** Runtime story stage supplied by npcsAtDay; the authored base records stay engine-neutral. */
-  stage?: 'cafe-before-attack' | 'mountain-found' | 'police-post' | 'cafe-upstairs' | 'cafe-balcony';
+  stage?: 'prologue-search' | 'post-prologue' | 'maryam-home' | 'maryam-going-square' | 'maryam-square' | 'cafe-before-attack' | 'mountain-found' | 'police-post' | 'cafe-upstairs' | 'cafe-balcony';
 }
 
 export interface NpcDayOptions {
   /** Chapter number in the story. The current data slice covers Chapters 1, 3 and 4. */
   chapter?: number;
+  /** Joseph's prologue, before Lorenzo's Day 1 arrival. Only the farmer is staged in this NPC slice. */
+  prologue?: boolean;
   /** Completed binding story events, in order. */
   events?: readonly string[];
   /** Set after Omar's guarded medical check removes his cuffs. */
@@ -100,10 +107,13 @@ export function eventOrderOk(events: string[]): boolean {
 export function npcsAtDay(day: number, options: NpcDayOptions = {}): NpcSpec[] {
   if (!Number.isInteger(day) || day < 1) return [];
   const chapter = options.chapter ?? 1;
+  if (options.prologue && (chapter !== 1 || day !== 1)) return [];
   const events = options.events ?? [];
   if (!eventOrderOk([...events])) return [];
 
-  const chapterDayIds: readonly NpcId[] = chapter === 1 && day === 1
+  const chapterDayIds: readonly NpcId[] = options.prologue
+    ? ['npc_farmer']
+    : chapter === 1 && day === 1
     ? (Object.keys(NPCS) as NpcId[])
     : chapter === 1 && day === 2
       ? ['npc_maryam', 'npc_omar', 'npc_elia', 'npc_moreno']
@@ -124,6 +134,15 @@ export function npcsAtDay(day: number, options: NpcDayOptions = {}): NpcSpec[] {
       if (npc.id === 'npc_elia') return day >= 2 && hasEvent(5);
       return true;
     })
+    .map((npc): NpcSpec => {
+      if (npc.id === 'npc_farmer') return {
+        ...npc,
+        stage: options.prologue ? 'prologue-search' : 'post-prologue',
+        talkable: !options.prologue,
+      };
+      if (npc.id === 'npc_maryam' && chapter === 1) return { ...npc, stage: 'maryam-home' };
+      return npc;
+    })
     .map(npc => {
       if (npc.id === 'npc_omar') {
         const inCafeBeforeAttack = events.length === 1;
@@ -137,7 +156,7 @@ export function npcsAtDay(day: number, options: NpcDayOptions = {}): NpcSpec[] {
               ? 'mountain-found'
               : atPost
                 ? 'police-post'
-                : 'cafe-upstairs',
+                : day >= 2 ? 'police-post' : 'cafe-upstairs',
           cuffed: atPost && !options.medicalCheckComplete,
         };
       }
@@ -193,6 +212,8 @@ export const NPCS: Record<NpcId, NpcSpec> = {
     triggers: [
       // Noor's review #1, #2 (changed), #3 (kept; AR draft).
       { id: 'maryam_door', line: 'Have you seen my son, Joseph? His bed was empty this morning.', ar: 'هل رأيتَ ابني جوزيف؟ كان سريره فارغاً هذا الصباح.', status: 'proposed', when: { chapter: 1 } },
+      // Draft follow-up: after Lorenzo has been there long enough for Maryam to wait and confirm Joseph did not return.
+      { id: 'maryam_confirmed_missing', line: 'I waited, then checked the house. He has not come back.', ar: 'انتظرتُه، ثم تفقدتُ البيت. لم يرجع.', status: 'proposed', when: { chapter: 1, flag: 'maryam_waited_without_joseph' } },
       { id: 'maryam_posters', line: 'I drew them myself. Nobody has knocked on my door.', ar: 'رسمتُها بيدي. لم يطرق أحد بابي.', status: 'proposed', when: { chapter: 1, flag: 'posters' } },
       { id: 'maryam_gate', line: 'I am not leaving until he comes back.', ar: 'لن أرحل حتى يعود.', status: 'proposed', when: { chapter: 4 } },
     ],
@@ -202,12 +223,13 @@ export const NPCS: Record<NpcId, NpcSpec> = {
     id: 'npc_omar',
     role: 'Former Raven leader, memory lost',
     spawnDay: 1,
-    // Seated, cuffed, at post [6] by Moreno's table (spec: about (-15.0, 0, 47.5)).
-    // placeholder, owner to confirm: the found spot near the mountain is not placed yet, so the post seat is used.
-    // Interim (decisions-noor-npc.md): outside the school, south of Moreno; interior target (-15.0, 0, 47.5).
-    position: { x: -9.4, y: 0, z: 51.0 },
-    yaw: -Math.PI / 2,
-    floorKnown: true, // square ground, y = 0
+    // Seated, cuffed, at post [6] by Moreno's table: Noor's interior target (decisions-noor-npc.md), now that the old
+    // school has an interior (src/interiors.ts), in line with the door. Floor y = the school's (villageMap).
+    // Current day-1 arrival follows event 5, after the handcuffed mountain transport. On Day 2 he remains guarded at
+    // the post after the medical check; café upstairs geometry/height remains unbuilt and is not guessed.
+    position: { x: -15.0, y: 0.02, z: 47.5 },
+    yaw: -Math.PI / 2, // faces east, the door
+    floorKnown: true,
     cuffed: true,
     triggers: [
       {
@@ -218,7 +240,7 @@ export const NPCS: Record<NpcId, NpcSpec> = {
         when: { chapter: 1, events: 5 },   // seated at post [6]
       },
       // Noor's review #4 (changed; +owner: when it plays). Day 2+, after Elia's cover starts.
-      { id: 'omar_watcher', line: "She says she's my girlfriend. I don't remember her face.", ar: 'تقول إنها حبيبتي. لا أتذكّر وجهها.', status: 'proposed', when: { day: [2, 99], events: 6 } },
+      { id: 'omar_watcher', line: "She says she's my girlfriend. I don't remember her face.", ar: 'تقول إنها حبيبتي. لا أتذكّر وجهها.', status: 'proposed', when: { day: [2, 99], events: 6, flag: 'elia_cover_introduced' } },
     ],
   },
 
@@ -226,11 +248,10 @@ export const NPCS: Record<NpcId, NpcSpec> = {
     id: 'npc_elia',
     role: 'Undercover officer, Omar\'s cover girlfriend',
     spawnDay: 2,
-    // Balcony rail on the cafe's north face (villageTown: z = 60.5). Y is not decided, so y = 0 is temporary.
-    // placeholder, owner to confirm: balcony floor height.
-    position: { x: 9.0, y: 0, z: 60.3 },
+    // Balcony floor is measured from villageTown.cafeExtras: cafe floor + 3.25 m; z is on the built balcony slab.
+    position: { x: 9.0, y: CAFE_BALCONY_Y, z: 59.9 },
     yaw: 0,
-    floorKnown: false,
+    floorKnown: true,
     cuffed: false,
     triggers: [
       // Noor's review #5 (kept; AR draft), #6 (changed). Day 2+, balcony.
@@ -250,11 +271,11 @@ export const NPCS: Record<NpcId, NpcSpec> = {
     id: 'npc_moreno',
     role: 'Police chief, post [6]',
     spawnDay: 1,
-    // Interim (decisions-noor-npc.md): outside the school's east door, south side, until [6] has an interior.
-    // Interior target when it exists: table at (-15.5, 0, 45.0).
-    position: { x: -9.4, y: 0, z: 49.4 },
-    yaw: -Math.PI / 2, // faces east, the square
-    floorKnown: true, // square ground, y = 0
+    // At his table inside post [6]: Noor's interior target (decisions-noor-npc.md), now that the old school has an
+    // interior (src/interiors.ts: the table stands west of him). Floor y = the school's (villageMap).
+    position: { x: -15.5, y: 0.02, z: 45.0 },
+    yaw: Math.PI / 2, // faces west, his table and the map ("stands at the table, reads a map")
+    floorKnown: true,
     cuffed: false,
     triggers: [
       // Noor's review #7 (changed; +owner: whether he talks to Lorenzo on Day 1), #8 (changed: what he says about Omar).
@@ -298,16 +319,15 @@ export const NPCS: Record<NpcId, NpcSpec> = {
     id: 'npc_priest',
     role: 'Village priest (unnamed)',
     spawnDay: 1,
-    // Altar at the EAST end of the nave (village.ts churchLayout: x 21.4..22.4, z 29.55..31.95; the aisle z 29.85..31.65
-    // stays free). He stands west of it, on the north side of the aisle end, facing east.
-    position: { x: 20.5, y: 0, z: 29.5 },
+    // Near the altar at the east end of the nave, but on the clear central aisle so he remains visible from the south door.
+    position: { x: 18.5, y: 0, z: 31.0 },
     yaw: -Math.PI / 2,
     floorKnown: true,
     cuffed: false,
     triggers: [
       { id: 'priest_altar', line: 'Go home. And stay away from the mountain.', ar: 'عُد إلى بيتك. وابتعد عن الجبل.', status: 'canon', when: { chapter: 1 } }, // characters.md [ref]
       // Noor's review #11 (changed: real facts, sets up Ch3), #12 (kept; AR draft, "after the posters").
-      { id: 'priest_ladder', line: "The ladder is old, four flights. If it's signal you want, it's only up by the bells.", ar: 'السلّم قديم، أربع طبقات. إن كنت تريد إشارة، فهي فوق عند الأجراس فقط.', status: 'proposed', when: { chapter: 1 } },
+      { id: 'priest_ladder', line: "The ladder is old, four flights. If it's signal you want, it's only up by the bells.", ar: 'السلّم قديم، أربع طبقات. إن كنت تريد إشارة، فهي فوق عند الأجراس فقط.', status: 'proposed', when: { chapter: 3 } },
       {
         id: 'priest_mother',
         line: 'The boy\'s mother came in this morning. She did not sit down.',

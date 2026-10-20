@@ -32,7 +32,8 @@ export function placeNpcs(day: number, options: NpcDayOptions = {}): NpcPlacemen
     const { x, z } = n.position, issues: string[] = [];
     const f = FOOTPRINTS.find(b => x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1) ?? null;
     if (f && !f.interior) issues.push(`inside ${f.id}, which has no interior yet`);
-    const y = f ? f.floor : groundY(x, z);
+    const balcony = n.stage === 'cafe-balcony' ? n.position.y : null;
+    const y = balcony ?? (f ? f.floor : groundY(x, z));
     if (!n.floorKnown) issues.push('floor height not decided');
     else if (Math.abs(n.position.y - y) > 0.25) issues.push(`spec y ${n.position.y} but the floor is at ${y.toFixed(2)}`);
     const r = TUNING.radius, body: Box = { min: { x: x - r, y: y + 0.05, z: z - r }, max: { x: x + r, y: y + 1.75, z: z + r } };

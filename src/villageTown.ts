@@ -12,6 +12,7 @@ import { townBlocked } from './villageMap';
 export { townBlocked, slicePineKept } from './villageMap';
 import { USABLES, WALL_T, doorRect, doorSteps, BARN, FARMHOUSE, HOUSES, H3, NORTH_WALL_Z, GAP, rng, churchLayout, COLUMN_R, type Usable } from './village';
 import type { Kit } from './villageScene';
+import { INTERIORS, interiorBuilding } from './interiors';
 
 const smooth = (a: number, b: number, x: number) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const rectDist = (x: number, z: number, r: Rect) => { const dx = Math.max(r.x0 - x, 0, x - r.x1), dz = Math.max(r.z0 - z, 0, z - r.z1); return Math.sqrt(dx * dx + dz * dz); };
@@ -74,17 +75,19 @@ export function townInteriors(x: number, y: number, z: number): ((x: number, y: 
 
 // ---------- Warm light inside the church (bake: the bounce channel) ----------
 const CHURCH = BUILDINGS.find(b => b.kind === 'church')!, CHURCH_L = churchLayout(CHURCH);
-const MARYAM_H = BUILDINGS.find(b => b.id === 'maryam')!;
-/** The lamp over Maryam's kitchen table (maryamInterior draws its shade there). */
-export const MARYAM_LAMP = { x: 74.4, dy: 2.1, z: 9.9 };
-/** Maryam's kitchen lamp: a warm pool round her table. The priest is in tonight: a low warm fill, the altar candles'
- *  glow (falls off over ~2 m) and each picture lamp's pool on its wall. Baked into the vertices like the barn's sun
- *  bounce (villageScene bakeAt), so it costs nothing. */
+const LAMP_ROOMS = INTERIORS.map(r => ({ b: interiorBuilding(r.building), lamps: r.lamps, fill: r.fill ?? 0.1 }));
+/** The furnished rooms' lamps (src/interiors.ts: Maryam's kitchen lamp, the post's, the café's): warm pools, ~2.4 m
+ *  falloff. The priest is in tonight: a low warm fill, the altar candles' glow (falls off over ~2 m) and each picture
+ *  lamp's pool on its wall. Baked into the vertices like the barn's sun bounce (villageScene bakeAt), so it costs nothing. */
 export function townWarm(x: number, y: number, z: number, nx: number, ny: number, nz: number): number {
-  const M = MARYAM_H;
-  if (x > M.x0 && x < M.x1 && z > M.z0 && z < M.z1) {   // the kitchen lamp she keeps lit: a warm pool, ~2.4 m falloff
-    const vx = MARYAM_LAMP.x - x, vy = M.floor + MARYAM_LAMP.dy - y, vz = MARYAM_LAMP.z - z, d = Math.hypot(vx, vy, vz) || 1;
-    return 0.1 + 1.25 * (0.35 + 0.65 * Math.max(0, (nx * vx + ny * vy + nz * vz) / d)) * Math.exp(-d / 2.4);
+  for (const { b: M, lamps, fill } of LAMP_ROOMS) {
+    if (!(x > M.x0 && x < M.x1 && z > M.z0 && z < M.z1)) continue;
+    let w = fill;
+    for (const L of lamps) {
+      const vx = L.x - x, vy = M.floor + L.dy - y, vz = L.z - z, d = Math.hypot(vx, vy, vz) || 1;
+      w += (L.k ?? 1.25) * (0.35 + 0.65 * Math.max(0, (nx * vx + ny * vy + nz * vz) / d)) * Math.exp(-d / (L.r ?? 2.4));
+    }
+    return w;
   }
   const B = CHURCH, L = CHURCH_L;
   if (!(x > B.x0 && x < B.x1 && z > B.z0 && z < B.z1)) return 0;
@@ -477,6 +480,12 @@ export function buildTown(k: Kit, scene: THREE.Scene, leafMat: THREE.Material): 
     }
     put('lit', boxMM(b.x0 + 3, y + 0.95, z - 1.17, b.x0 + 11, y + 1.05, z - 1.07, 1), COL.timberDark);
     for (let x = b.x0 + 3.1; x < b.x0 + 10.9; x += 0.14) put('lit', boxMM(x, y, z - 1.14, x + 0.04, y + 0.95, z - 1.1, 1), COL.timber);
+    // Player stair up from the north square to the balcony, aligned with its east end.
+    const steps = 17, depth = 0.22, rise = 3.25 / steps, x0 = b.x0 + 8.6;
+    for (let i = 0; i < steps; i++) {
+      const top = b.floor + rise * (i + 1), z0 = z - 5.1 + i * depth;
+      put('lit', boxMM(x0, top - 0.18, z0, x0 + 1.55, top, z0 + depth, 1), COL.timber);
+    }
     put('lit', boxMM(b.x0 + 1, b.floor + 2.55, z - 0.9, b.x0 + 14, b.floor + 2.62, z, 2), cS(COL.rope, 0.55));   // awning
     for (const [tx, tz] of [[b.x0 + 2.6, z - 2.6], [b.x0 + 12.5, z - 2.4]]) {
       put('lit', cylG(tx, b.floor, tz, tx, b.floor + 0.72, tz, 0.04, 0.04, 6), COL.iron);
@@ -490,19 +499,20 @@ export function buildTown(k: Kit, scene: THREE.Scene, leafMat: THREE.Material): 
     }
   }
   function maryamInterior(b: Building) {
+    // The stove with its fire door (Ch4: she sits by it). The table, chairs and cupboard are models (src/interiors.ts).
     const y = b.floor;
-    put('lit', boxMM(73.2, y + 0.74, 9.2, 75.6, y + 0.8, 10.6, 1), cS(COL.timber, 0.95));                       // kitchen table
-    for (const [lx, lz] of [[73.3, 9.3], [75.5, 9.3], [73.3, 10.5], [75.5, 10.5]]) put('lit', boxMM(lx - 0.04, y, lz - 0.04, lx + 0.04, y + 0.74, lz + 0.04, 1), COL.timberDark);
-    for (const cx of [73.0, 75.8]) {
-      put('lit', boxMM(cx - 0.2, y + 0.44, 9.7, cx + 0.2, y + 0.48, 10.1, 1), cS(COL.timber, 0.8));
-      put('lit', boxMM(cx + (cx < 74 ? -0.22 : 0.18), y + 0.48, 9.7, cx + (cx < 74 ? -0.18 : 0.22), y + 1.0, 10.1, 1), cS(COL.timber, 0.75));
-    }
     put('lit', boxMM(b.x1 - 1.3, y, b.z0 + WALL_T + 0.05, b.x1 - WALL_T - 0.05, y + 0.85, b.z0 + 1.3, 1), cS(COL.iron, 1.3));   // stove
     put('lit', cylG(b.x1 - 0.85, y + 0.85, b.z0 + 0.85, b.x1 - 0.85, y + 2.68, b.z0 + 0.85, 0.07, 0.07, 6), COL.iron);
     put('glow', boxG(b.x1 - 1.0, y + 0.45, b.z0 + 1.32, 0.3, 0.12, 0.02), COL.windowWarm);                           // the fire door
-    put('lit', boxMM(b.x0 + WALL_T + 0.05, y, b.z0 + 2.2, b.x0 + 1.0, y + 1.9, b.z0 + 4.4, 1), cS(COL.timber, 0.7)); // dresser
-    put('lit', cylG(74.4, y + 2.7, 9.9, 74.4, y + 2.15, 9.9, 0.006, 0.006, 3), COL.rope);
-    put('glow', boxG(MARYAM_LAMP.x, y + MARYAM_LAMP.dy, MARYAM_LAMP.z, 0.16, 0.1, 0.16), COL.windowWarm);              // the lamp she keeps lit
+  }
+  // Lamps of the furnished rooms (src/interiors.ts; Maryam's is the one she keeps lit): a cord from the ceiling boards
+  // and the warm glass. Their light is baked (townWarm).
+  for (const r of INTERIORS) {
+    const b = interiorBuilding(r.building);
+    for (const L of r.lamps) {
+      if (L.hang) put('lit', cylG(L.x, b.floor + 2.7, L.z, L.x, b.floor + L.dy + 0.05, L.z, 0.006, 0.006, 3), COL.rope);
+      put('glow', boxG(L.x, b.floor + L.dy, L.z, 0.16, 0.1, 0.16), COL.windowWarm);
+    }
   }
 
   // ----- Fences, walls, gates -----

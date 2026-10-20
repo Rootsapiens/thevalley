@@ -8,6 +8,7 @@ Data only. Positions are in metres, +Y up, +Z south, from `src/village.ts` and `
 - **Omar:** starts at the café before the root attack. After he escapes (memory lost), police find him near the mountain and take him to post [6]. He is cuffed on that first transport (known gang leader). Cuffs come off during the medical check under guard. Not cuffed at Elia's meetings.
 - **Elia:** not on stage Day 1. Appears Day 2, after Omar is found and Moreno assigns her the cover mission.
 - **Maryam:** goes to the square after Joseph is late and she confirms he has not returned. Before that she stays in the house and yard.
+- **Runtime:** after Lorenzo's first question, Maryam waits 8 seconds, then offers a confirmation line; hearing it opens the yard gate and starts her one-way walk to the east edge of the square. Dialogue remains proposed pending Noor's approval.
 - **Floor heights** (café upstairs, school interior): not decided by geometry yet. Zero is a temporary value for testing only. Set real heights when the buildings are added to `src/`, then fix feet, navigation and seat positions.
 - **"proposed" dialogue lines** are drafts until Noor approves the final AR text. They can be used for testing, not for voice recording.
 
@@ -35,4 +36,4 @@ Do not show Omar at post [6] before the found event, and do not start Elia's cov
 1. Which of the two `[ref]` lines in `characters.md` belongs to the farmer and which to his wife. Not guessed; do not move a line between them.
 2. Floor heights of the café upstairs room and the school interior (see above).
 3. Noor's approval and the AR text for every "proposed" line.
-4. Exact square target points for Maryam and the story flag that sends her there.
+4. Visual review of Maryam's chosen square target against a running scene capture.

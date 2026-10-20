@@ -22,13 +22,13 @@ def main():
         d = json.load(fh)
     out += P.check_data(d)
     by_id = {n["id"]: n for n in d["npcs"]}
-    # 3. Farmer by the trough (-12.5, 0, 8.5) m, yaw 0 (north): feet (-1250, 850, 0), pivot +90 cm, UE yaw -90.
+    # 3. Farmer by the trough faces the mountain at bearing 45 degrees (NE): UE yaw -45.
     f = P.plan_npc(by_id["npc_farmer"])
     assert U._close(f["feet"], (-1250.0, 850.0, 0.0)) and U._close(f["location"], (-1250.0, 850.0, 90.0)), f
-    assert abs(f["yaw"] + 90.0) < 1e-9, f["yaw"]
+    assert abs(f["yaw"] + 45.0) < 1e-9, f["yaw"]
     assert f["label"] == "npc_farmer" and "floor_to_confirm" not in f["tags"]
     assert {"OV_NPC", "spawnDay:1", "cuffed:false", "floorKnown:true"} <= set(f["tags"])
-    out.append("npc_farmer -> feet (-1250, 850, 0) cm, yaw -90, tags OK")
+    out.append("npc_farmer -> feet (-1250, 850, 0) cm, faces mountain NE (yaw -45), tags OK")
     # 4. Unknown floors: Z = 0 (no guessed height) and tagged; Omar is cuffed.
     tbc = [n for n in d["npcs"] if not n["floorKnown"]]
     for n in tbc:

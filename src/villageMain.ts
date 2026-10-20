@@ -15,15 +15,26 @@ import { buildVillage, FOG_COLOR } from './villageScene';
 import { villageAudio, measureVillagePeaks } from './villageAudio';
 import { setAnisotropy } from './materials';
 import { placeNpcs } from './npcPlacement';
-import { CH1_DAY1, CAST, FRAME_HOLD, makeActors, actorBox, actorChest, tickActor, nextLine, talkedOut, newFilm, filmTick, pickFramed, testimonies, type Story, type Actor } from './npcTalk';
+import { CH1_DAY1, CAST, FRAME_HOLD, makeActors, actorBox, actorChest, tickActor, nextLine, talkedOut, startMaryamSearch, newFilm, filmTick, pickFramed, testimonies, type Story, type Actor } from './npcTalk';
 import { buildNpcFigures } from './npcFigures';
+import { buildFurniture } from './furniture';
+import { buildPrologueRoots } from './prologueRoots';
+import { buildPrologueCow } from './prologueCow';
+import { buildPrologueHall } from './prologueHall';
+import { buildEastValley } from './eastValley';
+import { buildSouthFarmland } from './southFarmland';
+import { buildChapterTwo } from './chapterTwo';
+import { buildChapterThree } from './chapterThree';
+import { ORDER } from './npcData';
 import { createArena } from './arena';
 import { ARENA_START, segmentBox } from './rootBots';
 import palette from '../studio/art/palette.json';
 
 const DT = 1 / 120;
 const FOV = 70;
-const TC_START = (16 * 60 + 41) * 60 + 12;   // camcorder clock: 16:41:12, nine minutes before sunset (world-bible)
+const TC_START = new URLSearchParams(location.search).get('chapter') === '3'
+  ? (5 * 60 + 5) * 60   // Ch3 starts at 05:05; the five-minute deadline and camcorder clock meet at 05:10.
+  : (16 * 60 + 41) * 60 + 12;   // Ch1/2 camcorder clock: 16:41:12, nine minutes before sunset (world-bible)
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -41,25 +52,81 @@ document.getElementById('app')!.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(FOG_COLOR, 0.009);
+const QUERY = new URLSearchParams(location.search);
+const CHAPTER_TWO_MODE = QUERY.get('chapter') === '2';
+const CHAPTER_THREE_MODE = QUERY.get('chapter') === '3';
+const PROLOGUE_MODE = QUERY.get('prologue') === '1';
 const camera = new THREE.PerspectiveCamera(FOV, innerWidth / innerHeight, 0.05, 2000);
 camera.rotation.order = 'YXZ';
 scene.add(camera);
+const cameraLamp = CHAPTER_TWO_MODE ? new THREE.SpotLight('#e7d6ae', 0, 28, Math.PI / 5.5, 0.58, 1.35) : null;
+const cameraLampTarget = CHAPTER_TWO_MODE ? new THREE.Object3D() : null;
+if (cameraLamp && cameraLampTarget) { scene.add(cameraLamp, cameraLampTarget); cameraLamp.target = cameraLampTarget; }
 const tBuild0 = performance.now();
-const V = buildVillage(scene, renderer);
+const V = buildVillage(scene, renderer, CHAPTER_TWO_MODE);
+const EAST_VALLEY = buildEastValley(scene, V.terrainHeight);
+const SOUTH_FARMLAND = PROLOGUE_MODE ? null : buildSouthFarmland(scene, V.terrainHeight);
+const CH2_WORLD = CHAPTER_TWO_MODE ? buildChapterTwo(scene, V.terrainHeight) : null;
+const CH3_WORLD = CHAPTER_THREE_MODE ? buildChapterThree(scene) : null;
+if (CH3_WORLD) camera.add(CH3_WORLD.grabbingHands);
+if (CH2_WORLD) EXAMINABLES.push(...CH2_WORLD.examinables);
 V.stats['ms:build'] = Math.round(performance.now() - tBuild0);
-const SOLIDS = villageSolids();
-const QUERY = new URLSearchParams(location.search);
+const SOLIDS = villageSolids({ eastValleyOpen: CHAPTER_TWO_MODE, southFarmlandOpen: !PROLOGUE_MODE });
+// The tower's original ladder blocker is removed only in Chapter 3, where the playable four-flight ladder replaces it.
+if (CHAPTER_THREE_MODE) {
+  for (let i = SOLIDS.length - 1; i >= 0; i--) {
+    const b = SOLIDS[i].box;
+    if (Math.abs(b.min.x - 1.7) < 0.02 && Math.abs(b.max.x - 3.3) < 0.02 && b.min.z > 25.4 && b.min.z < 25.8 && b.max.y < 3.3) SOLIDS.splice(i, 1);
+  }
+}
+SOLIDS.push(...EAST_VALLEY.solids.map(box => ({ box })));
+if (SOUTH_FARMLAND) SOLIDS.push(...SOUTH_FARMLAND.solids.map(box => ({ box })));
+if (CH2_WORLD) SOLIDS.push(...CH2_WORLD.solids.map(box => ({ box })));
 const ARENA_ON = QUERY.get('arena') === '1' || QUERY.get('roots') === '1';
+const STORY_DAY = CHAPTER_TWO_MODE || CHAPTER_THREE_MODE ? 3 : QUERY.get('day') === '2' ? 2 : 1;
+const prologueRoots = PROLOGUE_MODE ? buildPrologueRoots(scene) : null;
+const prologueCow = PROLOGUE_MODE ? buildPrologueCow(scene, groundY) : null;
+const prologueHall = PROLOGUE_MODE ? buildPrologueHall(scene) : null;
+const OPENING_LINE: Text = PROLOGUE_MODE
+  ? { ar: 'عليّ أن أعيد البقرة إلى البيت.', en: 'I have to bring the cow home.' }
+  : CHAPTER_THREE_MODE ? { ar: 'القرية تسهر في الكنيسة.', en: 'The village keeps vigil in the church.' }
+  : LINES.intro;
 // ---------- NPCs (build step 2): Lorenzo's Day 1 cast where npcPlacement stands them; solid, so he walks round them.
 // The arena sandbox (?arena=1) keeps its square to itself: no cast there. ----------
-const story: Story & { flags: Set<string> } = { ...CH1_DAY1, flags: new Set<string>() };
+const story: Story & { flags: Set<string> } = {
+  ...CH1_DAY1,
+  chapter: CHAPTER_TWO_MODE ? 2 : CHAPTER_THREE_MODE ? 3 : 1,
+  day: PROLOGUE_MODE ? 1 : STORY_DAY,
+  events: PROLOGUE_MODE ? [] : CHAPTER_TWO_MODE || CHAPTER_THREE_MODE ? ORDER : STORY_DAY === 2 ? ORDER.slice(0, 6) : CH1_DAY1.events,
+  flags: new Set<string>(),
+  prologue: PROLOGUE_MODE,
+  medicalCheckComplete: STORY_DAY >= 2,
+};
 const ACTORS = ARENA_ON ? [] : makeActors(story);
-for (const a of ACTORS) SOLIDS.push({ box: actorBox(a) });
+const ACTOR_STARTS = ACTORS.map(a => ({ x: a.x, y: a.y, z: a.z, stage: a.spec.stage, rest: a.rest, indoors: a.indoors, cuffed: a.spec.cuffed }));
+const MOVING_ACTORS = ACTORS.filter(a => a.spec.stage === 'prologue-search' || a.id === 'npc_maryam');
+const MOVING_BOXES = MOVING_ACTORS.map(actorBox);
+if (prologueCow) MOVING_BOXES.push(prologueCow.box);
+const MOVING_RAY_SOLIDS = MOVING_BOXES.map(box => ({ box }));
+for (const a of ACTORS) if (!MOVING_ACTORS.includes(a)) SOLIDS.push({ box: actorBox(a) });
 const NPCF = buildNpcFigures(scene, ACTORS, V.env);
+// Furnished rooms (src/interiors.ts): Maryam's kitchen, the police post, the café; one merged draw per room in view.
+const FURN = buildFurniture(scene, renderer, V.env);
 V.stats['npc:tris'] = NPCF.stats.tris;
 const TALK_RANGE = 3.2;
-const NPC_PICKS: Examinable[] = ACTORS.map(a => ({ id: a.id, name: CAST[a.id].label, line: CAST[a.id].label, pos: actorChest(a, { x: 0, y: 0, z: 0 }), r: a.seated ? 0.5 : 0.42, from: { x: a.x, y: a.y, z: a.z } }));
+const TALKABLE_ACTORS = ACTORS.filter(a => a.spec.talkable !== false);
+const actorLabel = (a: Actor): Text => a.id === 'npc_omar' && !a.spec.cuffed
+  ? { ar: 'عمر', en: 'Omar' } : CAST[a.id].label;
+const NPC_PICKS: Examinable[] = TALKABLE_ACTORS.map(a => ({ id: a.id, name: actorLabel(a), line: actorLabel(a), pos: actorChest(a, { x: 0, y: 0, z: 0 }), r: a.seated ? 0.5 : 0.42, from: { x: a.x, y: a.y, z: a.z } }));
+function syncNpcPicks() {
+  for (let i = 0; i < TALKABLE_ACTORS.length; i++) {
+    const a = TALKABLE_ACTORS[i], pick = NPC_PICKS[i];
+    actorChest(a, pick.pos);
+    pick.from.x = a.x; pick.from.y = a.y; pick.from.z = a.z;
+  }
+}
 const WORLD = SOLIDS.map(s => s.box);
+const SIGHT_SOLIDS = SOLIDS.concat(MOVING_RAY_SOLIDS);
 const audio = villageAudio();
 // ---------- Arena (opt-in, ?arena=1 or ?roots=1): root walkers in the square and the spark caster, src/arena.ts. Off by
 // default: in Chapter 1 Lorenzo is unarmed, and the slice runs exactly as without it. ----------
@@ -68,7 +135,14 @@ const arena = ARENA_ON ? createArena({
   near: (x, z) => nearWorld(x, z, false), segment: segmentHit, live: () => playing && endT < 0,
   respawn: () => { player = newPlayer(START); yaw = START_YAW; pitch = -0.03; }, toast: m => showToast(m),
 }) : null;
-const START = arena ? { x: ARENA_START.x, y: ARENA_START.y, z: ARENA_START.z } : SPAWN, START_YAW = arena ? ARENA_START.yaw : SPAWN_YAW;
+const START = arena ? { x: ARENA_START.x, y: ARENA_START.y, z: ARENA_START.z }
+  : PROLOGUE_MODE ? { x: 0, y: 0, z: 1.8 }
+  : CHAPTER_THREE_MODE ? { x: 9.5, y: 0.01, z: 37.2 } : SPAWN;
+// Chapter 2's opening objective sends Lorenzo east. The shared Chapter 1 opening yaw points
+// into the barn's south wall from SPAWN, so use an east-facing camera for this direct chapter entry.
+const START_YAW = arena ? ARENA_START.yaw : CHAPTER_TWO_MODE ? -Math.PI / 2 : PROLOGUE_MODE || CHAPTER_THREE_MODE ? 0 : SPAWN_YAW;
+let prologueCowFound = false, prologueRespawns = 0, prologueSafeClock = 0;
+let prologueSafePoint = { x: START.x, y: START.y, z: START.z, yaw: START_YAW, pitch: -0.03, cow: 0 };
 
 // ---------- Broadphase: static boxes bucketed on a 4 m grid; each tick the physics sees only the boxes near the player ----------
 const BP = 4, bpGrid = new Map<number, number[]>(), bpKey = (i: number, j: number) => i * 4099 + j;
@@ -90,6 +164,7 @@ function nearWorld(x: number, z: number, bots = true): Box[] {
   }
   for (const d of ENTS.doors) if (d.solid) NEAR.push(d.box);
   for (const p of ENTS.props) NEAR.push(p.box);
+  for (const b of MOVING_BOXES) NEAR.push(b);
   if (bots && arena) arena.boxes(NEAR);
   return NEAR;
 }
@@ -112,7 +187,16 @@ function segmentHit(ax: number, ay: number, az: number, bx: number, by: number, 
   }
   for (const d of ENTS.doors) if (d.solid) best = Math.min(best, segmentBox(ax, ay, az, dx, dy, dz, d.box));
   for (const p of ENTS.props) best = Math.min(best, segmentBox(ax, ay, az, dx, dy, dz, p.box));
+  for (const b of MOVING_BOXES) best = Math.min(best, segmentBox(ax, ay, az, dx, dy, dz, b));
   return best;
+}
+
+function syncMovingActorBoxes() {
+  for (let i = 0; i < MOVING_ACTORS.length; i++) {
+    const next = actorBox(MOVING_ACTORS[i]), box = MOVING_BOXES[i];
+    Object.assign(box.min, next.min);
+    Object.assign(box.max, next.max);
+  }
 }
 
 // ---------- Entities: gates and doors (index = USABLES index), the bell rope, the pail and the stool ----------
@@ -158,7 +242,7 @@ function compileShadowDepth(): Promise<unknown> {
 }
 // F3 draws the NPC collision boxes (teal) and the spots of the story's NPCs that are still open (amber: no interior
 // yet, floor undecided, inside a solid; src/npcPlacement.ts), which are left out of the scene. One line draw, F3 only.
-const NPC_OPEN = placeNpcs(story.day, { chapter: story.chapter, events: story.events }).filter(p => p.issues.length);
+const NPC_OPEN = placeNpcs(story.day, { chapter: story.chapter, prologue: story.prologue, events: story.events }).filter(p => p.issues.length);
 const npcMarks = (() => {
   const pos: number[] = [], col: number[] = [], ok = new THREE.Color(palette.ruptureTeal), open = new THREE.Color(palette.hudAmber);
   const boxes: [Box, THREE.Color][] = [...ACTORS.map(a => [actorBox(a), ok] as [Box, THREE.Color]),
@@ -178,9 +262,14 @@ const npcMarks = (() => {
   return l;
 })();
 const depthReady = compileShadowDepth();
-// Stone and wood texture sets first (4 s at most), so their programs compile here with the maps bound, not in frame 1.
+// Stone and wood texture sets and the furniture first (4 s at most), so their programs compile here with the maps
+// bound, not in frame 1 (the furniture's program links with a stand-in map either way).
 const tTex0 = performance.now();
-await Promise.race([V.texturesReady, new Promise(r => setTimeout(r, 4000))]);
+await Promise.race([Promise.all([V.texturesReady, FURN.ready, EAST_VALLEY.ready, CH2_WORLD?.ready ?? Promise.resolve()]), new Promise(r => setTimeout(r, 4000))]);
+renderer.shadowMap.needsUpdate = true;
+V.stats['east:instances'] = EAST_VALLEY.stats.instances;
+V.stats['east:meshes'] = EAST_VALLEY.stats.meshes;
+void FURN.ready.then(() => Object.assign(V.stats, { 'furn:tris': FURN.stats.tris, 'furn:models': FURN.stats.models, 'furn:cells': FURN.stats.cells, 'ms:furn': FURN.stats.ms }));
 V.stats['ms:tex'] = Math.round(performance.now() - tTex0);
 // Every program (outlines and the shadow depth pass included) compiles before the first frame. Async: the driver
 // links in parallel (KHR_parallel_shader_compile) and the page stays responsive meanwhile.
@@ -195,6 +284,42 @@ const $ = (id: string) => document.getElementById(id)!;
 for (const id of ['hud', 'ammo', 'end', 'death', 'hurt']) $(id).style.display = 'none';
 document.body.classList.add('village');
 const overlay = $('overlay'), sub = $('sub'), subAr = $('sub-ar'), subEn = $('sub-en'), prompt = $('prompt');
+if (PROLOGUE_MODE || STORY_DAY === 2 || CHAPTER_TWO_MODE || CHAPTER_THREE_MODE) $('story-objective').style.display = 'block';
+if (PROLOGUE_MODE) {
+  $('objective-ar').textContent = 'اعثر على البقرة في الحظيرة';
+  $('objective-en').textContent = 'Find the cow in the barn';
+}
+const evidenceLedger = $('evidence-ledger');
+if (!PROLOGUE_MODE && STORY_DAY === 1 && !CHAPTER_TWO_MODE && !CHAPTER_THREE_MODE) evidenceLedger.style.display = 'block';
+if (STORY_DAY === 2 && !PROLOGUE_MODE) {
+  // This unvoiced objective card communicates Moreno's already-approved assignment; it is not NPC dialogue.
+  $('objective-ar').textContent = 'قابل إيليا؛ كلّفها مورينو بالتظاهر بأنها حبيبة عمر';
+  $('objective-en').textContent = "Meet Elia. Moreno assigned her to pose as Omar's girlfriend.";
+} else if (CHAPTER_TWO_MODE) {
+  $('objective-ar').textContent = 'اتبع الطريق شرقاً نحو المحجر';
+  $('objective-en').textContent = 'Follow the road east toward the quarry';
+} else if (CHAPTER_THREE_MODE) {
+  $('objective-ar').textContent = 'تحدّث إلى القسيس. الموعد النهائي 05:10';
+  $('objective-en').textContent = 'Talk to the priest · deadline 05:10 · 05:00';
+}
+function setStoryObjective(ar: string, en: string) {
+  $('objective-ar').textContent = ar;
+  $('objective-en').textContent = en;
+}
+function setChapterTwoStage(stage: number) {
+  if (!CHAPTER_TWO_MODE || stage <= chapterTwoStage) return;
+  chapterTwoStage = stage;
+  const objectives: Record<number, [string, string]> = {
+    1: ['اعثر على بوابة منجم الغربان', "Find the Ravens' mine gate"],
+    2: ['اتبع سلك المصابيح إلى الداخل', 'Follow the string-light cable inside'],
+    3: ['اعثر على المسجّل في المستودع', 'Find the recorder in the depot'],
+    4: ['واصل إلى القاعة', 'Continue to the Hall'],
+    5: ['صوّر يوسف والحيوانات', 'Film Joseph and the animals'],
+    6: ['اخرج من فم الكهف', 'Exit through the cave mouth'],
+  };
+  const objective = objectives[stage];
+  if (objective) setStoryObjective(objective[0], objective[1]);
+}
 const promptAr = $('prompt-ar'), promptEn = $('prompt-en'), rec = $('rec'), tc = $('tc'), clips = $('clips');
 const fade = $('fade'), title = $('title'), toast = $('toast'), subWho = $('sub-who'), subWhoAr = $('sub-who-ar'), subWhoEn = $('sub-who-en'), recLabel = $('rec-label');
 const batt = $('batt'), battFill = $('batt-fill'), focus = $('focus');
@@ -214,11 +339,21 @@ let yaw = START_YAW, pitch = -0.03, storyTime = 0, endT = -1, introDone = false,
 let target = -1, lastExamine = -1, zoomT = 0, useTarget = -1, buttonTarget = -1, lockT = 0, lockU = -1, npcTarget = -1;
 // Talk: the lines heard so far (the order cursor, src/npcTalk.ts nextLine) and a log for the tests. Film: hold RMB.
 const heard = new Set<string>(), talkLog: { npc: string; line: string; t: number }[] = [];
+let maryamQuestionedAt = -Infinity;
+let prologueAttackT = -1, prologueHallEntered = false;
+let dayTwoTransitionAt = -1, chapterTwoTransitionAt = -1, medicalCheckAt = -1;
+let chapterTwoStage = 0, chapterTwoRecorderFound = false, chapterTwoHallFilmed = false, chapterTwoFilmHold = 0, chapterTwoHazardClock = -1;
+let chapterTwoHazardWarned = false, chapterTwoComplete = false;
+let chapterThreeStage = 0, chapterThreeClimbing = false, chapterThreeSeized = false, chapterThreeUploadHold = 0, chapterThreeUploadAttempts = 0;
+let chapterThreeDeadline = 300, chapterThreeUploaded = false, chapterThreeUploadFailed = false, chapterThreeVehicleAt = -1;
 let film = newFilm(), filmHeld = false;
+const familyPhotoShown = new Set<string>(), ch1TestimonyKeys = new Set<string>();
+let familyPhotoAt = -1;
 const hl = new Float32Array(EXAMINABLES.length);
 const zoneOut: ('end' | 'turnback')[] = [];
 const pb: Box = { min: { x: 0, y: 0, z: 0 }, max: { x: 0, y: 0, z: 0 } };
 const eyeV = { x: 0, y: 0, z: 0 }, dirV = { x: 0, y: 0, z: 0 };
+const _cameraForward = new THREE.Vector3(), _toHall = new THREE.Vector3();
 
 // ---------- Input ----------
 const keys = new Set<string>();
@@ -241,8 +376,37 @@ addEventListener('keydown', e => {
     typed = (typed + e.key.toLowerCase()).slice(-12);
     if (typed.endsWith('sinafly')) { typed = ''; if (endT < 0) setFlying(!flying); }
   }
-  if (e.code === 'KeyE') examine();
-  if (e.code === 'KeyR' && endT > 9) restart();
+  if (e.code === 'KeyP' && !PROLOGUE_MODE && STORY_DAY === 1 && !CHAPTER_TWO_MODE && !CHAPTER_THREE_MODE) {
+    const witness = npcTarget >= 0 ? TALKABLE_ACTORS[npcTarget] : null;
+    const eligible = witness && /^(npc_farmer|npc_farmers_wife|npc_priest|npc_officer_[12]|npc_square_villager_[1-6])$/.test(witness.id);
+    if (!eligible) showToast('AIM AT A VILLAGER TO SHOW THE FAMILY PHOTO');
+    else if (witness && eligible && !familyPhotoShown.has(witness.id)) {
+      familyPhotoShown.add(witness.id); familyPhotoAt = storyTime + 1.8;
+      showToast(`PHOTO SHOWN — ${actorLabel(witness).en.toUpperCase()}`); audio.play('chime');
+      updateEvidenceLedger();
+    } else showToast('PHOTO ALREADY SHOWN TO THIS PERSON');
+  }
+  if (e.code === 'KeyE') {
+    if (CHAPTER_TWO_MODE && !chapterTwoRecorderFound) {
+      const recorderIndex = EXAMINABLES.findIndex(item => item.id === 'ch2-recorder');
+      const recorder = EXAMINABLES[recorderIndex];
+      if (recorder && Math.hypot(player.pos.x - recorder.pos.x, player.pos.z - recorder.pos.z) <= 2.2) {
+        target = recorderIndex; examine(); return;
+      }
+    }
+    if (CHAPTER_THREE_MODE && chapterThreeStage === 0) {
+      const priest = TALKABLE_ACTORS.find(a => a.id === 'npc_priest' && Math.hypot(a.x - player.pos.x, a.z - player.pos.z) < 3.2);
+      if (priest) { talk(priest); return; }
+    }
+    examine();
+  }
+  if (e.code === 'KeyR' && endT > 9) {
+    if (PROLOGUE_MODE) {
+      sessionStorage.setItem('ov-prologue-complete', '1');
+      location.search = '';
+    } else if (CHAPTER_TWO_MODE) location.search = '?chapter=3';
+    else restart();
+  }
   if (e.code === 'F3') { e.preventDefault(); devOn = !devOn; dev.style.display = devOn ? 'block' : 'none'; npcMarks.visible = devOn; }
 });
 addEventListener('keyup', e => keys.delete(e.code));
@@ -251,22 +415,34 @@ addEventListener('blur', () => { keys.clear(); filmHeld = false; });
 addEventListener('mousedown', e => { if (e.button === 2 && playing) filmHeld = true; });
 addEventListener('mouseup', e => { if (e.button === 2) filmHeld = false; });
 addEventListener('contextmenu', e => e.preventDefault());
-let playing = false, dragLook = false;
+let playing = false, dragLook = false, pointerLockPending = false;
+function fallBackToDragLook() {
+  if (document.pointerLockElement) { pointerLockPending = false; dragLook = false; return; }
+  pointerLockPending = false; dragLook = true;
+  if (playing) { overlay.style.display = 'none'; showToast('MOUSE LOCK BLOCKED — DRAG TO LOOK'); }
+}
 function startPlay() {
   overlay.style.display = 'none';
-  playing = true;
+  playing = true; dragLook = false; pointerLockPending = true;
   audio.start();
   try {
     const p = renderer.domElement.requestPointerLock() as unknown as Promise<void> | undefined;
-    p?.catch?.(() => { dragLook = true; showToast('MOUSE LOCK BLOCKED — DRAG TO LOOK'); });
-  } catch { dragLook = true; }
+    if (p?.then) p.then(() => {
+      if (document.pointerLockElement) { pointerLockPending = false; dragLook = false; }
+      else fallBackToDragLook();
+    }).catch(fallBackToDragLook);
+    else setTimeout(fallBackToDragLook, 900);
+    setTimeout(fallBackToDragLook, 1200);
+  } catch { fallBackToDragLook(); }
 }
 overlay.addEventListener('click', startPlay);
 renderer.domElement.addEventListener('click', () => { if (!document.pointerLockElement && !dragLook) startPlay(); });
 document.addEventListener('pointerlockchange', () => {
-  if (document.pointerLockElement) { dragLook = false; return; }
+  if (document.pointerLockElement) { pointerLockPending = false; dragLook = false; return; }
+  if (pointerLockPending) return;
   if (!dragLook && endT < 0) { playing = false; overlay.style.display = 'flex'; }
 });
+document.addEventListener('pointerlockerror', fallBackToDragLook);
 addEventListener('keydown', e => { if (e.code === 'Escape' && dragLook) { playing = false; overlay.style.display = 'flex'; } });
 addEventListener('mousemove', e => {
   if (endT >= 0) return;
@@ -300,7 +476,7 @@ function readInput(): Input {
 function examine() {
   if (endT >= 0) return;
   if (target < 0) {
-    if (npcTarget >= 0) talk(ACTORS[npcTarget]);
+    if (npcTarget >= 0) talk(TALKABLE_ACTORS[npcTarget]);
     else if (useTarget >= 0) use(useTarget);
     else if (buttonTarget >= 0 && pressButton(ENTS, ENTS.buttons[buttonTarget])) drainEvents();
     return;
@@ -309,16 +485,57 @@ function examine() {
   if (markExamined(vs, e.id)) { audio.play('chime'); clips.classList.remove('pulse'); void clips.offsetWidth; clips.classList.add('pulse'); }
   subtitle(e.line);
   lastExamine = target; zoomT = subTime;
+  if (CHAPTER_TWO_MODE && e.id === 'ch2-recorder') {
+    chapterTwoRecorderFound = true;
+    setChapterTwoStage(4);
+    if (player.pos.x > 323) setChapterTwoStage(5);
+    showToast('RECORDER ADDED TO EVIDENCE');
+  }
 }
 /** E on an NPC: the next line it has for this story state (src/npcTalk.ts), under the speaker's role. It turns to
  *  Lorenzo and nods along while the line is up. A press during a line moves on to the next one. */
 function talk(a: Actor) {
   const line = nextLine(a.spec, story, heard);
   if (!line) return;
-  subtitle({ ar: line.ar, en: line.line }, undefined, CAST[a.id].label);
+  subtitle({ ar: line.ar, en: line.line }, undefined, actorLabel(a));
   for (const o of ACTORS) if (o !== a) { o.talk = 0; o.line = null; }
   a.talk = subTime; a.line = line.id;
   talkLog.push({ npc: a.id, line: line.id, t: storyTime });
+  if (a.id === 'npc_maryam' && line.id === 'maryam_door') {
+    story.flags.add('maryam_questioned');
+    maryamQuestionedAt = storyTime;
+  }
+  if (CHAPTER_THREE_MODE && a.id === 'npc_priest' && line.id === 'priest_ladder') {
+    chapterThreeStage = 1;
+    setStoryObjective('ادخل برج الجرس المجاور، واصعد السلّم الشمالي', 'Enter the bell tower beside the church; climb its north ladder');
+  }
+  if (a.id === 'npc_maryam' && line.id === 'maryam_confirmed_missing' && startMaryamSearch(a)) {
+    story.flags.add('joseph_late_confirmed');
+    const gate = ENTS.doors.find(d => d.id === 'gate-maryam');
+    if (gate) gate.goal = 1;
+  }
+  if (a.id === 'npc_omar' && line.id === 'omar_mountain' && story.day === 1 && a.spec.cuffed) {
+    medicalCheckAt = storyTime + subTime + 2.5;
+  }
+  if (story.day === 2 && a.id === 'npc_elia' && line.id === 'elia_photos') {
+    story.flags.add('elia_cover_introduced');
+    setStoryObjective('اسأل عمر عن المرأة على الشرفة', 'Ask Omar about the woman on the balcony');
+  }
+  if (story.day === 2 && a.id === 'npc_omar' && line.id === 'omar_watcher') {
+    $('story-objective').style.display = 'none';
+    showToast('DAY 2 STORY BEAT COMPLETE');
+    chapterTwoTransitionAt = storyTime + subTime + 0.8;
+  }
+  // Moreno's first briefing closes Day 1 only after Lorenzo has heard Omar. The ordered prefix advances to
+  // assignment event 6; the Day 2 reload then places Elia on the built café balcony and removes Omar's cuffs.
+  if (a.id === 'npc_moreno' && line.id === 'moreno_said' && story.day === 1 && story.medicalCheckComplete && story.events.length >= 5
+      && talkLog.some(e => e.npc === 'npc_omar')) {
+    dayTwoTransitionAt = storyTime + subTime + 0.65;
+  }
+}
+function updateEvidenceLedger() {
+  $('evidence-photo').textContent = `الصورة: ${Math.min(4, familyPhotoShown.size)}/4 · Photo: ${Math.min(4, familyPhotoShown.size)}/4`;
+  $('evidence-testimonies').textContent = `الإفادات: ${Math.min(3, ch1TestimonyKeys.size)}/3 · Statements: ${Math.min(3, ch1TestimonyKeys.size)}/3`;
 }
 /** E on a gate or door: swing it (0.75 s), or rattle it if locked. A leaf never closes on the player. Locked: the prompt
  *  under the crosshair reads "Locked." at once (not a spoken line, so it never waits for or cuts the subtitle channel). */
@@ -330,7 +547,24 @@ function use(u: number) {
 // ---------- Simulation ----------
 function tick(input: Input) {
   storyTime += DT;
-  if (!introDone && storyTime > 1.4) { introDone = true; if (subTime <= 0) subtitle(LINES.intro, 6.5); }   // never cut off a line
+  $('family-photo-card').style.display = storyTime < familyPhotoAt ? 'flex' : 'none';
+  SOUTH_FARMLAND?.tick(DT);
+  if (medicalCheckAt > 0 && storyTime >= medicalCheckAt) {
+    medicalCheckAt = -1; story.medicalCheckComplete = true;
+    const omar = ACTORS.find(a => a.id === 'npc_omar');
+    if (omar) { omar.spec.cuffed = false; NPCF.setCuffed(ACTORS); }
+    showToast('GUARDED MEDICAL CHECK COMPLETE');
+  }
+  if (dayTwoTransitionAt > 0 && storyTime >= dayTwoTransitionAt) {
+    fade.style.opacity = '1';
+    if (storyTime >= dayTwoTransitionAt + 1.8) location.search = '?day=2';
+  }
+  if (chapterTwoTransitionAt > 0 && storyTime >= chapterTwoTransitionAt) {
+    fade.style.opacity = '1';
+    if (storyTime >= chapterTwoTransitionAt + 1.8) location.search = '?chapter=2';
+  }
+  if (!introDone && storyTime > 1.4) { introDone = true; if (subTime <= 0 && !CHAPTER_TWO_MODE && !CHAPTER_THREE_MODE) subtitle(OPENING_LINE, 6.5); }   // never cut off a line
+  if (maryamQuestionedAt > -Infinity && storyTime - maryamQuestionedAt >= 8) story.flags.add('maryam_waited_without_joseph');
   turnbackCD -= DT;
   // Entities first: props the player walks into move ahead of him (and set his pace), leaves swing and turn solid again
   // once he is clear, buttons recover.
@@ -338,6 +572,13 @@ function tick(input: Input) {
   input.speedScale = pushScale(ENTS, pb, push);   // same contact as the push itself, so decided before the props move
   tickEnts(ENTS, DT, pb, push, nearWorld, groundY);
   if (ENTS.events.length) drainEvents();
+  if (!flying && CHAPTER_THREE_MODE && !chapterThreeClimbing && chapterThreeStage >= 1 && player.pos.y < 0.2
+      && Math.abs(player.pos.x - CH3_WORLD!.ladderX) < 0.85 && Math.abs(player.pos.z - CH3_WORLD!.ladderZ) < 1.0 && input.forward > 0.1) {
+    chapterThreeClimbing = true;
+    player.pos.x = CH3_WORLD!.ladderX; player.pos.z = CH3_WORLD!.ladderZ; player.pos.y = 0;
+    player.vel.x = player.vel.y = player.vel.z = 0;
+    showToast('FLIGHT 1 / 4');
+  }
   if (flying) {
     // Carpet flight: WASD steers in the look direction (7 m/s), Space climbs, Ctrl or C descends (4 m/s); speed eases in
     // and out over about half a second. No walls while flying; the terrain is the floor.
@@ -350,13 +591,127 @@ function tick(input: Input) {
     const g = groundY(player.pos.x, player.pos.z);
     if (player.pos.y < g) { player.pos.y = g; flyV.y = Math.max(0, flyV.y); }
     player.vel.x = player.vel.y = player.vel.z = 0; player.onGround = false;
-  } else step(player, input, nearWorld(player.pos.x, player.pos.z), DT, groundY);
+  } else if (CHAPTER_THREE_MODE && chapterThreeClimbing) {
+    player.pos.y = Math.max(0, Math.min(CH3_WORLD!.topY, player.pos.y + input.forward * 1.35 * DT));
+    player.vel.x = player.vel.y = player.vel.z = 0; player.onGround = player.pos.y <= 0;
+  } else {
+    step(player, input, nearWorld(player.pos.x, player.pos.z), DT, V.terrainHeight);
+  }
+  if (PROLOGUE_MODE && endT < 0) prologueCow?.tick(DT, player.pos.x, player.pos.z);
+  if (PROLOGUE_MODE && endT < 0 && prologueCow) {
+    const cowPos = prologueCow.position();
+    if (!prologueCowFound && Math.hypot(player.pos.x - cowPos.x, player.pos.z - cowPos.z) <= 8) {
+      prologueCowFound = true;
+      setStoryObjective('اتبع البقرة وآثار الحوافر نحو المجرى', 'Follow the cow and hoofprints toward the stream');
+      showToast('COW FOUND — FOLLOW THE HOOFPRINTS');
+    }
+    const g = V.terrainHeight(player.pos.x, player.pos.z);
+    const invalid = !Number.isFinite(player.pos.x + player.pos.y + player.pos.z)
+      || player.pos.y < g - 3
+      || player.pos.x < -80 || player.pos.x > 250 || player.pos.z < -110 || player.pos.z > 180;
+    if (invalid) {
+      player.pos.x = prologueSafePoint.x; player.pos.y = prologueSafePoint.y; player.pos.z = prologueSafePoint.z;
+      player.vel.x = player.vel.y = player.vel.z = 0; player.onGround = true;
+      yaw = prologueSafePoint.yaw; pitch = prologueSafePoint.pitch;
+      prologueCow.restore(prologueSafePoint.cow); prologueRespawns++;
+      showToast('RETURNED TO LAST SAFE POINT'); audio.play('groan');
+    } else {
+      prologueSafeClock -= DT;
+      if (prologueSafeClock <= 0 && player.onGround && Math.abs(player.pos.y - g) < 0.18) {
+        prologueSafePoint = { x: player.pos.x, y: g, z: player.pos.z, yaw, pitch, cow: prologueCow.checkpoint() };
+        prologueSafeClock = 2.0;
+      }
+    }
+  }
   const r = TUNING.radius, h = height(player);
   pb.min.x = player.pos.x - r; pb.min.y = player.pos.y; pb.min.z = player.pos.z - r;
   pb.max.x = player.pos.x + r; pb.max.y = player.pos.y + h; pb.max.z = player.pos.z + r;
-  for (const ev of zoneEvents(vs, pb, zoneOut)) {
-    if (ev === 'end' && endT < 0) startEnd();
+  if (CHAPTER_TWO_MODE && CH2_WORLD && endT < 0) {
+    const x = player.pos.x, z = player.pos.z;
+    if (x > 228) setChapterTwoStage(1);
+    if (x > 255 && Math.abs(z - 40) < 8) setChapterTwoStage(2);
+    if (x > 274 && Math.abs(z - 40) < 8) setChapterTwoStage(3);
+    if (chapterTwoRecorderFound && x > 323) setChapterTwoStage(5);
+
+    const hazardZone = x > 292 && x < 301 && Math.abs(z - 40) < 1.9;
+    if (hazardZone) {
+      if (chapterTwoHazardClock < 0) { chapterTwoHazardClock = 0; chapterTwoHazardWarned = false; }
+      chapterTwoHazardClock += DT;
+      if (chapterTwoHazardClock >= 4) { chapterTwoHazardClock -= 4; chapterTwoHazardWarned = false; }
+      const warning = chapterTwoHazardClock < 0.6, lashing = chapterTwoHazardClock >= 0.6 && chapterTwoHazardClock < 0.95;
+      if (warning && !chapterTwoHazardWarned) { audio.play('rootcreak'); chapterTwoHazardWarned = true; }
+      CH2_WORLD.setHazard(warning, lashing, chapterTwoStage >= 6);
+      if (lashing && Math.abs(x - 296.7) < 1.05) {
+        player.pos.x = 287.2; player.pos.y = V.terrainHeight(player.pos.x, z); player.pos.z = z;
+        player.vel.x = player.vel.y = player.vel.z = 0; player.onGround = true;
+        chapterTwoHazardClock = -1; chapterTwoHazardWarned = false;
+        showToast('ROOT STRIKE — BACK TO THE SAFE GALLERY'); audio.play('groan');
+      }
+    } else if (chapterTwoHazardClock >= 0) {
+      chapterTwoHazardClock = -1; chapterTwoHazardWarned = false;
+      CH2_WORLD.setHazard(false, false, chapterTwoStage >= 6);
+    }
+    if (chapterTwoStage >= 5 && x > 373 && Math.abs(z - 42) < 7 && !chapterTwoComplete) {
+      if (chapterTwoStage < 6) setChapterTwoStage(6);
+      chapterTwoComplete = true; $('story-objective').style.display = 'none';
+      showToast(chapterTwoHallFilmed ? 'CHAPTER 2 COMPLETE · FOOTAGE SECURED' : 'CHAPTER 2 COMPLETE · FOOTAGE MISSED'); startEnd();
+    }
+  }
+  if (CHAPTER_THREE_MODE && CH3_WORLD && chapterThreeClimbing && endT < 0) {
+    const reached = Math.floor((player.pos.y + 0.001) / 5);
+    if (reached >= 1 && chapterThreeStage < 2) { chapterThreeStage = 2; showToast('FLIGHT 2 / 4'); }
+    if (reached >= 2 && chapterThreeStage < 3) { chapterThreeStage = 3; showToast('FLIGHT 3 / 4'); }
+    if (reached >= 3 && chapterThreeStage < 4) { chapterThreeStage = 4; showToast('FLIGHT 4 / 4'); }
+    if (player.pos.y >= CH3_WORLD.topY - 0.01 && chapterThreeStage < 5) {
+      chapterThreeStage = 5;
+      setStoryObjective('ارفع اللقطات قبل الساعة 05:10 — اضغط E باستمرار', 'Upload the footage before 05:10 — hold E');
+      showToast('TOP LANDING — SIGNAL WINDOW OPEN');
+    }
+    if (chapterThreeStage >= 5 && !chapterThreeUploaded && !chapterThreeUploadFailed && chapterThreeDeadline > 0) {
+      const atUpload = Math.hypot(player.pos.x - CH3_WORLD.upload.x, player.pos.z - CH3_WORLD.upload.z) < 1.8;
+      if (atUpload && keys.has('KeyE') && chapterThreeDeadline > 0) {
+        chapterThreeUploadHold += DT;
+        if (chapterThreeUploadHold >= 20) {
+          chapterThreeUploaded = true; chapterThreeVehicleAt = storyTime;
+          setStoryObjective('وصلت الإشارة. الكاميرا أصبحت دليلاً.', 'Signal sent. The camera is now evidence.');
+          CH3_WORLD.showVehicles(); audio.play('drone'); showToast('SIGNAL SENT — VEHICLES ON THE VALLEY ROAD');
+        }
+      } else if (chapterThreeUploadHold > 0) {
+        chapterThreeUploadAttempts++;
+        chapterThreeUploadHold = 0;
+        if (chapterThreeUploadAttempts >= 2) { chapterThreeUploadFailed = true; setStoryObjective('انقطع الإرسال. انتظر وصول المركبات.', 'Upload failed. Vehicles are coming.'); showToast('UPLOAD INTERRUPTED — WINDOW LOST'); }
+        else showToast('UPLOAD INTERRUPTED — ONE RETRY LEFT');
+      }
+      const seconds = Math.ceil(chapterThreeDeadline);
+      $('objective-en').textContent = `Upload before 05:10 · hold E (${Math.floor(chapterThreeUploadHold)} / 20 s) · ${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+    }
+  }
+  if (CHAPTER_THREE_MODE && CH3_WORLD && playing && !chapterThreeUploaded) {
+    chapterThreeDeadline = Math.max(0, chapterThreeDeadline - DT);
+    if (chapterThreeStage < 5) $('objective-en').textContent = `Talk to the priest · deadline 05:10 · ${String(Math.floor(chapterThreeDeadline / 60)).padStart(2, '0')}:${String(Math.floor(chapterThreeDeadline % 60)).padStart(2, '0')}`;
+    if (chapterThreeDeadline <= 0 && chapterThreeVehicleAt < 0) {
+      chapterThreeUploadFailed = true; chapterThreeVehicleAt = storyTime; CH3_WORLD.showVehicles();
+      setStoryObjective('فات الموعد. المركبات تقترب.', '05:10 passed. Vehicles arrive.');
+      showToast('05:10 — VEHICLES ARRIVE, SIGNAL NOT SENT');
+    }
+  }
+  if (CHAPTER_THREE_MODE && (chapterThreeUploaded || chapterThreeUploadFailed) && chapterThreeVehicleAt >= 0 && storyTime - chapterThreeVehicleAt >= 4 && endT < 0) startEnd();
+  for (const ev of zoneEvents(vs, pb, zoneOut, !CHAPTER_TWO_MODE && !CHAPTER_THREE_MODE)) {
+    if (ev === 'end' && endT < 0) {
+      if (PROLOGUE_MODE && prologueAttackT < 0) {
+        prologueAttackT = 0;
+        audio.play('rootcreak');
+      } else if (!PROLOGUE_MODE) startEnd();
+    }
     if (ev === 'turnback' && turnbackCD <= 0 && endT < 0) { subtitle(LINES.turnback, 3.5); turnbackCD = 6; }
+  }
+  if (PROLOGUE_MODE && prologueAttackT >= 0 && endT < 0) {
+    prologueAttackT += DT;
+    prologueRoots?.grow(player.pos.x, player.pos.y, player.pos.z, yaw, prologueAttackT);
+    if (prologueAttackT >= 1.8) {
+      audio.play('groan');
+      startEnd();
+    }
   }
   arena?.tick(DT, player, h);
 }
@@ -366,23 +721,45 @@ const END = { yaw0: 0, pitch0: 0, yaw1: Math.atan2(-cave.x, -cave.z), pitch1: 0.
 function startEnd() {
   endT = 0;
   END.yaw0 = yaw; END.pitch0 = pitch;
+  if (CHAPTER_THREE_MODE) { END.yaw1 = Math.PI; END.pitch1 = -0.08; }
   let d = END.yaw1 - yaw;
   while (d > Math.PI) d -= Math.PI * 2;
   while (d < -Math.PI) d += Math.PI * 2;
   END.yaw1 = yaw + d;
-  subtitle(LINES.end, 6.2);
+  if (!PROLOGUE_MODE && !CHAPTER_TWO_MODE && !CHAPTER_THREE_MODE) subtitle(LINES.end, 6.2);
   if (document.pointerLockElement) document.exitPointerLock();
 }
 function restart() {
   player = newPlayer(START); vs = newVillageState();
+  if (PROLOGUE_MODE) {
+    prologueCowFound = false; prologueRespawns = 0; prologueSafeClock = 0;
+    prologueSafePoint = { x: START.x, y: START.y, z: START.z, yaw: START_YAW, pitch: -0.03, cow: 0 };
+    prologueCow?.reset();
+    $('objective-ar').textContent = 'اعثر على البقرة في الحظيرة'; $('objective-en').textContent = 'Find the cow in the barn';
+  }
   yaw = START_YAW; pitch = -0.03; storyTime = 0; endT = -1; introDone = false; turnbackCD = 0; zoomT = 0; subTime = 0; lockT = 0;
   flying = false; V.carpet.mesh.visible = false; flyV.x = flyV.y = flyV.z = 0;   // a restart lands without a glide
   END.yaw1 = Math.atan2(-cave.x, -cave.z);
   fade.style.opacity = '0'; title.classList.remove('show'); rec.classList.remove('stopped');
   playing = false; overlay.style.display = 'flex';
   resetEnts();
-  heard.clear(); talkLog.length = 0; film = newFilm(); filmHeld = false;
-  for (const a of ACTORS) { a.yaw = a.rest; a.headYaw = a.headPitch = 0; a.talk = 0; a.line = null; }
+  heard.clear(); talkLog.length = 0; film = newFilm(); filmHeld = false; story.flags.clear(); maryamQuestionedAt = -Infinity;
+  familyPhotoShown.clear(); ch1TestimonyKeys.clear(); familyPhotoAt = -1; updateEvidenceLedger();
+  medicalCheckAt = dayTwoTransitionAt = -1; story.medicalCheckComplete = STORY_DAY >= 2; NPCF.setCuffed(ACTORS);
+  chapterThreeStage = 0; chapterThreeClimbing = false; chapterThreeSeized = false; chapterThreeUploadHold = 0; chapterThreeUploadAttempts = 0; chapterThreeDeadline = 300;
+  chapterThreeUploaded = false; chapterThreeUploadFailed = false; chapterThreeVehicleAt = -1;
+  CH3_WORLD?.resetVehicles();
+  if (CH3_WORLD) { CH3_WORLD.grabbingHands.visible = false; CH3_WORLD.grabbingHands.position.y = 0; }
+  chapterTwoStage = chapterTwoFilmHold = 0; chapterTwoRecorderFound = chapterTwoHallFilmed = false;
+  chapterTwoHazardClock = -1; chapterTwoHazardWarned = chapterTwoComplete = false;
+  CH2_WORLD?.setHazard(false, false, false);
+  for (let i = 0; i < ACTORS.length; i++) {
+    const a = ACTORS[i], start = ACTOR_STARTS[i];
+    a.x = start.x; a.y = start.y; a.z = start.z; a.spec.stage = start.stage; a.rest = start.rest; a.indoors = start.indoors; a.spec.cuffed = start.cuffed;
+    a.searchWaypoint = 1; a.searchDirection = 1; a.searchPause = start.stage === 'prologue-search' ? 1 : 0;
+    a.walkPhase = 0; a.walkWeight = 0; a.maryamMoving = false;
+    a.yaw = a.rest; a.headYaw = a.headPitch = 0; a.talk = 0; a.line = null;
+  }
   arena?.reset();
 }
 
@@ -422,7 +799,7 @@ function devOverlay() {
 
 /** AI state of the NPC under the crosshair, else the nearest one (F3). */
 function devNpc(): string {
-  let a: Actor | null = npcTarget >= 0 ? ACTORS[npcTarget] : null;
+  let a: Actor | null = npcTarget >= 0 ? TALKABLE_ACTORS[npcTarget] : null;
   if (!a) { let bd = Infinity; for (const o of ACTORS) { const d = Math.hypot(o.x - player.pos.x, o.z - player.pos.z); if (d < bd) { bd = d; a = o; } } }
   if (!a) return '-';
   const d = Math.hypot(a.x - player.pos.x, a.z - player.pos.z);
@@ -468,18 +845,43 @@ function frame(now: number) {
   const swayP = (Math.sin(t * 0.71) * 0.6 + Math.sin(t * 1.37 + 1) * 0.4) * 0.0022 * hand;
   const swayY = (Math.sin(t * 0.53 + 2) * 0.6 + Math.sin(t * 1.11) * 0.4) * 0.0026 * hand;
 
-  // End sequence: turn to the cave mouth, slow zoom, fade, title.
+  // End sequence: turn to the cave, fade into the Hall reveal, then show the continuation prompt.
   let fovTarget = FOV;
   if (endT >= 0) {
     endT += dt;
+    if (CHAPTER_THREE_MODE && endT >= 4.1 && !chapterThreeSeized) {
+      chapterThreeSeized = true; filmHeld = false; film.rec = false; rec.classList.add('stopped');
+      CH3_WORLD!.grabbingHands.visible = true;
+      document.body.classList.remove('filming'); audio.play('groan'); showToast('CAMERA SEIZED — LORENZO DETAINED');
+    }
     const k = ease(endT / 3.2);
     yaw = END.yaw0 + (END.yaw1 - END.yaw0) * k;
     pitch = END.pitch0 + (END.pitch1 - END.pitch0) * k;
     fovTarget = FOV - 32 * ease((endT - 1.5) / 5.5);
-    if (endT > 7.0) { fade.style.opacity = '1'; rec.classList.add('stopped'); }
-    if (endT > 8.8 && !title.classList.contains('show')) {
+    if (endT > 7.0) {
+      rec.classList.add('stopped');
+      if (PROLOGUE_MODE && endT >= 7.5 && !prologueHallEntered) {
+        prologueHallEntered = true;
+        prologueRoots?.hide();
+        const entry = prologueHall?.enter();
+        if (entry) {
+          player.pos.x = entry.x; player.pos.y = entry.y; player.pos.z = entry.z;
+          player.vel.x = player.vel.y = player.vel.z = 0; player.onGround = true;
+          yaw = END.yaw0 = END.yaw1 = entry.yaw; pitch = END.pitch0 = END.pitch1 = -0.03;
+        }
+      }
+      if (PROLOGUE_MODE) {
+        fade.style.opacity = String(1 - ease((endT - 7.5) / 0.7));
+        prologueHall?.tick(endT - 7.5);
+      } else fade.style.opacity = '1';
+    }
+    if (endT > 9.1 && !title.classList.contains('show')) {
       title.classList.add('show');
-      $('title-stats').textContent = `${vs.examined.length}/${EXAMINABLES.length} clips · ${Math.floor(storyTime / 60)}:${pad(Math.floor(storyTime % 60))}`;
+      $('title-stats').textContent = PROLOGUE_MODE
+        ? 'THE ROOTS TAKE JOSEPH · R TO CONTINUE AS LORENZO'
+        : CHAPTER_TWO_MODE ? `CHAPTER 2 COMPLETE · FOOTAGE ${chapterTwoHallFilmed ? 'SECURED' : 'MISSED'} · R TO CONTINUE`
+        : CHAPTER_THREE_MODE ? chapterThreeUploaded ? 'SIGNAL · CAMERA SEIZED · LORENZO DETAINED' : 'SIGNAL MISSED · CAMERA SEIZED · LORENZO DETAINED'
+        : `${vs.examined.length}/${EXAMINABLES.length} clips · ${Math.floor(storyTime / 60)}:${pad(Math.floor(storyTime % 60))}`;
       audio.play('drone');
     }
   } else if (zoomT > 0) {
@@ -494,6 +896,20 @@ function frame(now: number) {
   camera.rotation.set(pitch + swayP + sh * 0.05 * shake(t, 1), yaw + swayY + sh * 0.03 * shake(t, 2), -bobX * 0.15 + sh * 0.04 * shake(t, 3));
   const cy = Math.cos(yaw), sy = Math.sin(yaw);
   camera.position.set(player.pos.x + cy * bobX, player.pos.y + eyeY + bobY - bobAmp * 0.5 - landDip, player.pos.z - sy * bobX);
+  if (CHAPTER_THREE_MODE && endT >= 4.1) {
+    const seized = ease((endT - 4.1) / 0.8);
+    CH3_WORLD!.grabbingHands.visible = true;
+    CH3_WORLD!.grabbingHands.position.y = -0.65 + 0.58 * seized;
+    camera.position.y -= 1.05 * seized;
+    camera.rotation.x += 0.68 * seized + 0.025 * Math.sin(t * 43) * (1 - seized * 0.35);
+    camera.rotation.z += 0.06 * seized + 0.018 * Math.cos(t * 37) * (1 - seized * 0.35);
+  }
+  if (cameraLamp && cameraLampTarget) {
+    const forward = camera.getWorldDirection(_cameraForward);
+    cameraLamp.position.copy(camera.position).addScaledVector(forward, 0.12);
+    cameraLampTarget.position.copy(camera.position).addScaledVector(forward, 20);
+    cameraLamp.intensity = film.rec && endT < 0 ? 42 : 0;
+  }
   V.sky.position.copy(camera.position);
   if (flying) {   // the rug under the rider: banks into strafes, noses up when climbing
     const right = flyV.x * cy - flyV.z * sy;
@@ -510,11 +926,16 @@ function frame(now: number) {
     trauma = Math.min(1, trauma + arena.trauma());
   }
   target = endT >= 0 ? -1 : pickExaminable(eyeV, dirV, EXAMINABLES, SOLIDS);
-  npcTarget = endT >= 0 || target >= 0 ? -1 : pickExaminable(eyeV, dirV, NPC_PICKS, SOLIDS, TALK_RANGE);
+  npcTarget = endT >= 0 || target >= 0 ? -1 : pickExaminable(eyeV, dirV, NPC_PICKS, SIGHT_SOLIDS, TALK_RANGE);
+  if (CHAPTER_THREE_MODE && chapterThreeStage === 0 && target < 0) {
+    const priest = TALKABLE_ACTORS.findIndex(a => a.id === 'npc_priest' && Math.hypot(a.x - player.pos.x, a.z - player.pos.z) < 3.2);
+    if (priest >= 0) npcTarget = priest; // near the altar, E stays easy without precise head aim
+  }
   useTarget = endT >= 0 || target >= 0 || npcTarget >= 0 ? -1 : pickUsable(eyeV, dirV, SOLIDS);
   buttonTarget = endT >= 0 || target >= 0 || npcTarget >= 0 || useTarget >= 0 ? -1 : pickExaminable(eyeV, dirV, BUTTONS, SOLIDS);
   for (let i = 0; i < EXAMINABLES.length; i++) {
     const h = V.highlights[i];
+    if (!h) continue; // Chapter-specific evidence points may not have a baked village highlight mesh.
     hl[i] += ((i === target ? 1 : 0) - hl[i]) * Math.min(1, dt * (i === target ? 10 : 6));
     h.group.visible = hl[i] > 0.01;
     if (!h.group.visible) continue;
@@ -526,14 +947,17 @@ function frame(now: number) {
       h.hull.uniforms.uThick.value = Math.min(0.03, Math.max(0.006, camera.position.distanceTo(h.center) * 0.0042));
     }
   }
-  if (target >= 0) {
+  if (CHAPTER_THREE_MODE && chapterThreeStage >= 5 && !chapterThreeUploaded && !chapterThreeUploadFailed && endT < 0 && Math.hypot(player.pos.x - CH3_WORLD!.upload.x, player.pos.z - CH3_WORLD!.upload.z) < 1.8) {
+    promptAr.textContent = 'اضغط E باستمرار لرفع اللقطات'; promptEn.textContent = `Hold E to upload · ${Math.floor(chapterThreeUploadHold)} / 20 s`;
+    prompt.classList.add('show'); prompt.classList.remove('seen', 'locked');
+  } else if (target >= 0) {
     const e = EXAMINABLES[target];
     if (promptEn.textContent !== e.name.en) { promptAr.textContent = e.name.ar; promptEn.textContent = e.name.en; }
     prompt.classList.add('show');
     prompt.classList.toggle('seen', vs.examined.includes(e.id));
     prompt.classList.remove('locked');
   } else if (npcTarget >= 0) {
-    const a = ACTORS[npcTarget], n = CAST[a.id].label;
+    const a = TALKABLE_ACTORS[npcTarget], n = actorLabel(a);
     if (promptEn.textContent !== n.en || promptAr.textContent !== n.ar) { promptAr.textContent = n.ar; promptEn.textContent = n.en; }
     prompt.classList.add('show');
     prompt.classList.toggle('seen', talkedOut(a.spec, story, heard));
@@ -579,6 +1003,7 @@ function frame(now: number) {
   // Wind, gusts, the swaying east door leaf and its creak, the distant dog.
   const gust = Math.min(1, Math.max(0, 0.5 + 0.3 * Math.sin(t * 0.69) + 0.2 * Math.sin(t * 0.27 + 1.3) + 0.06 * Math.sin(t * 2.3)));
   const inBarn = player.pos.x > BARN.x0 && player.pos.x < BARN.x1 && player.pos.z > BARN.z0 && player.pos.z < BARN.z1;
+  audio.barn(inBarn, PROLOGUE_MODE && prologueAttackT < 0 && endT < 0);
   const inside = inBarn || HOLLOW.some(b => player.pos.x > b.x0 && player.pos.x < b.x1 && player.pos.z > b.z0 && player.pos.z < b.z1 && player.pos.y < b.floor + 3);
   indoor += ((inside ? 1 : 0) - indoor) * Math.min(1, dt * 2);
   audio.wind(gust, indoor, endT > 7 ? Math.max(0, 1 - (endT - 7) / 3) : 1);
@@ -607,20 +1032,40 @@ function frame(now: number) {
   V.dustTime.value = t;
 
   // NPCs: attention and idle (src/npcTalk.ts), then posed on the GPU (src/npcFigures.ts).
-  for (const a of ACTORS) tickActor(a, dt, player.pos.x, player.pos.y, player.pos.z, storyTime);
+  for (const a of ACTORS) {
+    tickActor(a, dt, player.pos.x, player.pos.y, player.pos.z, storyTime);
+    if (a.spec.stage === 'maryam-square') story.flags.add('maryam_reached_square');
+  }
+  syncMovingActorBoxes();
+  syncNpcPicks();
   NPCF.update(ACTORS, t);
   // Camera: while RMB is held (and charged) Lorenzo records; an NPC held in frame for a second is logged, and again for
   // each line it is filmed saying (a testimony).
   {
     const live = filmHeld && playing && endT < 0;
-    const fi = live && film.battery > 0 ? pickFramed(eyeV, dirV, ACTORS, SOLIDS) : -1, fa = fi >= 0 ? ACTORS[fi] : null;
+    const fi = live && film.battery > 0 ? pickFramed(eyeV, dirV, ACTORS, SIGHT_SOLIDS) : -1, fa = fi >= 0 ? ACTORS[fi] : null;
     const was = film.rec;
     const got = filmTick(film, dt, live, fa ? fa.id : null, fa ? fa.line : null, storyTime);
     if (film.rec !== was) audio.play('rec', film.rec ? 1 : 0);
     if (live && !film.rec) { showToast('BATTERY EMPTY'); filmHeld = false; }   // held with no charge left
+    if (CHAPTER_TWO_MODE && CH2_WORLD && chapterTwoStage === 5 && film.rec) {
+      _toHall.copy(CH2_WORLD.hallTarget).sub(camera.position);
+      const distance = _toHall.length();
+      const framedHall = distance < 28 && camera.getWorldDirection(_cameraForward).dot(_toHall.divideScalar(distance)) > 0.965;
+      chapterTwoFilmHold = framedHall ? chapterTwoFilmHold + dt : 0;
+      if (chapterTwoFilmHold >= 1.0) {
+        chapterTwoHallFilmed = true; setChapterTwoStage(6); CH2_WORLD.setHazard(false, false, true);
+        showToast('JOSEPH AND THE ANIMALS FILMED'); audio.play('chime');
+      }
+    } else if (CHAPTER_TWO_MODE && chapterTwoStage === 5 && !film.rec) chapterTwoFilmHold = 0;
     if (got) {
+      if (!PROLOGUE_MODE && STORY_DAY === 1 && got.line) {
+        ch1TestimonyKeys.add(`${got.npc}:${got.line}`);
+        updateEvidenceLedger();
+      }
       audio.play('chime');
-      const n = CAST[got.npc].label;
+      const filmedActor = ACTORS.find(a => a.id === got.npc);
+      const n = filmedActor ? actorLabel(filmedActor) : CAST[got.npc].label;
       showToast(`${got.line ? 'TESTIMONY' : 'FILMED'} — ${n.en.toUpperCase()}`);
     }
     if (film.rec && fa) {
@@ -664,10 +1109,24 @@ requestAnimationFrame(frame);
 declare global { interface Window { __game: unknown } }
 window.__game = {
   state: () => ({
-    level: 'village', examined: [...vs.examined], finished: vs.finished, target: target >= 0 ? EXAMINABLES[target].id : null,
+    level: 'village', chapter: CHAPTER_THREE_MODE ? 3 : CHAPTER_TWO_MODE ? 2 : 1,
+    chapterTwo: { stage: chapterTwoStage, recorder: chapterTwoRecorderFound, hallFilmed: chapterTwoHallFilmed, complete: chapterTwoComplete,
+      routeGround: [V.terrainHeight(258, 40), V.terrainHeight(278, 40), V.terrainHeight(300, 40), V.terrainHeight(339, 42), V.terrainHeight(376, 42)] },
+    chapterThree: { stage: chapterThreeStage, climbing: chapterThreeClimbing, deadline: chapterThreeDeadline, uploadHold: chapterThreeUploadHold,
+      uploadAttempts: chapterThreeUploadAttempts, uploaded: chapterThreeUploaded, failed: chapterThreeUploadFailed, seized: chapterThreeSeized,
+      priestDistance: (() => { const p = TALKABLE_ACTORS.find(a => a.id === 'npc_priest'); return p ? Math.hypot(p.x - player.pos.x, p.z - player.pos.z) : null; })(),
+      priestTalkable: TALKABLE_ACTORS.some(a => a.id === 'npc_priest') },
+    regions: { east: EAST_VALLEY.stats, southFarmland: SOUTH_FARMLAND?.stats ?? null },
+    examined: [...vs.examined], finished: vs.finished, target: target >= 0 ? EXAMINABLES[target].id : null,
+    chapterOneEvidence: { photoRoles: [...familyPhotoShown], photoCount: familyPhotoShown.size, testimonyKeys: [...ch1TestimonyKeys], testimonyCount: ch1TestimonyKeys.size,
+      ledgerVisible: evidenceLedger.style.display !== 'none', photoCardVisible: $('family-photo-card').style.display !== 'none' },
+    prologue: PROLOGUE_MODE ? { cowFound: prologueCowFound, cowProgress: prologueCow?.progress() ?? 0,
+      cowPosition: prologueCow?.position() ?? null, cowCheckpoint: prologueCow?.checkpoint() ?? 0, respawns: prologueRespawns, safePoint: { ...prologueSafePoint } } : null,
+    story: { day: story.day, events: [...story.events], flags: [...story.flags], medicalCheckComplete: story.medicalCheckComplete },
+    endingTitleVisible: title.classList.contains('show'), endingText: $('title-stats').textContent,
     pos: { ...player.pos }, vel: { ...player.vel }, onGround: player.onGround, crouched: player.crouched, yaw, pitch, storyTime,
     endT, surface: surfaceAt(player.pos.x, player.pos.z), use: useTarget >= 0 ? USABLES[useTarget].id : null, mast: V.mastMat.visible, trauma,
-    npc: npcTarget >= 0 ? ACTORS[npcTarget].id : null, talked: talkLog.map(e => ({ ...e })),
+    npc: npcTarget >= 0 ? TALKABLE_ACTORS[npcTarget].id : null, talked: talkLog.map(e => ({ ...e })),
     film: { rec: film.rec, battery: film.battery, framed: film.framed, held: film.held, log: film.log.map(e => ({ ...e })) },
     // Shape shared with Night Shift so generic e2e helpers keep working: no combat here.
     health: 100, weapon: 'none', hasNailer: false, mag: 0, reserve: 0, kills: 0, enemies: [],
@@ -686,7 +1145,10 @@ window.__game = {
   usables: () => USABLES.map((u, i) => ({ id: u.id, kind: u.kind, locked: u.locked, pos: u.pos, from: u.from, open: ENTS.doors[i].open, solid: ENTS.doors[i].solid })),
   ents: () => ({ bells, props: ENTS.props.map(p => ({ id: p.id, pos: { ...p.pos }, vel: { ...p.vel } })), buttons: ENTS.buttons.map(b => ({ id: b.id, t: b.t, cool: b.cool })) }),
   buttonTarget: () => (buttonTarget >= 0 ? BELL_ROPE.id : null),
-  npcs: () => ACTORS.map(a => ({ id: a.id, x: a.x, y: a.y, z: a.z, rest: a.rest, yaw: a.yaw, headYaw: a.headYaw, headPitch: a.headPitch, seated: a.seated, talk: a.talk, line: a.line, label: CAST[a.id].label })),
+  npcs: () => ACTORS.map(a => ({ id: a.id, x: a.x, y: a.y, z: a.z, rest: a.rest, yaw: a.yaw, headYaw: a.headYaw, headPitch: a.headPitch, seated: a.seated, talk: a.talk, line: a.line, label: actorLabel(a) })),
+  /** The furnished rooms: build stats, and on request the texture atlas as a PNG data URL (stills, debugging). */
+  furniture: (atlas = false) => ({ ...FURN.stats, rooms: FURN.rooms.map(m => m.geometry.getAttribute('position').count),
+    atlas: atlas ? ((FURN.rooms[0].material as THREE.MeshStandardMaterial).map?.image as HTMLCanvasElement | undefined)?.toDataURL?.() ?? null : null }),
   /** Sets a story flag (e.g. 'posters') so flag-gated lines can be checked. */
   flag: (name: string) => { story.flags.add(name); },
   useTarget: () => (useTarget >= 0 ? USABLES[useTarget].id : null),
@@ -697,12 +1159,16 @@ window.__game = {
     const v = new THREE.Vector3(x, y, z).project(camera);
     return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight, z: v.z };
   },
-  ground: (x: number, z: number) => groundY(x, z),
+  ground: (x: number, z: number) => V.terrainHeight(x, z),
   audioPeaks: () => measureVillagePeaks(),
   press: (code: string) => keys.add(code),
   release: (code: string) => keys.delete(code),
   look: (y: number, p: number) => { yaw = y; pitch = p; },
   key: (code: string) => dispatchEvent(new KeyboardEvent('keydown', { code })),
+  /** Advances the fixed gameplay simulation without render-frame throttling for state inspection. */
+  advance: (seconds: number) => { const n = Math.max(0, Math.ceil(seconds / DT)), input = readInput(); for (let i = 0; i < n; i++) tick(input); },
+  /** Places the end sequence at a point in its timeline for deterministic camera-seizure state inspection. */
+  seekEnd: (seconds: number) => { endT = Math.max(0, seconds); },
   teleport: (x: number, y: number, z: number) => { player.pos = { x, y, z }; player.vel = { x: 0, y: 0, z: 0 }; },
   start: () => { overlay.style.display = 'none'; playing = true; },
 };

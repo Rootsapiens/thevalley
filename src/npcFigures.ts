@@ -6,6 +6,7 @@
 // hands on hips, headscarves and aprons, a chair and handcuffs.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import palette from '../studio/art/palette.json';
 import type { Token } from './nightshift';
 import { bakeAt, patchBake } from './villageScene';
@@ -13,6 +14,24 @@ import { CAST, type Actor, type Figure } from './npcTalk';
 import { rng } from './village';
 
 export const NPC_MAX = 16;
+
+/** First three figures from Plewr’s CC0 Ottoman pack (source/license: studio/art/free-assets-manifest.md). */
+export const NPC_MODEL_BY_ID: Readonly<Record<string, string>> = {
+  npc_farmer: 'poor.glb',
+  npc_priest: 'clergyman.glb',
+  npc_square_villager_1: 'guy.glb',
+};
+
+/** Match the observed 3.45–3.97 unit Ottoman GLB bounds to the game’s human height, using 0.5 as the starting scale. */
+export function npcModelScale(reportedHeight: number, targetHeight: number): number {
+  if (!Number.isFinite(reportedHeight) || reportedHeight <= 0 || !Number.isFinite(targetHeight) || targetHeight <= 0) return 0.5;
+  const initialHeight = reportedHeight * 0.5;
+  return 0.5 * targetHeight / initialHeight;
+}
+
+export function npcAnimationName(walkWeight: number, talking: boolean): 'Walk' | 'Speak' | 'Idle' {
+  return walkWeight > 0.08 ? 'Walk' : talking ? 'Speak' : 'Idle';
+}
 const P = (t: Token) => new THREE.Color(palette[t]);
 const mix = (a: Token, b: Token, t: number, k = 1) => P(a).lerp(P(b), t).multiplyScalar(k);
 const pick = <T>(r: () => number, xs: readonly T[]): T => xs[Math.floor(r() * xs.length) % xs.length];
@@ -45,7 +64,7 @@ interface Dress {
   height: number; girth: number;
 }
 
-function dressFor(f: Figure, id: string, r: () => number): Dress {
+function dressFor(f: Figure, id: string, r: () => number, stage?: string): Dress {
   const base = { skin: pick(r, SKIN), hair: HAIR.brown, hairStyle: 'short' as const, shoes: C.black, lower: 'trousers' as const, hat: 'none' as const, arms: 'side' as Arms, height: 1.75, girth: 1 };
   switch (f) {
     case 'priest': return { ...base, hair: HAIR.grey, hairStyle: 'thin', top: C.black, bottom: C.black, lower: 'robe', collar: C.white, cross: true, arms: 'clasp', height: 1.74, girth: 1.05 };
@@ -53,10 +72,10 @@ function dressFor(f: Figure, id: string, r: () => number): Dress {
       arms: id.endsWith('1') ? 'behind' : 'fold', height: 1.78 };
     case 'chief': return { ...base, hair: HAIR.grey, top: C.navy, bottom: C.navyDark, coat: true, belt: C.black, tie: true, hat: 'peaked', hatCol: C.navy, band: C.gold,
       moustache: HAIR.grey, arms: 'paper', height: 1.8, girth: 1.14 };
-    case 'farmer': return { ...base, skin: SKIN[3], hair: HAIR.grey, top: C.olive, bottom: C.trousers, shoes: C.boots, coat: true, hat: 'flat', hatCol: C.cap, arms: 'hips', height: 1.76, girth: 1.06 };
+    case 'farmer': return { ...base, skin: SKIN[3], hair: HAIR.grey, top: C.olive, bottom: C.trousers, shoes: C.boots, coat: true, hat: 'flat', hatCol: C.cap, arms: stage === 'prologue-search' ? 'side' : 'hips', height: 1.76, girth: 1.06 };
     case 'wife': return { ...base, top: C.green, bottom: C.green, lower: 'skirt', stockings: C.black, apron: C.apron, hat: 'scarf', hatCol: C.maroon, arms: 'fold', height: 1.64, girth: 1.06, hairStyle: 'none' };
     case 'maryam': return { ...base, skin: SKIN[2], top: C.mourning, bottom: C.mourning, lower: 'robe', hat: 'scarf', hatCol: C.slate, shawl: C.slate, arms: 'cloth', height: 1.66, hairStyle: 'none' };
-    case 'omar': return { ...base, hair: HAIR.black, top: C.leather, bottom: C.jeans, shoes: C.boots, seated: true, arms: 'cuffed', stubble: true, height: 1.8 };
+    case 'omar': return { ...base, hair: HAIR.black, top: C.leather, bottom: C.jeans, shoes: C.boots, seated: true, arms: 'side', stubble: true, height: 1.8 };
     case 'elia': return { ...base, top: C.green, bottom: C.jeans, arms: 'side', height: 1.68 };
     case 'woman': return { ...base, top: pick(r, COATS), bottom: C.trousers, lower: 'skirt', stockings: C.black, hat: 'scarf', hatCol: pick(r, SCARVES), arms: r() < 0.5 ? 'clasp' : 'fold', height: 1.63 + r() * 0.05, girth: 1 + r() * 0.08, hairStyle: 'none' };
     case 'widow': return { ...base, skin: SKIN[0], top: C.mourning, bottom: C.mourning, lower: 'robe', hat: 'scarf', hatCol: C.black, shawl: C.black, arms: 'clasp', stoop: 0.16, height: 1.58, hairStyle: 'none' };
@@ -223,12 +242,12 @@ function person(k: Kit, d: Dress): { neck: [number, number]; waist: number } {
 // ---------- The batch ----------
 const HEAD_GLSL = [
   'attribute vec2 npcPart;',
-  `uniform vec4 uNpcA[ ${NPC_MAX} ];`, `uniform vec4 uNpcB[ ${NPC_MAX} ];`, `uniform vec4 uNpcC[ ${NPC_MAX} ];`,
+  `uniform vec4 uNpcA[ ${NPC_MAX} ];`, `uniform vec4 uNpcB[ ${NPC_MAX} ];`, `uniform vec4 uNpcC[ ${NPC_MAX} ];`, `uniform vec4 uNpcD[ ${NPC_MAX} ];`, `uniform vec4 uNpcE[ ${NPC_MAX} ];`,
   'mat3 npcRy( float a ) { float c = cos( a ), s = sin( a ); return mat3( c, 0.0, -s, 0.0, 1.0, 0.0, s, 0.0, c ); }',
   'mat3 npcRx( float a ) { float c = cos( a ), s = sin( a ); return mat3( 1.0, 0.0, 0.0, 0.0, c, s, 0.0, -s, c ); }',
   'mat3 npcRz( float a ) { float c = cos( a ), s = sin( a ); return mat3( c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0 ); }',
 ].join('\n');
-// uNpcA = (x, y, z, body yaw); uNpcB = (head yaw, head pitch, breath -1..1, weight-shift roll); uNpcC = (neck y, neck z, scale, waist y)
+// uNpcA = (x, y, z, body yaw); uNpcB = (head yaw, head pitch, breath -1..1, weight-shift roll); uNpcC = (neck y, neck z, scale, waist y); uNpcD = (walk phase, walk weight, _, _)
 const NORMAL_GLSL = [
   'int npcI = int( npcPart.x + 0.5 );',
   'vec4 npcA = uNpcA[ npcI ], npcB = uNpcB[ npcI ], npcC = uNpcC[ npcI ];',
@@ -239,12 +258,25 @@ const NORMAL_GLSL = [
   'objectNormal = npcBody * objectNormal;',
 ].join('\n');
 const POSITION_GLSL = [
+  'vec4 npcD = uNpcD[ int( npcPart.x + 0.5 ) ];',
+  'vec4 npcE = uNpcE[ int( npcPart.x + 0.5 ) ];',
+  'if ( npcPart.y < 0.5 && npcD.y > 0.001 ) {',
+  '  float stride = sin( npcD.x + sign( transformed.x ) * 3.14159265 );',
+  '  float lowerLeg = 1.0 - smoothstep( 0.18, 0.96, transformed.y );',
+  '  transformed.z += stride * 0.13 * npcD.y * lowerLeg;',
+  '  transformed.y += max( 0.0, stride ) * 0.035 * npcD.y * lowerLeg;',
+  '}',
+  'if ( npcPart.y > 2.5 && npcD.y > 0.001 ) {',
+  '  float armSwing = sin( npcD.x + sign( transformed.x ) * 3.14159265 );',
+  '  transformed.z += armSwing * 0.055 * npcD.y * smoothstep( 0.72, 1.18, transformed.y );',
+  '}',
   'if ( npcPart.y > 0.5 ) {',
   '  if ( npcPart.y < 1.5 ) transformed.xz *= 1.0 + npcB.z * vec2( 0.012, 0.03 );',   // the chest fills
   '  transformed.y += npcB.z * 0.006 * smoothstep( npcC.w, npcC.x, transformed.y );',   // shoulders, arms, head rise
   '}',
   'if ( npcIsHead ) { vec3 npcPv = vec3( 0.0, npcC.x, npcC.y ); transformed = npcHead * ( transformed - npcPv ) + npcPv; }',
   'transformed = npcBody * ( transformed * npcC.z ) + npcA.xyz;',
+  'transformed *= npcE.x;',
 ].join('\n');
 
 export interface NpcFigures {
@@ -252,6 +284,7 @@ export interface NpcFigures {
   shadows: THREE.Mesh;
   /** Poses every actor for this frame (t in seconds). No allocation. */
   update(actors: readonly Actor[], t: number): void;
+  setCuffed(actors: readonly Actor[]): void;
   stats: { tris: number; verts: number };
 }
 
@@ -259,10 +292,11 @@ const _v = new THREE.Vector3(), _n = new THREE.Vector3(), _bake: [number, number
 export function buildNpcFigures(scene: THREE.Scene, actors: readonly Actor[], env: THREE.Texture): NpcFigures {
   if (actors.length > NPC_MAX) throw new Error(`npcFigures: ${actors.length} actors > NPC_MAX ${NPC_MAX}`);
   const vec = () => Array.from({ length: NPC_MAX }, () => new THREE.Vector4());
-  const U = { uNpcA: { value: vec() }, uNpcB: { value: vec() }, uNpcC: { value: vec() } };
+  const U = { uNpcA: { value: vec() }, uNpcB: { value: vec() }, uNpcC: { value: vec() }, uNpcD: { value: vec() }, uNpcE: { value: vec() } };
+  for (const a of actors) U.uNpcE.value[a.index].x = 1;
   const geos: THREE.BufferGeometry[] = [];
   for (const a of actors) {
-    const k = new Kit(), d = dressFor(CAST[a.id].figure, a.id, rng(7919 * (a.index + 1) + 13));
+    const k = new Kit(), d = dressFor(CAST[a.id].figure, a.id, rng(7919 * (a.index + 1) + 13), a.spec.stage);
     const { neck, waist } = person(k, d);
     const s = d.height / 1.75, cy = Math.cos(a.rest), sy = Math.sin(a.rest);
     U.uNpcC.value[a.index].set(neck[0] * s, neck[1] * s, 1, waist * s);
@@ -296,6 +330,49 @@ export function buildNpcFigures(scene: THREE.Scene, actors: readonly Actor[], en
   mesh.receiveShadow = true;             // the static sun map is drawn without them; they take its shade
   scene.add(mesh);
 
+  // Keep the procedural figure visible until an external model and its clips have loaded successfully.
+  // A load/parse/network failure leaves the role’s procedural silhouette intact.
+  interface LoadedNpcModel { group: THREE.Group; mixer: THREE.AnimationMixer; actions: Record<'Walk' | 'Speak' | 'Idle', THREE.AnimationAction>; active: string; }
+  const loadedModels = new Map<number, LoadedNpcModel>();
+  const actorsById = new Map(actors.map(a => [a.id, a]));
+  const npcLoader = new GLTFLoader();
+  for (const [id, file] of Object.entries(NPC_MODEL_BY_ID)) {
+    const actor = actorsById.get(id as Actor['id']);
+    if (!actor) continue;
+    const role = CAST[actor.id].figure;
+    const targetHeight = dressFor(role, actor.id, rng(7919 * (actor.index + 1) + 13), actor.spec.stage).height;
+    const url = `${import.meta.env.BASE_URL}models/ottoman-npcs/${file}`;
+    npcLoader.load(url, gltf => {
+      const bounds = new THREE.Box3().setFromObject(gltf.scene);
+      const height = bounds.max.y - bounds.min.y;
+      if (!Number.isFinite(height) || height <= 0 || !gltf.animations.length) return;
+      const scale = npcModelScale(height, targetHeight);
+      const body = new THREE.Group();
+      body.rotation.y = Math.PI; // these glTFs face +Z; Lorenzo’s world forward is -Z
+      body.scale.setScalar(scale);
+      body.position.y = -bounds.min.y * scale;
+      body.add(gltf.scene);
+      body.traverse(node => {
+        if (node instanceof THREE.Mesh) { node.castShadow = true; node.receiveShadow = true; }
+      });
+      const group = new THREE.Group(); group.add(body); group.name = `npc-model-${actor.id}`;
+      group.position.set(actor.x, actor.y, actor.z); group.rotation.y = actor.yaw;
+      scene.add(group);
+      const mixer = new THREE.AnimationMixer(gltf.scene);
+      const actionFor = (name: 'Walk' | 'Speak' | 'Idle') => {
+        const clip = gltf.animations.find(c => c.name.toLowerCase() === name.toLowerCase());
+        return clip ? mixer.clipAction(clip) : null;
+      };
+      const idle = actionFor('Idle'), speak = actionFor('Speak'), walk = actionFor('Walk');
+      // All nine pack figures contain all three clips. If a future file does not, use its idle clip for all states.
+      const idleAction = idle ?? mixer.clipAction(gltf.animations[0]);
+      const actions = { Idle: idleAction, Speak: speak ?? idleAction, Walk: walk ?? idleAction };
+      actions.Idle.play();
+      loadedModels.set(actor.index, { group, mixer, actions, active: 'Idle' });
+      U.uNpcE.value[actor.index].x = 0;
+    }, undefined, () => { /* silent fallback: procedural figure remains visible */ });
+  }
+
   // Contact shadows: a soft dark disc under each (a wider one under the chair), one transparent draw.
   const discs = actors.map(a => {
     const r = a.seated ? 0.52 : 0.38, f = a.seated ? 0.12 : 0.03;   // centred a little ahead: the feet, the chair and knees
@@ -309,21 +386,72 @@ export function buildNpcFigures(scene: THREE.Scene, actors: readonly Actor[], en
   const shadows = new THREE.Mesh(discs.length ? mergeGeometries(discs)! : new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({
     vertexColors: true, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4,
   }));
+  const shadowCounts = discs.map(g => g.getAttribute('position').count);
+  const shadowStart = actors.map(a => ({ x: a.x, y: a.y, z: a.z }));
+  const shadowPosition = shadows.geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
+  const shadowBase = shadowPosition ? Float32Array.from(shadowPosition.array as ArrayLike<number>) : new Float32Array();
   for (const g of discs) g.dispose();
   shadows.matrixAutoUpdate = false; shadows.frustumCulled = false; shadows.visible = actors.length > 0;
   scene.add(shadows);
 
+  // Omar's cuffs are a separate, toggleable prop so the guarded medical check can visibly remove them.
+  const cuffGroups = new Map<number, THREE.Group>();
+  for (const a of actors) if (a.id === 'npc_omar') {
+    const geometry: THREE.BufferGeometry[] = [];
+    for (const x of [-0.22, 0.22]) geometry.push(new THREE.TorusGeometry(0.05, 0.01, 5, 10).rotateX(Math.PI / 2).translate(x, 0.5, -0.01));
+    geometry.push(new THREE.BoxGeometry(0.34, 0.022, 0.022).translate(0, 0.5, -0.01));
+    const merged = mergeGeometries(geometry)!; for (const g of geometry) g.dispose();
+    const prop = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ color: P('metal'), roughness: 0.4, metalness: 0.75 }));
+    prop.castShadow = true; prop.visible = a.spec.cuffed;
+    const group = new THREE.Group(); group.add(prop); group.position.set(a.x, a.y, a.z); group.rotation.y = a.yaw; scene.add(group);
+    cuffGroups.set(a.index, group);
+  }
+
   const TAU = Math.PI * 2;
+  let lastUpdateT: number | null = null;
   return {
     mesh, shadows,
     stats: { tris: (geo.index?.count ?? 0) / 3, verts: geo.getAttribute('position')?.count ?? 0 },
     update(list, t) {
+      const delta = lastUpdateT === null ? 1 / 60 : Math.max(0, Math.min(0.1, t - lastUpdateT));
+      lastUpdateT = t;
       for (const a of list) {
         const breath = Math.sin(t * TAU / a.breathT + a.breathP);
         const nod = a.talk > 0 ? 0.05 * Math.sin(t * 7.3 + a.breathP) * Math.min(1, a.talk * 2) : 0;
         U.uNpcA.value[a.index].set(a.x, a.y, a.z, a.yaw);
         U.uNpcB.value[a.index].set(a.headYaw, a.headPitch + nod, breath, a.seated ? 0 : 0.012 * Math.sin(t * 0.37 + a.breathP * 1.7));
+        U.uNpcD.value[a.index].set(a.walkPhase, a.walkWeight, 0, 0);
+        const loaded = loadedModels.get(a.index);
+        if (loaded) {
+          loaded.group.position.set(a.x, a.y, a.z); loaded.group.rotation.y = a.yaw;
+          const next = npcAnimationName(a.walkWeight, a.talk > 0);
+          if (next !== loaded.active) {
+            const from = loaded.actions[loaded.active as 'Walk' | 'Speak' | 'Idle'];
+            const to = loaded.actions[next];
+            if (from !== to) { to.reset().play(); from.crossFadeTo(to, 0.18, true); }
+            loaded.active = next;
+          }
+          loaded.mixer.update(delta);
+        }
+        const cuffs = cuffGroups.get(a.index);
+        if (cuffs) { cuffs.visible = a.spec.cuffed; cuffs.position.set(a.x, a.y, a.z); cuffs.rotation.y = a.yaw; }
+      }
+      if (shadowPosition) {
+        let vertexOffset = 0;
+        for (let i = 0; i < list.length; i++) {
+          const a = list[i], count = shadowCounts[i];
+          for (let v = 0; v < count; v++) {
+            const j = (vertexOffset + v) * 3;
+            shadowPosition.setXYZ(vertexOffset + v,
+              shadowBase[j] + a.x - shadowStart[i].x,
+              shadowBase[j + 1] + a.y - shadowStart[i].y,
+              shadowBase[j + 2] + a.z - shadowStart[i].z);
+          }
+          vertexOffset += count;
+        }
+        shadowPosition.needsUpdate = true;
       }
     },
+    setCuffed(list) { for (const a of list) { const cuffs = cuffGroups.get(a.index); if (cuffs) cuffs.visible = a.spec.cuffed; } },
   };
 }

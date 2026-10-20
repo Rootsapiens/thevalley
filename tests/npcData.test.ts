@@ -61,7 +61,7 @@ describe('NPC data (studio/npc)', () => {
     const afterAssignment = npcsAtDay(2, { chapter: 1, events: ORDER.slice(0, 6) });
     expect(afterAssignment.map(n => n.id)).toContain('npc_elia');
     expect(afterAssignment.find(n => n.id === 'npc_omar')?.cuffed).toBe(false);
-    expect(afterAssignment.find(n => n.id === 'npc_omar')?.stage).toBe('cafe-upstairs');
+    expect(afterAssignment.find(n => n.id === 'npc_omar')?.stage).toBe('police-post');
     expect(afterAssignment.find(n => n.id === 'npc_elia')?.stage).toBe('cafe-balcony');
 
     expect(npcsAtDay(2, { chapter: 3, events: ORDER }).map(n => n.id)).not.toContain('npc_elia');

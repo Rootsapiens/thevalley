@@ -271,7 +271,7 @@ describe('Village mechanics', () => {
       expect(overlaps(probe, leafBox(u, 1, { min: { x: 0, y: 0, z: 0 }, max: { x: 0, y: 0, z: 0 } })), `${u.id} open`).toBe(false);
     }
     expect(USABLES.filter(u => u.kind === 'gate').length).toBe(4);
-    expect(USABLES.filter(u => !u.locked && u.kind === 'door').map(u => u.id).sort()).toEqual(['door-church', 'door-maryam', 'door-tower']);
+    expect(USABLES.filter(u => !u.locked && u.kind === 'door').map(u => u.id).sort()).toEqual(['door-cafe', 'door-church', 'door-maryam', 'door-post', 'door-tower']);
   });
 
   it('random walks (run, jump, crouch, turn) never sink into the ground, never end inside a solid, never leave the map', () => {

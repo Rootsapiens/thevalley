@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 // Usage: node scripts/export-village-json.mjs [out.json]   (from project root; default unreal/data/village-barn.json)
 // Exports the approved barn slice from src/village.ts (read-only: it only imports the module) for the UE5 trial
-// import scripts in unreal/scripts/. Units stay in game space: metres, x east, y up, z south. The UE side converts.
+// import scripts in unreal/scripts/. Next to out.json it also writes the full village blockout for build_village.py:
+//   village-town.json   buildings, town solids (by group), paths, square, trees, stream, landmark checks
+//   village-terrain.glb groundY() over the village map at 1 m (glTF: metres, +Y up = game space; UE imports to cm, +Z up)
+// Units stay in game space: metres, x east, y up, z south. The UE side converts.
 // Loader: Node >= 22.18 strips TypeScript types natively; a resolve hook adds the '.ts' the src/ imports omit.
 // Fallback: Vite's runnerImport (already a devDependency). No new packages.
 // Exit: 0 ok, 1 export or self-check failed.
@@ -27,17 +30,18 @@ if (typeof module.registerHooks === 'function') {
   });
 }
 
-async function load() {
+async function load(file = srcFile) {
   try {
-    return { mod: await import(pathToFileURL(srcFile).href), loader: `node ${process.version} type stripping` };
+    return { mod: await import(pathToFileURL(file).href), loader: `node ${process.version} type stripping` };
   } catch (e) {
     const { runnerImport } = await import('vite');
-    const r = await runnerImport(srcFile);
+    const r = await runnerImport(file);
     return { mod: r.module, loader: `vite runnerImport (native failed: ${String(e.message).split('\n')[0]})` };
   }
 }
 
 const { mod: V, loader } = await load();
+const { mod: M } = await load(path.join(root, 'src', 'villageMap.ts'));
 
 // ---------- Helpers ----------
 const r3 = (n) => Math.round(n * 1000) / 1000;
@@ -145,3 +149,95 @@ fs.writeFileSync(out, JSON.stringify(data, null, 1) + '\n');
 const rel = path.relative(root, out).replaceAll('\\', '/');
 console.log(`${rel}: ${boxes.length} boxes ${JSON.stringify(counts)}, ${data.examinables.length} examinables, ` +
   `${data.trail.points.length} trail pts, ground ${data.ground.min}..${data.ground.max} m (${loader})`);
+
+// ---------- Full village blockout (build_village.py): village-town.json + village-terrain.glb ----------
+const townOut = path.join(path.dirname(out), 'village-town.json');
+const glbOut = path.join(path.dirname(out), 'village-terrain.glb');
+const MAPR = M.MAP;
+const within = (b, x, z, m = 0) => x >= b.x0 - m && x <= b.x1 + m && z >= b.z0 - m && z <= b.z1 + m;
+const near2 = (list, x, z, t) => list.some((p) => Math.hypot(p.x - x, p.z - z) <= t);
+function townGroup(s) {
+  const b = s.box, cx = (b.min.x + b.max.x) / 2, cz = (b.min.z + b.max.z) / 2;
+  const sx = b.max.x - b.min.x, sz = b.max.z - b.min.z, h = b.max.y - b.min.y;
+  const bl = M.BUILDINGS.find((q) => within(q, cx, cz, 0.05));
+  if (bl) return { group: 'building', id: bl.id, kind: bl.kind };
+  if (M.BUILDINGS.some((q) => within(q, cx, cz, 2.0)) && h <= 1.6 && Math.max(sx, sz) <= 3.5) return { group: 'step' };
+  if (near2(M.OLIVES, cx, cz, 0.05) || near2(M.TOWN_PINES, cx, cz, 0.05) || near2(V.SLICE_PINES, cx, cz, 0.05)) return { group: 'tree' };
+  if (near2(M.GRAVES, cx, cz, 0.05)) return { group: 'grave' };
+  if (sx <= 0.37 && sz <= 0.37 && h >= 7) return { group: 'pole' };
+  if (Math.min(sx, sz) <= 0.17) return { group: 'fence' };
+  if (M.WALLS.some((w) => within({ x0: Math.min(w.x0, w.x1), x1: Math.max(w.x0, w.x1), z0: Math.min(w.z0, w.z1), z1: Math.max(w.z0, w.z1) }, cx, cz, 0.4))) return { group: 'wall' };
+  if (M.STONES.some((st) => Math.hypot(st.x - cx, st.z - cz) < 0.05)) return { group: 'stone' };
+  return { group: 'prop' };
+}
+const townList = []; V.townSolids(townList);
+const townSolidsOut = townList.filter((s) => s.tag !== 'invisible').map((s) => ({ ...townGroup(s), ...boxOut(s.box) }));
+// Terrain grid: 1 m over the map, plus a flat skirt ring 400 m out at the edge heights (no visible end of the world).
+const xs = [MAPR.x0 - 400], zs = [MAPR.z0 - 400];
+for (let x = MAPR.x0; x <= MAPR.x1 + 1e-9; x += 1) xs.push(x);
+for (let z = MAPR.z0; z <= MAPR.z1 + 1e-9; z += 1) zs.push(z);
+xs.push(MAPR.x1 + 400); zs.push(MAPR.z1 + 400);
+const cl = (v, a, b) => Math.min(b, Math.max(a, v));
+const H = (x, z) => V.groundY(cl(x, MAPR.x0, MAPR.x1), cl(z, MAPR.z0, MAPR.z1));
+const NX = xs.length, NZ = zs.length, pos = new Float32Array(NX * NZ * 3), nrm = new Float32Array(NX * NZ * 3), uv = new Float32Array(NX * NZ * 2);
+let hmin = Infinity, hmax = -Infinity;
+for (let j = 0; j < NZ; j++) for (let i = 0; i < NX; i++) {
+  const k = j * NX + i, x = xs[i], z = zs[j], y = H(x, z);
+  pos.set([x, y, z], k * 3); uv.set([x / 2, z / 2], k * 2);
+  hmin = Math.min(hmin, y); hmax = Math.max(hmax, y);
+  const e = 0.5, dx = (H(x + e, z) - H(x - e, z)) / (2 * e), dz = (H(x, z + e) - H(x, z - e)) / (2 * e), l = Math.hypot(dx, 1, dz);
+  nrm.set([-dx / l, 1 / l, -dz / l], k * 3);
+}
+const idx = new Uint32Array((NX - 1) * (NZ - 1) * 6);
+let q = 0;
+for (let j = 0; j < NZ - 1; j++) for (let i = 0; i < NX - 1; i++) {
+  const a = j * NX + i, b = a + 1, c = a + NX, d = c + 1;
+  idx.set([a, c, b, b, c, d], q); q += 6;            // counter-clockwise seen from +Y (glTF front face)
+}
+function writeGlb(file) {
+  const parts = [pos, nrm, uv, idx].map((t) => Buffer.from(t.buffer, t.byteOffset, t.byteLength));
+  const views = []; let off = 0;
+  for (const p of parts) { views.push({ buffer: 0, byteOffset: off, byteLength: p.length }); off += p.length; }
+  const mins = [Infinity, Infinity, Infinity], maxs = [-Infinity, -Infinity, -Infinity];
+  for (let k = 0; k < pos.length; k += 3) for (let c = 0; c < 3; c++) { mins[c] = Math.min(mins[c], pos[k + c]); maxs[c] = Math.max(maxs[c], pos[k + c]); }
+  const n = NX * NZ;
+  const gltf = {
+    asset: { version: '2.0', generator: 'scripts/export-village-json.mjs' }, scene: 0, scenes: [{ nodes: [0] }],
+    nodes: [{ mesh: 0, name: 'VillageTerrain' }],
+    meshes: [{ name: 'VillageTerrain', primitives: [{ attributes: { POSITION: 0, NORMAL: 1, TEXCOORD_0: 2 }, indices: 3, mode: 4 }] }],
+    accessors: [
+      { bufferView: 0, componentType: 5126, count: n, type: 'VEC3', min: mins, max: maxs },
+      { bufferView: 1, componentType: 5126, count: n, type: 'VEC3' },
+      { bufferView: 2, componentType: 5126, count: n, type: 'VEC2' },
+      { bufferView: 3, componentType: 5125, count: idx.length, type: 'SCALAR' },
+    ],
+    bufferViews: views, buffers: [{ byteLength: off }],
+  };
+  let json = Buffer.from(JSON.stringify(gltf));
+  if (json.length % 4) json = Buffer.concat([json, Buffer.alloc(4 - (json.length % 4), 0x20)]);
+  const bin = Buffer.concat(parts);
+  const head = Buffer.alloc(12); head.writeUInt32LE(0x46546c67, 0); head.writeUInt32LE(2, 4); head.writeUInt32LE(12 + 8 + json.length + 8 + bin.length, 8);
+  const jh = Buffer.alloc(8); jh.writeUInt32LE(json.length, 0); jh.writeUInt32LE(0x4e4f534a, 4);
+  const bh = Buffer.alloc(8); bh.writeUInt32LE(bin.length, 0); bh.writeUInt32LE(0x004e4942, 4);
+  fs.writeFileSync(file, Buffer.concat([head, jh, json, bh, bin]));
+  return { min: mins, max: maxs };
+}
+const bounds = writeGlb(glbOut);
+const tower = M.BUILDINGS.find((b) => b.id === 'tower');
+const towerC = { x: (tower.x0 + tower.x1) / 2, y: tower.floor, z: (tower.z0 + tower.z1) / 2 };
+const streamS = []; for (let z = MAPR.z0; z <= MAPR.z1; z += 2) streamS.push([z, r3(M.streamX(z)), r3(M.streamHalf(z)), r3(M.waterY(z))]);
+const townData = {
+  schema: 'omega-valley/village-town@1', source: data.source, units: data.units, map: MAPR,
+  terrain: { file: path.basename(glbOut), step: 1, skirtM: 400, nx: NX, nz: NZ, minY: r3(hmin), maxY: r3(hmax), boundsM: { min: bounds.min.map(r3), max: bounds.max.map(r3) } },
+  buildings: M.BUILDINGS.map((b) => ({ ...b, floor: r3(b.floor), base: r3(b.base) })),
+  solids: townSolidsOut,
+  paths: M.PATHS, square: M.SQUARE, fountain: M.FOUNTAIN, policeCar: M.POLICE_CAR,
+  trees: { olives: M.OLIVES.map((t) => ({ x: r3(t.x), z: r3(t.z), s: r3(t.s), y: r3(V.groundY(t.x, t.z)) })),
+    pines: [...M.TOWN_PINES, ...V.SLICE_PINES].map((t) => ({ x: r3(t.x), z: r3(t.z), h: r3(t.h), y: r3(V.groundY(t.x, t.z)) })) },
+  stream: { cols: ['z', 'x', 'half', 'waterY'], rows: streamS },
+  checks: { tower: { game: v3(towerC), ueCm: toUE(towerC) }, terrainUeCm: { min: toUE({ x: bounds.min[0], y: bounds.min[1], z: bounds.min[2] }), max: toUE({ x: bounds.max[0], y: bounds.max[1], z: bounds.max[2] }) } },
+};
+const tc = townSolidsOut.reduce((m, b) => ((m[b.group] = (m[b.group] ?? 0) + 1), m), {});
+fs.writeFileSync(townOut, JSON.stringify(townData, null, 1) + '\n');
+console.log(`${path.relative(root, townOut).split(path.sep).join('/')}:${M.BUILDINGS.length} buildings, ${townSolidsOut.length} solids ${JSON.stringify(tc)}, ` +
+  `terrain ${NX}x${NZ} (${r3(hmin)}..${r3(hmax)} m) -> ${path.basename(glbOut)} ${(fs.statSync(glbOut).size / 1e6).toFixed(2)} MB`);
