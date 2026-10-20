@@ -115,3 +115,7 @@
 2. Run the UE5 barn trial (2 weeks; success = 60 fps, a Lumen dusk shot, one cinematic).
 
 **Open questions for the owner:** how Sal's father gets from kidnapped to inside the mountain; when Sal arrives; whether light or electricity pushes back the roots (`studio/world/world-bible.md` §7).
+## 2026-10-20 — Team Studio runtime verification
+**Verified:** Issa ran the local `OmegaValley-publish-pages` Team Studio in headless Chromium after loading all GLBs. Fourteen actors rendered, each worker was seated at the matching desk/chair, status labels updated, and the browser console reported zero errors. Screenshot: `C:\Users\nadee\AppData\Local\Temp\team-office-check.png`.
+**Limit:** This proves the local gh-pages snapshot, not the remote GitHub URL. Mobile 2D layout remains a separate responsive path. NPC appearance inside the main game and Unreal editor runtime remain unverified.
+
