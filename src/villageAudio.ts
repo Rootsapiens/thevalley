@@ -146,6 +146,12 @@ export const voices = {
     o.frequency.setValueAtTime(rand(150, 190), t + 0.03); o.frequency.exponentialRampToValueAtTime(70, t + 0.13);
     o.connect(envAt(c, out, t + 0.03, 0.22 * k, 0.003, 0.1)); o.start(t + 0.03); o.stop(t + 0.2);
   },
+  /** Guarded medical check: a quiet cuff clasp opening, then fabric moving at the wrist. */
+  cuffrelease(c: Ctx, out: AudioNode, t: number, k = 1) {
+    burst(c, out, t, 0.018, 'bandpass', 3100, 5, 0.12 * k);
+    burst(c, out, t + 0.075, 0.024, 'bandpass', 2400, 4, 0.09 * k);
+    burst(c, out, t + 0.11, 0.17, 'lowpass', 850, 0.7, 0.07 * k, 0.02);
+  },
   /** A locked door: the latch tried three times against the bolt. */
   rattle(c: Ctx, out: AudioNode, t: number) {
     for (let i = 0; i < 3; i++) {
@@ -416,7 +422,7 @@ export function villageAudio() {
     },
     /** arg: the surface for 'step', the pan for 'dog', 1 for a metal prop ('scrape', 'bump'), the delay (s) for 'bell',
      *  1 = start / 0 = stop for 'rec'; arena: the pan for the walkers' sounds, the seconds for 'crank'. */
-    play(name: 'step' | 'chime' | 'creak' | 'dog' | 'drone' | 'latch' | 'rattle' | 'bell' | 'scrape' | 'bump' | 'rec' | AmbientVoice | ArenaVoice, arg?: Step | number, k = 1) {
+    play(name: 'step' | 'chime' | 'creak' | 'dog' | 'drone' | 'latch' | 'cuffrelease' | 'rattle' | 'bell' | 'scrape' | 'bump' | 'rec' | AmbientVoice | ArenaVoice, arg?: Step | number, k = 1) {
       if (!c || !master) return;
       const t = c.currentTime + 0.005;
       if (name === 'crank') { voices.crank(c, master, t, (arg as number | undefined) ?? 1.3); return; }
@@ -433,6 +439,7 @@ export function villageAudio() {
       if (name === 'step') voices.step(c, master, t, (arg as Step | undefined) ?? 'dirt', k);
       else if (name === 'creak') voices.creak(c, master, t, k);
       else if (name === 'latch') voices.latch(c, master, t, k);
+      else if (name === 'cuffrelease') voices.cuffrelease(c, master, t, k);
       else if (name === 'rattle') voices.rattle(c, master, t);
       else if (name === 'dog') voices.dog(c, master, t, (arg as number | undefined) ?? 0);
       else if (name === 'chime') voices.chime(c, master, t);
@@ -461,6 +468,7 @@ export async function measureVillagePeaks(): Promise<Record<string, number>> {
   out.drone = await render(10.5, (c, m) => voices.drone(c, m, 0.01));
   out.wind = await render(8, (c, m) => windAt(windBed(c, m), 1, 1, 1, null));
   out.latch = await render(0.6, (c, m) => voices.latch(c, m, 0.01, 1));
+  out.cuffrelease = await render(0.5, (c, m) => voices.cuffrelease(c, m, 0.01, 1));
   out.rattle = await render(0.8, (c, m) => voices.rattle(c, m, 0.01));
   out.bell = await render(9, (c, m) => voices.bell(c, m, 0.01, 1));
   out.scrape = await render(0.4, (c, m) => voices.scrape(c, m, 0.01, 1.5, true));

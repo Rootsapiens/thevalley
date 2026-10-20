@@ -635,7 +635,7 @@ function tick(input: Input) {
   if (medicalCheckAt > 0 && storyTime >= medicalCheckAt) {
     medicalCheckAt = -1; story.medicalCheckComplete = true;
     const omar = ACTORS.find(a => a.id === 'npc_omar');
-    if (omar) { omar.spec.cuffed = false; NPCF.setCuffed(ACTORS); }
+    if (omar?.spec.cuffed) { omar.spec.cuffed = false; NPCF.setCuffed(ACTORS); audio.play('cuffrelease'); }
     if (story.day === 1) setStoryObjective('تحدّث إلى مورينو عن عمر', 'Speak to Moreno about Omar');
     showToast('GUARDED MEDICAL CHECK COMPLETE');
   }

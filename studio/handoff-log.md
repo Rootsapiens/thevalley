@@ -1,3 +1,10 @@
+# 2026-10-21 — Fifteen-minute Episode One coordination pass
+
+- **Story movement:** `src/npcTalk.ts` now lets Maryam continue her committed walk to the square even when Lorenzo follows within four metres. Conversation still pauses her, and her body faces the route while walking; confirmation remains the start gate. Firas reviewed the source behavior and flagged the remaining need to check actual feet, collision and animation in game.
+- **Guarded check sound:** Khaled added a quiet synthesized cuff-release cue in `src/villageAudio.ts`, and Rajaie wired it once to Omar's actual cuff removal at guarded medical-check completion in `src/villageMain.ts`. It does not fire on day load or while he remains cuffed. Typecheck, build and diff check passed for these bounded changes; listening and full visual scene review remain open.
+- **Incoming animal shelf:** Nidal staged CC0 deer and dog GLBs beside the goat in `art-incoming/nidal-hall-animals/`, with source URLs, hashes and model metadata in adjacent SOURCE notes. Deer/dog are rigged but their apparent rest-pose bounds need rendered scale review. None was moved to `public/models` or placed in the Hall.
+- **Status:** Only actual process turns were marked active during this run. Moreno's assignment presentation, quarry motivation, Maryam's floor transition, Omar's visible examination and continuous Episode One playthrough remain open. Team Studio publication remains stopped.
+
 # 2026-10-21 — Episode One recovery and staging follow-up
 
 - **Fixed:** Chapter 2 now offers an R chapter restart whenever the camera battery is empty before the mandatory Hall shot, including before the player reaches the Hall. Stage objective updates preserve the restart instruction. `src/npcTalk.ts` now samples the existing terrain height as the prologue farmer walks and snaps to route waypoints. Rajaie reported typecheck, build and diff check passed for both bounded edits. Firas confirmed the battery logic by source review; neither change has a rendered player-run check yet.

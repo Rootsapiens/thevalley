@@ -242,9 +242,9 @@ export function startMaryamSearch(a: Actor): boolean {
   return true;
 }
 
-function tickMaryamSearch(a: Actor, dt: number, px: number, pz: number): void {
-  if (!a.maryamMoving || a.talk > 0) return;
-  if (Math.hypot(px - a.x, pz - a.z) < NEAR) {
+function tickMaryamSearch(a: Actor, dt: number): void {
+  if (!a.maryamMoving) return;
+  if (a.talk > 0) {
     a.walkWeight += (0 - a.walkWeight) * Math.min(1, dt * 5);
     return;
   }
@@ -275,10 +275,10 @@ function tickMaryamSearch(a: Actor, dt: number, px: number, pz: number): void {
  *  of doors) up at the mountain. Omar keeps his chair and his head down; he looks up only while he speaks. */
 export function tickActor(a: Actor, dt: number, px: number, py: number, pz: number, t: number): void {
   tickFarmerSearch(a, dt, px, pz, t);
-  tickMaryamSearch(a, dt, px, pz);
+  tickMaryamSearch(a, dt);
   const dx = px - a.x, dz = pz - a.z, d = Math.hypot(dx, dz), face = yawTo(dx, dz);
   const near = d < NEAR || a.talk > 0;
-  a.yaw = turn(a.yaw, near && !a.seated ? face : a.rest, dt, 3, 2.4);
+  a.yaw = turn(a.yaw, near && !a.seated && !(a.maryamMoving && a.talk <= 0) ? face : a.rest, dt, 3, 2.4);
   if (t >= a.nextGlance) {
     const r = a.rand();
     if (r < 0.45) { a.glance = 0; a.glancePitch = 0; }
