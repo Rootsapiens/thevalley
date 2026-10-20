@@ -8,8 +8,16 @@ import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js
 type Role = 'torso' | 'legs' | 'accent' | 'head';
 interface Spec { file: string; mats: Record<string, Role> }
 const PEOPLE: Record<string, Record<string, Role>> = {
-  soldier_male: { Main: 'torso', DarkGreen: 'legs', Helmet: 'head', Hair: 'head' },
-  soldier_female: { Main: 'torso', DarkGreen: 'legs', Helmet: 'head', Hair: 'head' },
+  soldier_male: {
+    Main: 'torso', DarkGreen: 'legs', Helmet: 'head', Hair: 'head',
+    TacticalFabric: 'legs', PlateCarrier: 'torso', PouchCanvas: 'accent', HardArmor: 'head',
+    MetalHardware: 'accent', GoggleLens: 'head', BootRubber: 'legs',
+  },
+  soldier_female: {
+    Main: 'torso', DarkGreen: 'legs', Helmet: 'head', Hair: 'head',
+    TacticalFabric: 'legs', PlateCarrier: 'torso', PouchCanvas: 'accent', HardArmor: 'head',
+    MetalHardware: 'accent', GoggleLens: 'head', BootRubber: 'legs',
+  },
   worker_male: { Shirt: 'torso', Pants: 'legs', Vest: 'accent', Hat: 'head' },
   worker_female: { Shirt: 'torso', Pants: 'legs', Vest: 'accent', Hat: 'head' },
   cowboy_male: { Jacket: 'torso', Top: 'torso', Pants: 'legs', Scarf: 'accent', HatBrown: 'head', HatLightBrown: 'head' },
@@ -17,19 +25,19 @@ const PEOPLE: Record<string, Record<string, Role>> = {
 };
 const SPECS: Record<string, Spec> = {
   mannequin: { file: 'mannequin', mats: { M_Main: 'torso', M_Joints: 'accent' } },
-  ...Object.fromEntries(Object.entries(PEOPLE).map(([k, m]) => [k, { file: k, mats: m }])),
+  ...Object.fromEntries(Object.entries(PEOPLE).map(([k, m]) => [k, { file: k.startsWith('soldier_') ? `${k}_operator` : k, mats: m }])),
 };
 const TINT: Record<0 | 1, Record<Role, number>> = {
   0: { torso: 0x2b2b30, legs: 0x1b1b1f, accent: 0x8c1c1c, head: 0x26262b },   // Ravens
-  1: { torso: 0x7a5a3a, legs: 0x4a3b2a, accent: 0xb0893f, head: 0x8a6d3b },    // Village
+  1: { torso: 0x625440, legs: 0x4a3d30, accent: 0x9e7136, head: 0x5b6046 },    // Village
 };
-/** Bots wear a person from their team's list (variety); humans are the mannequin. */
+/** Both sides use the operator body; team colour keeps Ravens and Village easy to read. */
 const BOT_MODELS: Record<0 | 1, string[]> = {
   0: ['soldier_male', 'soldier_female'],
-  1: ['worker_male', 'worker_female', 'cowboy_male', 'oldclassy_female'],
+  1: ['soldier_male', 'soldier_female'],
 };
-export const modelFor = (id: number, team: 0 | 1, human: boolean): string =>
-  human ? 'mannequin' : BOT_MODELS[team][(id >> 1) % BOT_MODELS[team].length];
+export const modelFor = (id: number, team: 0 | 1, _human: boolean): string =>
+  BOT_MODELS[team][(id >> 1) % BOT_MODELS[team].length];
 
 let ENV: THREE.Texture | null = null;
 /** The village sky environment lights the PBR bodies (the scene itself has none). */

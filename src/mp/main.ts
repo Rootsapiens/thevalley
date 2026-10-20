@@ -1,6 +1,7 @@
 // Standalone multiplayer entry (mp.html). Ravens vs Village in a walled village square, host-authoritative.
 // Query: ?net=local uses BroadcastChannel between tabs (tests); ?bots=0 leaves empty seats empty.
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { newPlayer, step as physStep, eyeHeight, type PlayerState } from '../physics';
 import { openHost, openClient, normaliseCode, type NetKind, type ClientNet } from '../net/transport';
 import { TEAM_NAMES, type GameEvent, type Phase, type PSnap } from '../net/protocol';
@@ -39,22 +40,88 @@ V.sun.target.position.set(20, 0, 48);
 V.sun.position.copy(V.sun.target.position).addScaledVector(SUN_DIR, 90);
 V.sun.shadow.camera.top = 20; V.sun.shadow.camera.bottom = -8;
 V.sun.updateMatrixWorld(); V.sun.target.updateMatrixWorld(); V.sun.shadow.camera.updateProjectionMatrix();
-// Market stalls and carts: the extra cover the sim collides with.
+// Detailed village market stalls, merged by material to keep the added draw calls low.
 {
-  const mat = new THREE.MeshStandardMaterial({ color: 0x7a5a3a, roughness: 0.9, envMap: V.env, envMapIntensity: 1.5, emissive: 0x2a1c10 }), roof = new THREE.MeshStandardMaterial({ color: 0x9a3a2a, roughness: 0.9, envMap: V.env, emissive: 0x2a100c });
+  const wood = new THREE.MeshStandardMaterial({ color: 0x725036, roughness: 0.88, envMap: V.env, envMapIntensity: 1.2 });
+  const woodDark = new THREE.MeshStandardMaterial({ color: 0x392a20, roughness: 0.92, envMap: V.env, envMapIntensity: 0.8 });
+  const cloth = new THREE.MeshStandardMaterial({ color: 0x8d3d2c, roughness: 0.94, envMap: V.env, envMapIntensity: 0.7 });
+  const clothLight = new THREE.MeshStandardMaterial({ color: 0xc29a62, roughness: 0.96, envMap: V.env, envMapIntensity: 0.5 });
+  const batches = new Map<THREE.Material, THREE.BufferGeometry[]>([[wood, []], [woodDark, []], [cloth, []], [clothLight, []]]);
+  const addBox = (material: THREE.Material, x: number, y: number, z: number, w: number, h: number, d: number) => {
+    const g = new THREE.BoxGeometry(w, h, d); g.translate(x, y, z); batches.get(material)!.push(g);
+  };
   for (const b of EXTRA_COVER) {
-    const w = b.max.x - b.min.x, h = b.max.y - b.min.y, d = b.max.z - b.min.z, cx = (b.min.x + b.max.x) / 2, cz = (b.min.z + b.max.z) / 2;
-    const y0 = GROUND(cx, cz);
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(cx, y0 + h / 2, cz); m.castShadow = m.receiveShadow = true; scene.add(m);
-    const t = new THREE.Mesh(new THREE.BoxGeometry(w + 0.2, 0.1, d + 0.2), roof); t.position.set(cx, y0 + h + 0.05, cz); scene.add(t);
+    const w = b.max.x - b.min.x, h = b.max.y - b.min.y, d = b.max.z - b.min.z;
+    const cx = (b.min.x + b.max.x) / 2, cz = (b.min.z + b.max.z) / 2, y0 = GROUND(cx, cz);
+    const alongX = w >= d, length = Math.max(w, d), depth = Math.min(w, d), counterY = Math.min(1.02, h - 0.12);
+    // Four sturdy legs, rails and a plank counter keep the original collision silhouette.
+    for (const u of [-1, 1]) for (const v of [-1, 1])
+      addBox(woodDark, cx + (alongX ? u * (length * 0.44) : v * (depth * 0.34)), y0 + counterY / 2, cz + (alongX ? v * (depth * 0.34) : u * (length * 0.44)), 0.09, counterY, 0.09);
+    addBox(wood, cx, y0 + counterY - 0.04, cz, w + 0.08, 0.08, d + 0.08);
+    for (let i = -2; i <= 2; i++) {
+      const off = i * (length * 0.17);
+      addBox(wood, cx + (alongX ? off : 0), y0 + counterY + 0.015, cz + (alongX ? 0 : off), alongX ? length * 0.19 : depth * 0.92, 0.035, alongX ? depth * 0.92 : length * 0.19);
+    }
+    addBox(woodDark, cx, y0 + counterY * 0.52, cz + (alongX ? 0 : depth * 0.28), alongX ? length * 0.72 : depth * 0.22, 0.1, alongX ? depth * 0.22 : length * 0.72);
+
+    // Timber canopy and striped cloth roof above each stand.
+    const roofY = y0 + 2.7, roofW = w + 0.65, roofD = d + 0.8;
+    for (const u of [-1, 1]) for (const v of [-1, 1])
+      addBox(woodDark, cx + u * roofW * 0.47, y0 + 1.35, cz + v * roofD * 0.43, 0.085, 2.7, 0.085);
+    addBox(woodDark, cx, y0 + 2.56, cz - roofD * 0.42, roofW, 0.08, 0.08);
+    addBox(woodDark, cx, y0 + 2.56, cz + roofD * 0.42, roofW, 0.08, 0.08);
+    addBox(cloth, cx, roofY, cz, roofW, 0.12, roofD);
+    // Awning valance and pale alternating panels make the stalls read clearly at a distance.
+    addBox(cloth, cx, roofY - 0.15, cz + roofD * 0.48, roofW, 0.28, 0.07);
+    for (let i = -2; i <= 2; i++) {
+      const off = i * roofW * 0.18;
+      addBox(clothLight, cx + off, roofY - 0.15, cz + roofD * 0.52, roofW * 0.1, 0.28, 0.075);
+    }
+    // Small produce crates on the counter.
+    for (let i = -1; i <= 1; i++) {
+      const x = cx + (alongX ? i * length * 0.25 : 0), z = cz + (alongX ? 0 : i * length * 0.25);
+      addBox(woodDark, x, y0 + counterY + 0.15, z, 0.38, 0.27, 0.34);
+      addBox(wood, x, y0 + counterY + 0.15, z, 0.34, 0.22, 0.29);
+    }
+  }
+  for (const [material, parts] of batches) {
+    const geo = mergeGeometries(parts, false);
+    for (const part of parts) part.dispose();
+    if (!geo) continue;
+    const mesh = new THREE.Mesh(geo, material); mesh.castShadow = mesh.receiveShadow = true; scene.add(mesh);
   }
 }
 
 interface Slot3D { fig: Figure; human: boolean; x: number; z: number }
 const figures = new Map<number, Slot3D>();
-// viewmodel
-const vm = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.045, 0.18), new THREE.MeshStandardMaterial({ color: 0x555a60, roughness: 0.5, metalness: 0.6, envMap: null }));
-vm.position.set(0.14, -0.14, -0.45); camera.add(vm); scene.add(camera);
+// First-person sidearm: a compact low-poly service pistol, built once from shared materials.
+const vm = new THREE.Group();
+vm.position.set(0.16, -0.18, -0.45); camera.add(vm); scene.add(camera);
+const gunMetal = new THREE.MeshStandardMaterial({ color: 0x343a40, roughness: 0.38, metalness: 0.72, envMap: V.env, envMapIntensity: 1.25 });
+const gunEdge = new THREE.MeshStandardMaterial({ color: 0x747b7e, roughness: 0.32, metalness: 0.76, envMap: V.env, envMapIntensity: 1.2 });
+const gunGrip = new THREE.MeshStandardMaterial({ color: 0x242628, roughness: 0.88, metalness: 0.08, envMap: V.env, envMapIntensity: 0.6 });
+const gunBrass = new THREE.MeshStandardMaterial({ color: 0x9c7141, roughness: 0.48, metalness: 0.62, envMap: V.env, envMapIntensity: 1.0 });
+const glove = new THREE.MeshStandardMaterial({ color: 0x514334, roughness: 0.95, metalness: 0.02, envMap: V.env, envMapIntensity: 0.5 });
+const addGunPart = (geometry: THREE.BufferGeometry, material: THREE.Material, x: number, y: number, z: number, rx = 0, ry = 0, rz = 0) => {
+  const mesh = new THREE.Mesh(geometry, material); mesh.position.set(x, y, z); mesh.rotation.set(rx, ry, rz); vm.add(mesh); return mesh;
+};
+addGunPart(new THREE.BoxGeometry(0.079, 0.066, 0.25), gunMetal, 0, 0.004, -0.09);           // slide
+addGunPart(new THREE.BoxGeometry(0.071, 0.042, 0.13), gunMetal, 0, -0.042, -0.045);        // frame
+addGunPart(new THREE.BoxGeometry(0.059, 0.127, 0.078), gunGrip, 0, -0.086, 0.047, -0.24); // grip
+addGunPart(new THREE.BoxGeometry(0.05, 0.098, 0.007), gunMetal, 0, -0.09, 0.086, -0.24);   // magazine base
+addGunPart(new THREE.BoxGeometry(0.044, 0.098, 0.004), gunBrass, 0, -0.09, 0.091, -0.24);  // base plate
+addGunPart(new THREE.CylinderGeometry(0.018, 0.018, 0.14, 10), gunEdge, 0, 0.004, -0.217, Math.PI / 2); // barrel
+addGunPart(new THREE.CylinderGeometry(0.027, 0.027, 0.018, 12), gunEdge, 0, 0.004, -0.22, Math.PI / 2);  // muzzle collar
+addGunPart(new THREE.BoxGeometry(0.024, 0.017, 0.01), gunEdge, 0, 0.043, -0.18);           // front sight
+addGunPart(new THREE.BoxGeometry(0.032, 0.016, 0.014), gunEdge, 0, 0.043, 0.01);            // rear sight
+addGunPart(new THREE.BoxGeometry(0.035, 0.006, 0.07), gunGrip, 0, -0.009, -0.08);           // ejection port
+for (let i = 0; i < 5; i++) addGunPart(new THREE.BoxGeometry(0.004, 0.044, 0.008), gunEdge, 0.041, 0.002, -0.015 + i * 0.014);
+addGunPart(new THREE.TorusGeometry(0.026, 0.004, 5, 12), gunMetal, 0, -0.043, 0.025);       // trigger guard
+addGunPart(new THREE.BoxGeometry(0.006, 0.032, 0.006), gunBrass, 0, -0.046, 0.025, 0, 0, -0.16); // trigger
+addGunPart(new THREE.BoxGeometry(0.075, 0.045, 0.088), glove, -0.022, -0.074, 0.105, -0.32); // supporting hand
+const muzzleFlash = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.16, 6), new THREE.MeshBasicMaterial({ color: 0xffbd52, toneMapped: false }));
+muzzleFlash.rotation.x = Math.PI / 2; muzzleFlash.position.set(0, 0.005, -0.32); muzzleFlash.visible = false; vm.add(muzzleFlash);
+let recoil = 0, flashTime = 0;
 
 // ---------- audio (own synthesis, kept quiet) ----------
 let actx: AudioContext | null = null;
@@ -122,6 +189,7 @@ function onEvents(evs: GameEvent[]): void {
       const line = new THREE.Line(g, new THREE.LineBasicMaterial({ color: e.hit ? 0xff5030 : 0xffe080 }));
       scene.add(line); tracers.push({ line, life: 0.08 });
       figures.get(e.i)?.fig.shoot();
+      if (e.i === myId) { recoil = 1; flashTime = 0.055; }
       const me = views().find(v => v.i === myId);
       const dist = me ? Math.hypot(me.x - e.x, me.z - e.z) : 10;
       bang(0.3 / (1 + dist * 0.15));
@@ -262,6 +330,11 @@ function frame(): void {
   }
   if (camFrom) { camera.position.set(camFrom.x, camFrom.y + camFrom.eye, camFrom.z); camera.rotation.set(camFrom.pt, camFrom.yw, 0); }
   vm.visible = !!me?.a;
+  recoil = Math.max(0, recoil - dt * 8.5);
+  flashTime = Math.max(0, flashTime - dt);
+  muzzleFlash.visible = flashTime > 0;
+  vm.position.set(0.16, -0.18 + recoil * 0.014, -0.45 + recoil * 0.035);
+  vm.rotation.x = -0.025 - recoil * 0.1;
   V.sky.position.copy(camera.position);
   V.waterTime.value = now / 1000; V.dustTime.value = now / 1000;
   // figures: animated bodies, idle/walk/run by speed, shoot on fire, death on kill

@@ -9,6 +9,8 @@ no logos. Total 4.43 MB (limit 8 MB). Rebuild: `blender -b -P scripts/models/cha
 |---|---|---|---|---|---|---|
 | public/models/characters/soldier_male.glb | https://opengameart.org/content/animated-characters-pack (Quaternius, Soldier_Male) | CC0 | 2994 | 463088 | 1.85 | idle walk run shoot death hit punch walk_carry |
 | public/models/characters/soldier_female.glb | same (Soldier_Female) | CC0 | 7066 | 675452 | 1.72 | same |
+| public/models/characters/soldier_male_operator.glb | Soldier_Male + original tactical gear from `scripts/models/upgrade-operators.py` | CC0 body; original gear |  |  |  | source clips retained |
+| public/models/characters/soldier_female_operator.glb | Soldier_Female + original tactical gear from `scripts/models/upgrade-operators.py` | CC0 body; original gear |  |  |  | source clips retained |
 | public/models/characters/worker_male.glb | same (Worker_Male) | CC0 | 2524 | 424648 | 1.78 | same |
 | public/models/characters/worker_female.glb | same (Worker_Female) | CC0 | 5856 | 610844 | 1.66 | same |
 | public/models/characters/cowboy_male.glb | same (Cowboy_Male) | CC0 | 3176 | 475388 | 1.80 | same |
@@ -20,8 +22,8 @@ Source zips (not shipped): `art-src/models/characters/quaternius-uacp/pack.zip` 
 character pack; CC0 is as stated on the OpenGameArt page (the UAL zip has License.txt = CC0 1.0).
 
 ## Honest notes
-- The six people are stylised low-poly "chibi" figures (big head, short legs), not realistic bodies. Realistic proportions
-  exist only as the grey mannequin (same Quaternius rig family, 13.7k tris, one body shape).
+- The original six people are stylised low-poly "chibi" figures (big head, short legs). The operator variants add
+  lightweight tactical silhouette gear but keep that source body style; they are not photorealistic models.
 - The pack has no run clip: `run` = `walk` keys compressed 1.6x (0.79 s vs 1.29 s). `shoot` is one-handed (pistol-like),
   14 frames at 24 fps (0.58 s), not looping. `death` 2.54 s, hold last pose. `hit` 0.67 s.
 - The original skin was near-black; skin tones were set in `chars_convert.py` (TARGET table). The eye shapes ("Face"
