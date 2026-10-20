@@ -927,7 +927,7 @@ function frame(now: number) {
   }
   target = endT >= 0 ? -1 : pickExaminable(eyeV, dirV, EXAMINABLES, SOLIDS);
   npcTarget = endT >= 0 || target >= 0 ? -1 : pickExaminable(eyeV, dirV, NPC_PICKS, SIGHT_SOLIDS, TALK_RANGE);
-  if (CHAPTER_THREE_MODE && chapterThreeStage === 0 && target < 0) {
+  if (!PROLOGUE_MODE && target < 0) {
     const priest = TALKABLE_ACTORS.findIndex(a => a.id === 'npc_priest' && Math.hypot(a.x - player.pos.x, a.z - player.pos.z) < 3.2);
     if (priest >= 0) npcTarget = priest; // near the altar, E stays easy without precise head aim
   }
