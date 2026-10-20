@@ -198,7 +198,7 @@ function tickFarmerSearch(a: Actor, dt: number, px: number, pz: number, t: numbe
   const target = FARMER_SEARCH_ROUTE[a.searchWaypoint];
   const dx = target.x - a.x, dz = target.z - a.z, distance = Math.hypot(dx, dz);
   if (distance < 0.08) {
-    a.x = target.x; a.z = target.z;
+    a.x = target.x; a.z = target.z; a.y = groundY(a.x, a.z);
     a.walkWeight = 0;
     const atPasture = a.searchDirection > 0 && a.searchWaypoint === FARMER_SEARCH_ROUTE.length - 1;
     const atTrough = a.searchDirection < 0 && a.searchWaypoint === 0;
@@ -229,6 +229,7 @@ function tickFarmerSearch(a: Actor, dt: number, px: number, pz: number, t: numbe
   const stride = Math.min(distance, speed * dt);
   a.x += dx / distance * stride;
   a.z += dz / distance * stride;
+    a.y = groundY(a.x, a.z);
 }
 
 /** Begin the one-way route after Maryam confirms Joseph has not come home. */

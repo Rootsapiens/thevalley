@@ -340,6 +340,10 @@ function setStoryObjective(ar: string, en: string) {
 function setChapterTwoStage(stage: number) {
   if (!CHAPTER_TWO_MODE || stage <= chapterTwoStage) return;
   chapterTwoStage = stage;
+  if (film.battery <= 0 && !chapterTwoHallFilmed) {
+    setStoryObjective('نفدت بطارية الكاميرا. اضغط R لإعادة الفصل', 'Camera battery empty. Press R to restart the chapter');
+    return;
+  }
   const objectives: Record<number, [string, string]> = {
     1: ['اعثر على بوابة منجم الغربان', "Find the Ravens' mine gate"],
     2: ['اتبع سلك المصابيح إلى الداخل', 'Follow the string-light cable inside'],
@@ -453,7 +457,7 @@ addEventListener('keydown', e => {
     } else if (CHAPTER_TWO_MODE) location.search = '?chapter=3&from=hall';
     else restart();
   }
-  if (e.code === 'KeyR' && CHAPTER_TWO_MODE && chapterTwoStage >= 5 && !chapterTwoHallFilmed && film.battery <= 0 && endT < 0) restart();
+  if (e.code === 'KeyR' && CHAPTER_TWO_MODE && !chapterTwoHallFilmed && film.battery <= 0 && endT < 0) restart();
   if (e.code === 'F3') { e.preventDefault(); devOn = !devOn; dev.style.display = devOn ? 'block' : 'none'; npcMarks.visible = devOn; }
 });
 addEventListener('keyup', e => keys.delete(e.code));
@@ -1150,9 +1154,9 @@ function frame(now: number) {
     const got = filmTick(film, dt, live, fa ? fa.id : null, fa ? fa.line : null, storyTime);
     if (film.rec !== was) audio.play('rec', film.rec ? 1 : 0);
     if (live && !film.rec) {
-      showToast(CHAPTER_TWO_MODE && chapterTwoStage >= 5 && !chapterTwoHallFilmed
+      showToast(CHAPTER_TWO_MODE && !chapterTwoHallFilmed
         ? 'BATTERY EMPTY — PRESS R TO RESTART CHAPTER' : 'BATTERY EMPTY');
-      if (CHAPTER_TWO_MODE && chapterTwoStage >= 5 && !chapterTwoHallFilmed) setStoryObjective('نفدت بطارية الكاميرا. اضغط R لإعادة الفصل', 'Camera battery empty. Press R to restart the chapter');
+      if (CHAPTER_TWO_MODE && !chapterTwoHallFilmed) setStoryObjective('نفدت بطارية الكاميرا. اضغط R لإعادة الفصل', 'Camera battery empty. Press R to restart the chapter');
       filmHeld = false;
     }
     if (CHAPTER_TWO_MODE && CH2_WORLD && chapterTwoStage === 5 && film.rec) {

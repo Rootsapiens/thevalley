@@ -1,3 +1,9 @@
+# 2026-10-21 — Episode One recovery and staging follow-up
+
+- **Fixed:** Chapter 2 now offers an R chapter restart whenever the camera battery is empty before the mandatory Hall shot, including before the player reaches the Hall. Stage objective updates preserve the restart instruction. `src/npcTalk.ts` now samples the existing terrain height as the prologue farmer walks and snaps to route waypoints. Rajaie reported typecheck, build and diff check passed for both bounded edits. Firas confirmed the battery logic by source review; neither change has a rendered player-run check yet.
+- **Team handoffs:** Firas mapped manual P→Ch3 acceptance, Khaled mapped non-dialogue cues, Aktham mapped first-person scene staging, Issa audited NPC placement, and Nidal identified missing Hall species sources. After the first goat download source failed, Nidal staged a licensed CC0 alternative GLB and provenance note in `art-incoming/nidal-hall-animals/`; it is a dense static review asset, not integrated into the game. Reports are in `studio/reports/`; completed reports are not proof that those roles remain active. No new Arabic line was approved or recorded. Omar's visible medical staging, Maryam's floor transition, the quarry clue, and continuous campaign verification remain open.
+- **Coordination:** The existing 15-minute `omega-valley-team-coordination` heartbeat now prioritizes Episode One story/NPC work, preserves the story locks, and permits a reviewed GitHub update on `main` when coherent work is ready. The stopped Team Studio refresh remains stopped.
+
 # 2026-10-21 — Episode One story team coordination
 
 - **Delivered:** Razan wrote `studio/reports/story-work-queue.md`, Layla wrote `studio/reports/layla-episode-one-story-pass.md`, and a Noor-role source audit wrote `studio/reports/noor-story-canon-review.md`. These reports separate completed worker turns from queued roles; the audit does not approve dialogue on Noor's behalf.
