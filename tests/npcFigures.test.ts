@@ -2,12 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { NPC_MODEL_BY_ID, npcAnimationName, npcModelScale } from '../src/npcFigures';
 
 describe('villager GLB role mapping and presentation', () => {
-  it('uses the CC0 pack for farmer, priest, and one neutral villager only', () => {
+  it('uses fitting CC0 figures for farmer, priest, and anonymous square villagers', () => {
     expect(NPC_MODEL_BY_ID).toEqual({
       npc_farmer: 'poor.glb',
       npc_priest: 'clergyman.glb',
       npc_square_villager_1: 'guy.glb',
+      npc_square_villager_2: 'lady.glb',
+      npc_square_villager_3: 'woman.glb',
+      npc_square_villager_4: 'a-normal-guy-with-dark-skin.glb',
     });
+    expect(Object.values(NPC_MODEL_BY_ID)).not.toContain('fake_trader.glb');
+    expect(Object.values(NPC_MODEL_BY_ID)).not.toContain('trader.glb');
+    expect(Object.values(NPC_MODEL_BY_ID)).not.toContain('vezir.glb');
   });
 
   it('fits the pack’s reported 3.45–3.97 unit bounds to authored human heights, starting from 0.5 scale', () => {
