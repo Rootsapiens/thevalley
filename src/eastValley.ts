@@ -3,6 +3,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { Box } from './physics';
+import { TILE_M, villageSet } from './materials';
+import { NORMAL_Y, VILLAGE_TEX } from './villageTextures';
 
 type Ground = (x: number, z: number) => number;
 type Scatter = { x: number; z: number; yaw: number; scale: number };
@@ -50,16 +52,68 @@ function scatter(seed: number, count: number, margin: number, pathClearance: num
   return out;
 }
 
+/** Place dressing in loose, deterministic bands alongside the route instead of uniform noise.
+ * This creates a readable foreground frame while leaving the trail and its end vista open. */
+function routeFramingScatter(
+  seed: number,
+  count: number,
+  offsetMin: number,
+  offsetMax: number,
+  occupied: Occupied[],
+  footprintRadius: number,
+  pathClearance: number,
+): Scatter[] {
+  const rand = mulberry(seed), out: Scatter[] = [];
+  const lengths = ROUTE.slice(1).map((point, i) =>
+    Math.hypot(point.x - ROUTE[i].x, point.z - ROUTE[i].z),
+  );
+  const totalLength = lengths.reduce((sum, length) => sum + length, 0);
+  const sideFlip = rand() < 0.5 ? -1 : 1;
+
+  const atDistance = (distance: number) => {
+    let remaining = distance;
+    for (let i = 0; i < lengths.length; i++) {
+      const length = lengths[i];
+      if (remaining <= length || i === lengths.length - 1) {
+        const a = ROUTE[i], b = ROUTE[i + 1], t = Math.max(0, Math.min(1, remaining / length));
+        const dx = b.x - a.x, dz = b.z - a.z, d = length || 1;
+        return { x: a.x + dx * t, z: a.z + dz * t, nx: -dz / d, nz: dx / d };
+      }
+      remaining -= length;
+    }
+    return { x: ROUTE[0].x, z: ROUTE[0].z, nx: 0, nz: 1 };
+  };
+
+  for (let i = 0; i < count; i++) {
+    // Jitter each even interval, with alternating banks to keep composition balanced but natural.
+    const along = ((i + 0.18 + rand() * 0.64) / count) * totalLength;
+    const path = atDistance(along), side = (i % 2 ? 1 : -1) * sideFlip;
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const offset = offsetMin + rand() * (offsetMax - offsetMin);
+      const x = path.x + path.nx * side * offset + (rand() - 0.5) * 2.2;
+      const z = path.z + path.nz * side * offset + (rand() - 0.5) * 2.2;
+      if (x < EAST[0] + 4 || x > EAST[1] - 4 || z < EAST[2] + 4 || z > EAST[3] - 4) continue;
+      if (routeDistance(x, z) < pathClearance) continue;
+      const scale = 0.82 + rand() * 0.38, radius = footprintRadius * scale;
+      if (occupied.some(p => Math.hypot(p.x - x, p.z - z) < Math.max(1.8, (p.radius + radius) * 0.72))) continue;
+      const placement = { x, z, yaw: rand() * Math.PI * 2, scale };
+      out.push(placement); occupied.push({ x, z, radius });
+      break;
+    }
+  }
+  return out;
+}
+
 // Shared occupied list prevents separately-seeded species from being placed inside one another.
 const OCCUPIED: Occupied[] = [];
 const PLACEMENTS: Record<string, Scatter[]> = {
-  'tree_broad_1': scatter(821, 8, 7, 11, OCCUPIED, 3.2),
-  'tree_broad_2': scatter(822, 8, 7, 11, OCCUPIED, 3.2),
-  'tree_broad_3': scatter(823, 7, 7, 11, OCCUPIED, 3.2),
-  'tree_broad_4': scatter(824, 7, 7, 11, OCCUPIED, 3.2),
-  'bush_1': scatter(925, 12, 4, 6, OCCUPIED, 0.8),
-  'bush_2': scatter(926, 12, 4, 6, OCCUPIED, 0.8),
-  'bush_3': scatter(927, 12, 4, 6, OCCUPIED, 0.8),
+  'tree_broad_1': routeFramingScatter(821, 8, 14, 27, OCCUPIED, 3.2, 11),
+  'tree_broad_2': routeFramingScatter(822, 8, 14, 27, OCCUPIED, 3.2, 11),
+  'tree_broad_3': routeFramingScatter(823, 7, 14, 27, OCCUPIED, 3.2, 11),
+  'tree_broad_4': routeFramingScatter(824, 7, 14, 27, OCCUPIED, 3.2, 11),
+  'bush_1': routeFramingScatter(925, 12, 6.5, 10, OCCUPIED, 0.8, 6),
+  'bush_2': routeFramingScatter(926, 12, 6.5, 10, OCCUPIED, 0.8, 6),
+  'bush_3': routeFramingScatter(927, 12, 6.5, 10, OCCUPIED, 0.8, 6),
   'rock_1': scatter(1031, 12, 4, 4.5, OCCUPIED, 1.85),
   'rock_2': scatter(1032, 12, 4, 4.5, OCCUPIED, 1.85),
   'rock_3': scatter(1033, 12, 4, 4.5, OCCUPIED, 1.85),
@@ -67,8 +121,8 @@ const PLACEMENTS: Record<string, Scatter[]> = {
   'grass_2': scatter(1135, 18, 2, 3.3, OCCUPIED, 0.3),
 };
 
-function routeMesh(ground: Ground): THREE.Mesh {
-  const pos: number[] = [], color: number[] = [], index: number[] = [];
+function routeMesh(ground: Ground): THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> {
+  const pos: number[] = [], color: number[] = [], uv: number[] = [], index: number[] = [];
   const width = 3.8, base = new THREE.Color('#625746'), light = new THREE.Color('#75684f');
   const dense: { x: number; z: number }[] = [];
   for (let i = 0; i < ROUTE.length - 1; i++) {
@@ -89,6 +143,7 @@ function routeMesh(ground: Ground): THREE.Mesh {
     for (const side of [-1, 1]) {
       const x = p.x + nx * width * 0.5 * side, z = p.z + nz * width * 0.5 * side;
       pos.push(x, ground(x, z) + 0.035, z);
+      uv.push(x / TILE_M, z / TILE_M);
       const c = (i % 3 === 0 ? light : base).clone().multiplyScalar(0.92 + (i % 4) * 0.035);
       color.push(c.r, c.g, c.b);
     }
@@ -100,6 +155,7 @@ function routeMesh(ground: Ground): THREE.Mesh {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geo.setAttribute('color', new THREE.Float32BufferAttribute(color, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
   geo.setIndex(index); geo.computeVertexNormals();
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0, side: THREE.DoubleSide });
   const mesh = new THREE.Mesh(geo, mat); mesh.name = 'east-valley-herd-road'; mesh.receiveShadow = true;
@@ -108,7 +164,7 @@ function routeMesh(ground: Ground): THREE.Mesh {
 
 export interface EastValley {
   group: THREE.Group;
-  /** Resolves after the region's CC0 GLBs load (or cleanly settles if an asset is unavailable). */
+  /** Resolves after the region's CC0 GLBs and road textures load (or cleanly settle if unavailable). */
   ready: Promise<void>;
   solids: Box[];
   stats: { instances: number; meshes: number };
@@ -117,7 +173,15 @@ export interface EastValley {
 /** Build a lightweight connected outdoor cell without shifting any existing village coordinates. */
 export function buildEastValley(scene: THREE.Scene, ground: Ground): EastValley {
   const group = new THREE.Group(); group.name = 'east-valley'; scene.add(group);
-  group.add(routeMesh(ground));
+  const road = routeMesh(ground); group.add(road);
+  const roadReady = villageSet('dirt-road').then(set => {
+    if (!set) return; // Keep the authored flat surface when the albedo is unavailable.
+    const mat = road.material, base = new THREE.Color(VILLAGE_TEX['dirt-road'].base);
+    // Vertex colours already carry the road palette; cancel the texture's average tint.
+    mat.color.setRGB(1 / base.r, 1 / base.g, 1 / base.b, THREE.LinearSRGBColorSpace);
+    mat.map = set.map; mat.normalMap = set.normal; mat.roughnessMap = set.rough;
+    mat.normalScale.set(0.45, 0.45 * NORMAL_Y); mat.needsUpdate = true;
+  }).catch(() => {});
   const solids: Box[] = [], stats = { instances: Object.values(PLACEMENTS).reduce((n, a) => n + a.length, 0), meshes: 0 };
 
   for (const [name, placed] of Object.entries(PLACEMENTS)) {
@@ -131,7 +195,7 @@ export function buildEastValley(scene: THREE.Scene, ground: Ground): EastValley 
     }
   }
 
-  const ready = (async () => {
+  const natureReady = (async () => {
     const loader = new GLTFLoader();
     const names = Object.keys(PLACEMENTS);
     const models = await Promise.all(names.map(name =>
@@ -166,6 +230,7 @@ export function buildEastValley(scene: THREE.Scene, ground: Ground): EastValley 
       });
     }
   })().catch(() => {});
+  const ready = Promise.all([roadReady, natureReady]).then(() => {});
 
   return { group, ready, solids, stats };
 }

@@ -295,7 +295,13 @@ export function townSolids(s: Solid[], options: { eastValleyOpen?: boolean; sout
       // Ceiling: the house rooms' boards at 2.7 m (villageTown shell), so a jump never puts the eye through them.
       const ceil = b.kind === 'house' || b.kind === 'school' || b.kind === 'cafe' ? b.floor + 2.7 : b.floor + b.eave - 0.25;
       s.push({ box: yb(b.x0, b.z0, b.x1, b.z1, ceil, top + 0.5) });
-      for (const g of gaps) s.push({ box: yb(g.x0, g.z0, g.x1, g.z1, b.base, b.floor) });            // sills
+      // The threshold should stop entry below the shell without sticking above the
+      // exterior ground; even a 2 cm lip can catch the player's capsule.
+      for (let i = 0; i < gaps.length; i++) {
+        const g = gaps[i], step = doorStep(b, b.doors[i]), [ox, oz] = step.out;
+        const sillTop = Math.max(b.base, Math.min(b.floor, groundY(step.x + ox * 1.2, step.z + oz * 1.2)));
+        s.push({ box: yb(g.x0, g.z0, g.x1, g.z1, b.base, sillTop) });
+      }
       if (b.kind === 'church') {   // pews, columns and the altar are solid
         const L = churchLayout(b);
         for (const p of L.pews) s.push({ box: yb(p.x0, p.z0, p.x1, p.z1, b.floor, b.floor + 1.0) });
@@ -391,7 +397,9 @@ function makeUsables(): Usable[] {
     // Stand on the side the gate is usually approached from: the lane side (south) for the farm and yard gates,
     // the field side for the pasture gate, the yard side for the back gate.
     const side = g.id === 'gate-farm-n' ? 1 : g.id === 'gate-back' ? -1 : 1;
-    const from = g.alongX ? { x: g.x + 0.3, y: 0, z: g.z + side * 2.2 } : { x: g.x - 2.2, y: 0, z: g.z + 0.3 };
+    // Center the approach across narrow along-X gates. The old +0.3 m offset
+    // left the player's capsule too close to a fence post when walking through.
+    const from = g.alongX ? { x: g.x, y: 0, z: g.z + side * 2.2 } : { x: g.x - 2.2, y: 0, z: g.z };
     from.y = groundY(from.x, from.z) + 0.01;
     const ends = g.alongX ? [groundY(g.x - g.w / 2, g.z), groundY(g.x + g.w / 2, g.z)] : [groundY(g.x, g.z - g.w / 2), groundY(g.x, g.z + g.w / 2)];
     const lo = Math.min(gy, ...ends), hi = Math.max(gy, ...ends);

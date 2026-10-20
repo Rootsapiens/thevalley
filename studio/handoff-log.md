@@ -1,3 +1,99 @@
+# 2026-10-21 — Episode One story team coordination
+
+- **Delivered:** Razan wrote `studio/reports/story-work-queue.md`, Layla wrote `studio/reports/layla-episode-one-story-pass.md`, and a Noor-role source audit wrote `studio/reports/noor-story-canon-review.md`. These reports separate completed worker turns from queued roles; the audit does not approve dialogue on Noor's behalf.
+- **Current source check:** `src/npcData.ts` requires `elia_cover_introduced` for Omar's Day 2 watcher line; `src/villageMain.ts` sets that flag after Elia's photo line. The older review's Elia bypass claim is stale. Moreno's assignment is still seeded without a distinct player-facing beat. Chapter 2's southbound quarry direction is owner-approved; the in-world clue motivating the trip remains unresolved.
+- **Next:** Decide the assignment's player-facing staging and quarry clue before changing canon. Have Rajaie/Zurub implement only settled story beats, and Firas check continuous playable routes. No runtime code or approved Arabic dialogue was changed by these reports.
+- **Follow-up:** Imad's causality pass found that Chapter 2 previously allowed an exit without filming Joseph and the animals, while Chapter 3 still allowed an upload. Rajaie changed `src/villageMain.ts` so Chapter 2 completion requires the Hall shot, provides an R chapter restart if the camera battery is empty, stores the shot in session state and requires it for the campaign Chapter 3 upload. Direct Chapter 3 entry remains a debug preview. The Episode One treatment now distinguishes the old bounded probe from the changed route. Typecheck/build/diff check passed; a continuous browser run of the changed route is still open. Zurub separately identified URL-seeded Day 1→2 progress and Maryam reload continuity gaps. No dialogue was approved or clue invented.
+
+# 2026-10-21 — Trail materials and 15-minute team coordination
+
+- **Source research:** `studio/reports/nidal-realistic-character-options.md` records verified CC0 MakeHuman and Quaternius character options for a future clothed Lorenzo prototype. No new character asset was downloaded or integrated. Nidal's worker run stopped at the account usage limit; the coordinator completed the source handoff. No new worker was marked active without an actual process.
+- **Updated:** `src/eastValley.ts` now reuses the existing dirt-road albedo, normal and roughness maps at two metres per tile. Texture tint compensation preserves the authored road colour, normal strength is restrained, missing assets retain the flat fallback, and the region readiness promise includes texture loading. No route, width, collision, or Chapter 2 connector changes were made by this pass.
+- **Verified:** Read-only comparison against `HEAD` found identical positions, normals and indices on flat and sloped terrain (150 vertices, 444 indices, 3.8 m width); new UVs are finite at the intended scale. The existing village texture tests passed 5/5, and typecheck, build and diff check passed. Vite retains its existing large materials-chunk warning. No FPS claim: rendered inspection remains unavailable because local browser use is disabled in Work settings.
+- **Art:** GTA VI is the owner's quality reference, not the current achieved quality. `studio/reports/aktham-lorenzo-realism.md` records the available CC0 male base, film outfit references, and measured bind-pose differences that prevent naive animation sharing. A clothed and correctly retargeted Lorenzo prototype is the next character task.
+- **Coordination:** The owner requested reassignment of available workers every 15 minutes, with Cyrex/Subzero deciding priorities and Razan tracking evidence. Heartbeat `omega-valley-team-coordination` is active. `studio/team.md` and `studio/reports/visual-work-queue.md` distinguish actual execution from queued roles under the four-slot limit. This does not resume Team Studio publication. Three.js remains the shipping engine; UE5 is paused. No commit, push, or publication was performed.
+
+# 2026-10-21 — Cinematic open-world visual pass
+
+- **Updated:** `src/eastValley.ts` now distributes existing CC0 tree and bush instances in deterministic bands beside the east-valley trail, framing the path while keeping its walkable corridor and vista open. `src/villageScene.ts` sharpens nearby ridge silhouettes and increases haze on the distant ridge for depth.
+- **Verified:** `npm run typecheck`, `npm run build`, and `git diff --check` passed. Vite still reports the existing 640.94 kB materials chunk warning. No E2E or rendered-browser visual check; no commit or publish.
+- **Open:** Inspect the composition in-browser on desktop and mobile, then tune tree spacing/haze if needed. The shipping engine remains Three.js; UE5 stays paused.
+# 2026-10-21 — Natural Chapter 1 route verified
+
+- **Fixed:** Removed duplicate static copies of openable doors' closed leaf colliders from the village world. Doors now use their live swinging leaf as collision, so opening a house or post door clears the doorway correctly.
+- **Refined:** The Chapter 1 natural route test now uses viable kitchen and gate paths, avoids the police car at its narrow clearance, and aims at seated NPC height. It still follows the authored sequence from the farmer through Maryam, Omar and Moreno.
+- **Verified:** `npx playwright test tests/e2e/chapter-one-natural-route.spec.ts --reporter=line` passed (1/1; 4.4 min), including the guarded medical check, Moreno dialogue and Day 2 transition. `npm run typecheck` and `git diff --check` passed after the collision fix. No GitHub publish was done.
+- **Open:** Finish remaining routes and verify each full chapter in the playable browser. Current game remains a browser/Three.js build, not an Unreal conversion.
+
+# 2026-10-20 — Lorenzo model refined from film references
+
+- **References:** `C:\Users\nadee\Desktop\rootsapiens the movie\image.png (220).png` and `(221).png` show the established look: mature man, short dark hair with gray at the temples, light stubble, navy field jacket, brown zip sweater, and pale shirt.
+- **Updated:** Refined `src/lorenzoPlayerModel.ts` to match that look in the game's low-poly style: corrected hair and skin tones, added restrained stubble, stronger brows, and a darker swept haircut. Kept the jacket/sweater/shirt layers; added a tailored rear yoke, pockets, and snaps so the back reads as a field jacket. Softened the local fill light.
+- **Checked:** The local Chapter 2 browser build renders the revised model in third-person at dusk, with rear jacket details visible. `npm run typecheck` and `git diff --check` passed.
+- **Open:** Review the face from the front and compare all character appearances across the film clips before further tuning. Current model remains low-poly, not photoreal. No GitHub publish was done.
+
+# 2026-10-20 — Chapter 3 upload spread and 05:10 arrival
+
+- **Fixed:** A successful upload now holds Lorenzo at the tower until 05:10 while the footage spreads; outside-agency vehicles and detention start only at that time. Interrupted uploads reset and can be retried until 05:10. The failure branch remains a chapter replay, not a canon ending.
+- **Updated:** `tests/e2e/chapter-three-route.spec.ts` checks interrupted upload resets to zero, remains retryable, verifies the post-upload hold, and confirms detention does not start early.
+- **Verified:** `npx playwright test tests/e2e/chapter-three-route.spec.ts --reporter=line` passed (1/1, 24.3 s). It walks to the priest and tower, interrupts an 8-second upload, retries successfully, waits through the 05:10 spread beat, and confirms detention/end card. `npm run typecheck`, `npm run build` and `git diff --check` passed; Vite retains the existing 640.94 kB materials chunk warning. The treatment and review now report this evidence.
+- **Open:** Measure natural climb timing and perform a full visual review. No GitHub publish was done.
+
+# 2026-10-20 — Lorenzo full-body film look
+
+- **Added:** `src/lorenzoPlayerModel.ts` builds a full-body Lorenzo from the provided film stills: mature face, short salt-and-pepper hair, navy field jacket, brown zip sweater, pale shirt, dark trousers and boots. Press `V` in Lorenzo's story chapters to switch between first-person and a third-person follow camera. The body animates while walking and crouching; camera distance shortens against world geometry. Joseph's Prologue stays first-person. First-person remains the default.
+- **Verified:** Local Chromium preview at `?day=2` rendered Lorenzo facing the camera in third-person; `window.__game.key('KeyV')` changed the mode. `npm run typecheck`, `npm run build` and `git diff --check` passed. Build retains the existing 641 kB materials-chunk warning. Preview image: `C:\Users\nadee\Desktop\lorenzo-third-person-front.png`.
+- **Open:** The character is a low-poly procedural model in the game's established art style, not a photoreal scan. No game route E2E or GitHub publish was run.
+
+# 2026-10-20 — Chapter 1: natural Maryam conversation and square departure
+
+- **Verified:** Real W-key route from Lorenzo’s spawn reaches the farmer, opens Maryam’s yard gate and house door, enters her home, and completes both Maryam conversations. After an 8.2-second in-game wait, she confirms Joseph has not returned and the objective becomes “Follow Maryam to the square.”
+- **Fixed:** The confirmation beat now opens Maryam’s gate through the normal door entity, releasing the shut-leaf collision and playing the authored gate swing. The objective E2E starts with the gate closed, verifies the collision is released and the gate reaches open, then verifies Maryam’s authored route reaches `(43.5, 43.0)` and the Omar objective. Kept hollow-building door sills no higher than outside ground, centered the narrow gate use position, and refreshes aim after the `__game.look` test hook for headless RAF stalls.
+- **Proof:** `npx playwright test tests/e2e/chapter-one-natural-route.spec.ts --reporter=line` passed (1 test, 1.5 min). `npx playwright test tests/e2e/chapter-one-objectives.spec.ts --reporter=line` passed (1 test, 1.0 min). `npm run typecheck` and `git diff --check` pass.
+- **Open:** The NPC’s route to the square is verified from a test-positioned player, but Lorenzo’s full natural follow to the square and Omar conversation are not. Omar’s mountain discovery/transport and the full episode remain unverified.
+
+# 2026-10-20 — Chapter 1 Day 1 to Day 2 story gate
+
+- **Verified:** Extended the Chapter 1 objective E2E through Maryam’s square arrival, Omar’s cuffed appearance, his mountain/amnesia line, guarded medical check, cuff removal, Moreno’s existing reporter and doubt lines, and the Day 2 reload with the Elia cover objective. The proposed dialogue remains test-draft content; no new lines were added or approved.
+- **Proof:** `npx playwright test tests/e2e/chapter-one-objectives.spec.ts --reporter=line` passed (1 test, 2.1 min). `npm run typecheck` passed. The game exposes Omar’s cuff state through the existing test hook so the check verifies cuffed → uncuffed, not just the objective text.
+- **Open:** The player is test-positioned for these beats; this is not a continuous walk to the police post. Omar’s cafe, root attack, amnesia escape, mountain discovery, and cuffed transport are still represented as earlier seeded events rather than played scenes. Full episode remains incomplete.
+
+# 2026-10-20 — Lorenzo player look matched to the film stills
+
+- **Updated:** Used `C:\Users\nadee\Desktop\rootsapiens the movie\image.png (220).png` and `(221).png` as visual references. Darkened the navy jacket and brown knit to match; added visible lapels, seams, and separated fingers/thumb to the first-person model in `src/lorenzoViewModel.ts`.
+- **Scope:** Story play is first-person, so this updates the visible clothing and hands. Lorenzo's face and full-body silhouette are not shown in ordinary play. No film still was copied into game assets.
+- **Verification:** Not run in this turn.
+
+# 2026-10-20 — Chapter 1 objective trail
+
+- **Added:** A visible Day 1 objective card now follows existing beats: investigate the farm/speak with farmer → find Maryam → wait and ask again → follow her to the square → speak with Omar → await the guarded medical check → speak with Moreno. NPC route movement/attention now uses the fixed game clock instead of render delta, keeping speeds stable on slow machines. No character dialogue or canon was added.
+- **Verified:** `tests/e2e/chapter-one-objectives.spec.ts` checks the visible objective, farmer interaction, Maryam's first question, eight-second wait, confirmation, then lets her complete the authored path and checks the square endpoint `(43.5, 43.0)` and next objective. Lorenzo is positioned with the test hook; this is not a natural full Chapter 1 walkthrough. `npm run typecheck` and the browser-built app passed; E2E passed: 1 test, 1.4 min.
+- **Open:** Full natural Chapter 1 route, Omar find/transport scene, and a playable Moreno assignment remain unimplemented/unverified.
+
+# 2026-10-20 — Continuous Prologue route verified
+
+- **Added:** `tests/e2e/prologue-route.spec.ts` walks Joseph with real W-key input along the hoofprint trail, keeping a narrow east offset to pass the cow without crossing its collision body. It asserts the cow is found and moves, the trail triggers the roots attack, the transition reaches the Hall entry, and the ending title appears.
+- **Found/fixed in the route:** The direct centerline path deadlocked against the stopped cow. The playable route now has browser proof of a passable way around it; no game collision rules were bypassed.
+- **Proof:** `npm run typecheck` passed. `npx playwright test tests/e2e/prologue-route.spec.ts --reporter=line` passed twice, including Hall-entry coordinates and ending-title state (1 test, 43.5 s on the explicit-assertion run). Visual review, saved progress, and fixed authored checkpoints remain open.
+
+# 2026-10-20 — Lorenzo look refined from film references
+
+- **Updated:** Inspected Lorenzo references in `C:\Users\nadee\Desktop\rootsapiens the movie`, especially `image.png (220).png` and `image.png (221).png`: dark navy field jacket, brown zip-knit layer, pale collared shirt, short dark hair, and olive skin. Refined his first-person chest model with layered jacket panels, chest pockets, knit zipper/pull, and motion that follows his camera/idle bob.
+- **Scope:** Lorenzo stays first-person, so his face/body silhouette is not visible during normal play; this update improves the visible clothing and hands. No movie frame was copied into the game.
+- **Check:** `npm run typecheck` and `git diff --check` passed. No gameplay/E2E test run.
+
+# 2026-10-20 — Chapter 3 continuous route verified
+
+- **Fixed/verified:** Added a Chapter 3 player-driven route check that opens the church and tower with E, reaches the priest through the narrow pew-side gap and center aisle, exits around the church wall, climbs the north ladder, holds E for the upload, and reaches the detention/title beat. Fixed the route waypoints and changed ending progression (camera seizure/title) to use the fixed simulation clock, so low/paused rendering cannot stall narrative state. Added a nearby collision-box query to the game test hook to diagnose future route blockers.
+- **Proof:** `npx playwright test tests/e2e/chapter-three-route.spec.ts --reporter=line` passed: 1 test, 50.2 s. `npm run typecheck`, `npm run build`, and `git diff --check` passed. The test checks stage 5 at the top, successful upload, detention, and ending title. Production build still reports the existing >500 kB materials chunk warning.
+- **Still open:** This verifies Chapter 3's route from its chapter start, not the whole Episode One campaign from the Prologue. Proposed Arabic lines remain drafts.
+
+# 2026-10-20 — Lorenzo first-person film-reference look
+
+- **Added:** First-person viewmodel based on the user's movie folder: navy field jacket, brown knit layer, pale shirt cuffs/collar, and bare hands. Holding RMB to film raises the arms and shows a compact handheld camcorder with lens and viewfinder; hands lower out of view when the camera is down. Idle arm motion follows movement. Disabled during Joseph's Prologue so Lorenzo's clothes cannot appear on the wrong playable character. Chapters 1–3 stay first-person.
+- **Evidence:** Inspected `C:\Users\nadee\Desktop\rootsapiens the movie`, including Lorenzo stills `image.png (220).png` and `image.png (221).png`; opened the local game in Chromium. `npm run typecheck` and `npm run build` pass. Preview confirms the lowered pose does not block play. The recording pose is animated from the RMB filming control; a face match is not visible because story gameplay is first-person.
+- **Open:** No movie still was copied or redistributed. No third-person camera or canon change was made.
+
 ## 2026-10-20 — Day 2 balcony walk verification
 
 - **Verified:** A Playwright route walks Lorenzo from the Day 2 spawn around the graveyard wall and police post, crosses the square to the foot of the café stairs, then reaches balcony height with W key input and no teleport. `npx playwright test tests/e2e/day-two-handoff.spec.ts -g "real keyboard route"` passed (1 test, 1.1 min). The test advances the normal fixed-step simulation while W is physically held, so collision and stair checks stay active.

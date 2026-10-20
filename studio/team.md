@@ -1,3 +1,29 @@
+# Omega Valley — Current team execution
+
+Snapshot: 2026-10-21 01:25 CEST (Europe/Paris). `/root` is coordinating story integration. Layla, Noor, Razan, Imad, Rajaie and Zurub worker turns completed with reports in `studio/reports/`; Rajaie also delivered the bounded Hall-footage source fix. The older visual worker snapshot below is historical. Named roles are assignments in Codex, not claims that every historical worker is live.
+
+Current story coordination: [story work queue](reports/story-work-queue.md), [Layla's Episode One pass](reports/layla-episode-one-story-pass.md), [Noor's canon audit](reports/noor-story-canon-review.md), [Imad's causality pass](reports/imad-story-causality-followup.md), [Rajaie's implementation plan](reports/rajaie-story-implementation-plan.md), and [Zurub's state review](reports/zurub-story-state-review.md). These turns are finished; Firas and other follow-ups are queued, not active. Moreno's assignment presentation and the quarry clue remain unresolved. The owner authorized a GitHub update when reviewed work is ready.
+
+## Earlier visual work snapshot — historical
+
+The owner requests a modern cinematic open-world visual direction, with GTA6 as an aspiration. Three.js + TypeScript remains the shipping engine. UE5 is paused. Existing work, historical village identity and approved story chronology must be preserved. Current work excludes Team Studio, route/quarry changes, commits and publishing.
+
+| Status at snapshot | Role | Live process | Current deliverable |
+|---|---|---|---|
+| Running | Cyrex / Subzero | `/root` | Coordinate bounded visual work, inspect delivered diffs, decide the next useful assignments and maintain the 15-minute coordination heartbeat. Both names describe one coordinator process. |
+| Completed | Aktham | `/root/aktham_realism_assets` | Character base and UAL rig audit saved in `studio/reports/aktham-lorenzo-realism.md`; same 65 joint names, different bind poses, so direct clip reuse is unsafe. |
+| Interrupted: usage limit | Nidal | `/root/nidal_character_sources` | Licensed clothing and character source research remains queued; no shortlist was delivered. |
+| Interrupted: usage limit | Razan | `/root/razan_work_queue` | Drafted the current roster and work queue before interruption. Cyrex/Subzero corrected the live statuses here. |
+| Completed; next task queued | Rajaie | Previous `/root/rajaie_trail_materials` | Trail PBR and checks delivered: geometry unchanged at 150 vertices/444 indices, 3.8 m width preserved, finite 2 m UVs; existing texture tests 5/5 plus typecheck/build/diff check passed. Next: bounded bind-pose-aware Lorenzo retarget prototype. |
+
+There are four concurrency slots, including coordination, but account usage is currently preventing further worker runs. All other roles have useful queued work in [the visual work queue](reports/visual-work-queue.md); queued does not mean running. The `omega-valley-team-coordination` heartbeat is active for checks every 15 minutes, but future runs may also fail while usage is limited. This file is a dated snapshot, not live telemetry. At each refresh, replace statuses from actual worker reports and tools; do not carry Running forward without evidence.
+
+Browser verification is currently blocked by the Work setting that disables browser use. Structural checks and reports can continue; rendered quality, animation appearance and frame rate remain unverified until permitted browser access is available. The previous browser results in the history apply only to their recorded changes.
+
+## Historical record — preserved from before the current snapshot
+
+Everything below is historical context, including wording such as “current,” “Active,” “Working,” model names and staffing restrictions. It does not describe present execution; use the snapshot and work queue above.
+
 # Omega Valley — Team (updated 2026-10-20 by Cyrex)
 
 ## Game work resumed — 2026-10-20

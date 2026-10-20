@@ -27,6 +27,8 @@ import { buildChapterTwo } from './chapterTwo';
 import { buildChapterThree } from './chapterThree';
 import { ORDER } from './npcData';
 import { createArena } from './arena';
+import { LorenzoViewModel } from './lorenzoViewModel';
+import { LorenzoPlayerModel } from './lorenzoPlayerModel';
 import { ARENA_START, segmentBox } from './rootBots';
 import palette from '../studio/art/palette.json';
 
@@ -59,9 +61,15 @@ const QUERY = new URLSearchParams(location.search);
 const CHAPTER_TWO_MODE = QUERY.get('chapter') === '2';
 const CHAPTER_THREE_MODE = QUERY.get('chapter') === '3';
 const PROLOGUE_MODE = QUERY.get('prologue') === '1';
+// Direct ?chapter=3 is an explicit debug preview. Campaign entry carries the Hall shot across reloads.
+const CHAPTER_THREE_CAMPAIGN = CHAPTER_THREE_MODE && QUERY.get('from') === 'hall';
+const CAMPAIGN_HALL_FOOTAGE = CHAPTER_THREE_CAMPAIGN && sessionStorage.getItem('ov-hall-footage') === '1';
+if (CHAPTER_TWO_MODE) sessionStorage.removeItem('ov-hall-footage');
 const camera = new THREE.PerspectiveCamera(FOV, innerWidth / innerHeight, 0.05, 2000);
 camera.rotation.order = 'YXZ';
 scene.add(camera);
+const lorenzoViewModel = PROLOGUE_MODE ? null : new LorenzoViewModel(camera);
+const lorenzoPlayerModel = PROLOGUE_MODE ? null : new LorenzoPlayerModel(scene);
 const cameraLamp = CHAPTER_TWO_MODE ? new THREE.SpotLight('#e7d6ae', 0, 28, Math.PI / 5.5, 0.58, 1.35) : null;
 const cameraLampTarget = CHAPTER_TWO_MODE ? new THREE.Object3D() : null;
 if (cameraLamp && cameraLampTarget) { scene.add(cameraLamp, cameraLampTarget); cameraLamp.target = cameraLampTarget; }
@@ -85,6 +93,19 @@ if (CHAPTER_THREE_MODE) {
 SOLIDS.push(...EAST_VALLEY.solids.map(box => ({ box })));
 if (SOUTH_FARMLAND) SOLIDS.push(...SOUTH_FARMLAND.solids.map(box => ({ box })));
 if (CH2_WORLD) SOLIDS.push(...CH2_WORLD.solids.map(box => ({ box })));
+// Openable doors own their closed leaf collision in ENTS. Remove any matching baked
+// copy from the static world, or the closed leaf stays solid after the live leaf swings open.
+for (const usable of USABLES) {
+  if (usable.kind !== 'door' || usable.locked) continue;
+  const closedLeaf: Box = { min: { x: 0, y: 0, z: 0 }, max: { x: 0, y: 0, z: 0 } };
+  leafBox(usable, 0, closedLeaf);
+  for (let i = SOLIDS.length - 1; i >= 0; i--) {
+    const b = SOLIDS[i].box;
+    if (Math.abs(b.min.x - closedLeaf.min.x) < 0.001 && Math.abs(b.max.x - closedLeaf.max.x) < 0.001
+      && Math.abs(b.min.y - closedLeaf.min.y) < 0.001 && Math.abs(b.max.y - closedLeaf.max.y) < 0.001
+      && Math.abs(b.min.z - closedLeaf.min.z) < 0.001 && Math.abs(b.max.z - closedLeaf.max.z) < 0.001) SOLIDS.splice(i, 1);
+  }
+}
 const ARENA_ON = QUERY.get('arena') === '1' || QUERY.get('roots') === '1';
 const STORY_DAY = CHAPTER_TWO_MODE || CHAPTER_THREE_MODE ? 3 : QUERY.get('day') === '2' ? 2 : 1;
 const prologueRoots = PROLOGUE_MODE ? buildPrologueRoots(scene) : null;
@@ -136,7 +157,7 @@ const audio = villageAudio();
 const arena = ARENA_ON ? createArena({
   scene, camera, canvas: renderer.domElement, env: V.env, audio, ground: groundY,
   near: (x, z) => nearWorld(x, z, false), segment: segmentHit, live: () => playing && endT < 0,
-  respawn: () => { player = newPlayer(START); yaw = START_YAW; pitch = -0.03; }, toast: m => showToast(m),
+  respawn: () => { player = newPlayer(START); yaw = playerVisualYaw = START_YAW; pitch = -0.03; }, toast: m => showToast(m),
 }) : null;
 const START = arena ? { x: ARENA_START.x, y: ARENA_START.y, z: ARENA_START.z }
   : PROLOGUE_MODE ? { x: 0, y: 0, z: 1.8 }
@@ -287,10 +308,12 @@ const $ = (id: string) => document.getElementById(id)!;
 for (const id of ['hud', 'ammo', 'end', 'death', 'hurt']) $(id).style.display = 'none';
 document.body.classList.add('village');
 const overlay = $('overlay'), sub = $('sub'), subAr = $('sub-ar'), subEn = $('sub-en'), prompt = $('prompt');
-if (PROLOGUE_MODE || STORY_DAY === 2 || CHAPTER_TWO_MODE || CHAPTER_THREE_MODE) $('story-objective').style.display = 'block';
+if (PROLOGUE_MODE || STORY_DAY === 1 || STORY_DAY === 2 || CHAPTER_TWO_MODE || CHAPTER_THREE_MODE) $('story-objective').style.display = 'block';
 if (PROLOGUE_MODE) {
   $('objective-ar').textContent = 'اعثر على البقرة في الحظيرة';
   $('objective-en').textContent = 'Find the cow in the barn';
+} else if (!CHAPTER_TWO_MODE && !CHAPTER_THREE_MODE && STORY_DAY === 1) {
+  setStoryObjective('تحقّق من المزرعة وتحدّث إلى الفلاح', 'Investigate the farm and speak with the farmer');
 }
 const evidenceLedger = $('evidence-ledger');
 if (!PROLOGUE_MODE && STORY_DAY === 1 && !CHAPTER_TWO_MODE && !CHAPTER_THREE_MODE) evidenceLedger.style.display = 'block';
@@ -302,8 +325,13 @@ if (STORY_DAY === 2 && !PROLOGUE_MODE) {
   $('objective-ar').textContent = 'اتبع الطريق شرقاً نحو المحجر';
   $('objective-en').textContent = 'Follow the road east toward the quarry';
 } else if (CHAPTER_THREE_MODE) {
-  $('objective-ar').textContent = 'تحدّث إلى القسيس. الموعد النهائي 05:10';
-  $('objective-en').textContent = 'Talk to the priest · deadline 05:10 · 05:00';
+  $('objective-ar').textContent = CHAPTER_THREE_CAMPAIGN && !CAMPAIGN_HALL_FOOTAGE
+    ? 'لقطات القاعة مفقودة. عُد إلى الفصل الثاني'
+    : 'تحدّث إلى القسيس. الموعد النهائي 05:10';
+  $('objective-en').textContent = CHAPTER_THREE_CAMPAIGN && !CAMPAIGN_HALL_FOOTAGE
+    ? 'Hall footage missing. Return to Chapter 2'
+    : CHAPTER_THREE_CAMPAIGN ? 'Talk to the priest · deadline 05:10 · 05:00'
+    : 'DEBUG PREVIEW · Talk to the priest · deadline 05:10';
 }
 function setStoryObjective(ar: string, en: string) {
   $('objective-ar').textContent = ar;
@@ -338,7 +366,7 @@ function subtitle(t: Text, seconds?: number, who?: Text) {
 // ---------- State ----------
 let player: PlayerState = newPlayer(START);
 let vs: VillageState = newVillageState();
-let yaw = START_YAW, pitch = -0.03, storyTime = 0, endT = -1, introDone = false, turnbackCD = 0;
+let yaw = START_YAW, playerVisualYaw = START_YAW, pitch = -0.03, storyTime = 0, endT = -1, introDone = false, turnbackCD = 0, thirdPerson = false;
 let target = -1, lastExamine = -1, zoomT = 0, useTarget = -1, buttonTarget = -1, lockT = 0, lockU = -1, npcTarget = -1;
 // Talk: the lines heard so far (the order cursor, src/npcTalk.ts nextLine) and a log for the tests. Film: hold RMB.
 const heard = new Set<string>(), talkLog: { npc: string; line: string; t: number }[] = [];
@@ -357,6 +385,21 @@ const zoneOut: ('end' | 'turnback')[] = [];
 const pb: Box = { min: { x: 0, y: 0, z: 0 }, max: { x: 0, y: 0, z: 0 } };
 const eyeV = { x: 0, y: 0, z: 0 }, dirV = { x: 0, y: 0, z: 0 };
 const _cameraForward = new THREE.Vector3(), _toHall = new THREE.Vector3();
+
+/** Refresh the logical look ray. Also used by the test hook because headless software rendering may pause RAF. */
+function refreshLookTargets(eyeY = flying ? CARPET_EYE : eyeHeight(player)) {
+  eyeV.x = player.pos.x; eyeV.y = player.pos.y + eyeY; eyeV.z = player.pos.z;
+  const cp = Math.cos(pitch), sy = Math.sin(yaw), cy = Math.cos(yaw);
+  dirV.x = -sy * cp; dirV.y = Math.sin(pitch); dirV.z = -cy * cp;
+  target = endT >= 0 ? -1 : pickExaminable(eyeV, dirV, EXAMINABLES, SOLIDS);
+  npcTarget = endT >= 0 || target >= 0 ? -1 : pickExaminable(eyeV, dirV, NPC_PICKS, SIGHT_SOLIDS, TALK_RANGE);
+  if (!PROLOGUE_MODE && target < 0) {
+    const priest = TALKABLE_ACTORS.findIndex(a => a.id === 'npc_priest' && Math.hypot(a.x - player.pos.x, a.z - player.pos.z) < 3.2);
+    if (priest >= 0) npcTarget = priest;
+  }
+  useTarget = endT >= 0 || target >= 0 || npcTarget >= 0 ? -1 : pickUsable(eyeV, dirV, SOLIDS);
+  buttonTarget = endT >= 0 || target >= 0 || npcTarget >= 0 || useTarget >= 0 ? -1 : pickExaminable(eyeV, dirV, BUTTONS, SOLIDS);
+}
 
 // ---------- Input ----------
 const keys = new Set<string>();
@@ -407,9 +450,10 @@ addEventListener('keydown', e => {
     if (PROLOGUE_MODE) {
       sessionStorage.setItem('ov-prologue-complete', '1');
       location.search = '';
-    } else if (CHAPTER_TWO_MODE) location.search = '?chapter=3';
+    } else if (CHAPTER_TWO_MODE) location.search = '?chapter=3&from=hall';
     else restart();
   }
+  if (e.code === 'KeyR' && CHAPTER_TWO_MODE && chapterTwoStage >= 5 && !chapterTwoHallFilmed && film.battery <= 0 && endT < 0) restart();
   if (e.code === 'F3') { e.preventDefault(); devOn = !devOn; dev.style.display = devOn ? 'block' : 'none'; npcMarks.visible = devOn; }
 });
 addEventListener('keyup', e => keys.delete(e.code));
@@ -447,6 +491,11 @@ document.addEventListener('pointerlockchange', () => {
 });
 document.addEventListener('pointerlockerror', fallBackToDragLook);
 addEventListener('keydown', e => { if (e.code === 'Escape' && dragLook) { playing = false; overlay.style.display = 'flex'; } });
+addEventListener('keydown', e => {
+  if (e.code !== 'KeyV' || e.repeat || !playing || PROLOGUE_MODE) return;
+  thirdPerson = !thirdPerson;
+  showToast(thirdPerson ? 'THIRD-PERSON VIEW' : 'FIRST-PERSON VIEW');
+});
 addEventListener('mousemove', e => {
   if (endT >= 0) return;
   if (!document.pointerLockElement && !(dragLook && playing && e.buttons)) return;
@@ -507,6 +556,10 @@ function talk(a: Actor) {
   if (a.id === 'npc_maryam' && line.id === 'maryam_door') {
     story.flags.add('maryam_questioned');
     maryamQuestionedAt = storyTime;
+    if (story.day === 1) setStoryObjective('انتظر، ثم اسأل مريم مجدداً', 'Wait, then ask Maryam again');
+  }
+  if (a.id === 'npc_farmer' && line.id === 'farmer_light' && story.day === 1) {
+    setStoryObjective('ابحث عن مريم في بيتها', 'Find Maryam at her home');
   }
   if (CHAPTER_THREE_MODE && a.id === 'npc_priest' && line.id === 'priest_ladder') {
     chapterThreeStage = 1;
@@ -514,11 +567,15 @@ function talk(a: Actor) {
   }
   if (a.id === 'npc_maryam' && line.id === 'maryam_confirmed_missing' && startMaryamSearch(a)) {
     story.flags.add('joseph_late_confirmed');
-    const gate = ENTS.doors.find(d => d.id === 'gate-maryam');
-    if (gate) gate.goal = 1;
+    if (story.day === 1) setStoryObjective('تابع مريم إلى الساحة', 'Follow Maryam to the square');
+    const gateIndex = USABLES.findIndex(u => u.id === 'gate-maryam');
+    const gate = gateIndex >= 0 ? ENTS.doors[gateIndex] : null;
+    // Use the same entity path as an E press: auto-opening must release the closed leaf collision too.
+    if (gate && gate.goal === 0) use(gateIndex);
   }
   if (a.id === 'npc_omar' && line.id === 'omar_mountain' && story.day === 1 && a.spec.cuffed) {
     medicalCheckAt = storyTime + subTime + 2.5;
+    setStoryObjective('انتظر اكتمال الفحص الطبي تحت الحراسة', 'Wait for the guarded medical check to finish');
   }
   if (story.day === 2 && a.id === 'npc_elia' && line.id === 'elia_photos') {
     story.flags.add('elia_cover_introduced');
@@ -550,12 +607,32 @@ function use(u: number) {
 // ---------- Simulation ----------
 function tick(input: Input) {
   storyTime += DT;
+  // Keep narrative beats on the fixed simulation clock. A slow render or a hidden tab must
+  // not stall Chapter 3's detention/title state after its playable ending is triggered.
+  if (endT >= 0) {
+    endT += DT;
+    if (CHAPTER_THREE_MODE && endT >= 4.1 && !chapterThreeSeized) {
+      chapterThreeSeized = true; filmHeld = false; film.rec = false; rec.classList.add('stopped');
+      CH3_WORLD!.grabbingHands.visible = true;
+      document.body.classList.remove('filming'); audio.play('groan'); showToast('CAMERA SEIZED — LORENZO DETAINED');
+    }
+    if (endT > 9.1 && !title.classList.contains('show')) {
+      title.classList.add('show');
+      $('title-stats').textContent = PROLOGUE_MODE
+        ? 'THE ROOTS TAKE JOSEPH · R TO CONTINUE AS LORENZO'
+        : CHAPTER_TWO_MODE ? `CHAPTER 2 COMPLETE · FOOTAGE ${chapterTwoHallFilmed ? 'SECURED' : 'MISSED'} · R TO CONTINUE`
+        : CHAPTER_THREE_MODE ? chapterThreeUploaded ? 'SIGNAL · CAMERA SEIZED · LORENZO DETAINED' : 'SIGNAL MISSED · CAMERA SEIZED · LORENZO DETAINED'
+        : `${vs.examined.length}/${EXAMINABLES.length} clips · ${Math.floor(storyTime / 60)}:${pad(Math.floor(storyTime % 60))}`;
+      audio.play('drone');
+    }
+  }
   $('family-photo-card').style.display = storyTime < familyPhotoAt ? 'flex' : 'none';
   SOUTH_FARMLAND?.tick(DT);
   if (medicalCheckAt > 0 && storyTime >= medicalCheckAt) {
     medicalCheckAt = -1; story.medicalCheckComplete = true;
     const omar = ACTORS.find(a => a.id === 'npc_omar');
     if (omar) { omar.spec.cuffed = false; NPCF.setCuffed(ACTORS); }
+    if (story.day === 1) setStoryObjective('تحدّث إلى مورينو عن عمر', 'Speak to Moreno about Omar');
     showToast('GUARDED MEDICAL CHECK COMPLETE');
   }
   if (dayTwoTransitionAt > 0 && storyTime >= dayTwoTransitionAt) {
@@ -573,7 +650,10 @@ function tick(input: Input) {
     }
   }
   if (!introDone && storyTime > 1.4) { introDone = true; if (subTime <= 0 && !CHAPTER_TWO_MODE && !CHAPTER_THREE_MODE) subtitle(OPENING_LINE, 6.5); }   // never cut off a line
-  if (maryamQuestionedAt > -Infinity && storyTime - maryamQuestionedAt >= 8) story.flags.add('maryam_waited_without_joseph');
+  if (maryamQuestionedAt > -Infinity && storyTime - maryamQuestionedAt >= 8 && !story.flags.has('maryam_waited_without_joseph')) {
+    story.flags.add('maryam_waited_without_joseph');
+    if (story.day === 1) setStoryObjective('اسأل مريم إن كان جوزيف قد عاد', 'Ask Maryam whether Joseph has returned');
+  }
   turnbackCD -= DT;
   // Entities first: props the player walks into move ahead of him (and set his pace), leaves swing and turn solid again
   // once he is clear, buttons recover.
@@ -661,9 +741,14 @@ function tick(input: Input) {
       CH2_WORLD.setHazard(false, false, chapterTwoStage >= 6);
     }
     if (chapterTwoStage >= 5 && x > 373 && Math.abs(z - 42) < 7 && !chapterTwoComplete) {
-      if (chapterTwoStage < 6) setChapterTwoStage(6);
-      chapterTwoComplete = true; $('story-objective').style.display = 'none';
-      showToast(chapterTwoHallFilmed ? 'CHAPTER 2 COMPLETE · FOOTAGE SECURED' : 'CHAPTER 2 COMPLETE · FOOTAGE MISSED'); startEnd();
+      if (!chapterTwoHallFilmed) {
+        setStoryObjective('عُد إلى القاعة وصوّر جوزيف والحيوانات', 'Return to the Hall and film Joseph and the animals');
+        if (film.battery <= 0) setStoryObjective('نفدت بطارية الكاميرا. اضغط R لإعادة الفصل', 'Camera battery empty. Press R to restart the chapter');
+      } else {
+        chapterTwoComplete = true; $('story-objective').style.display = 'none';
+        sessionStorage.setItem('ov-hall-footage', '1');
+        showToast('CHAPTER 2 COMPLETE · FOOTAGE SECURED'); startEnd();
+      }
     }
   }
   if (CHAPTER_THREE_MODE && CH3_WORLD && chapterThreeClimbing && endT < 0) {
@@ -673,35 +758,45 @@ function tick(input: Input) {
     if (reached >= 3 && chapterThreeStage < 4) { chapterThreeStage = 4; showToast('FLIGHT 4 / 4'); }
     if (player.pos.y >= CH3_WORLD.topY - 0.01 && chapterThreeStage < 5) {
       chapterThreeStage = 5;
-      setStoryObjective('ارفع اللقطات قبل الساعة 05:10 — اضغط E باستمرار', 'Upload the footage before 05:10 — hold E');
+      if (CHAPTER_THREE_CAMPAIGN && !CAMPAIGN_HALL_FOOTAGE) setStoryObjective('لقطات القاعة مفقودة. عُد إلى الفصل الثاني', 'Hall footage missing. Return to Chapter 2');
+      else setStoryObjective('ارفع اللقطات قبل الساعة 05:10 — اضغط E باستمرار', 'Upload the footage before 05:10 — hold E');
       showToast('TOP LANDING — SIGNAL WINDOW OPEN');
     }
-    if (chapterThreeStage >= 5 && !chapterThreeUploaded && !chapterThreeUploadFailed && chapterThreeDeadline > 0) {
+    if (chapterThreeStage >= 5 && !chapterThreeUploaded && !chapterThreeUploadFailed && chapterThreeDeadline > 0 && (!CHAPTER_THREE_CAMPAIGN || CAMPAIGN_HALL_FOOTAGE)) {
       const atUpload = Math.hypot(player.pos.x - CH3_WORLD.upload.x, player.pos.z - CH3_WORLD.upload.z) < 1.8;
       if (atUpload && keys.has('KeyE') && chapterThreeDeadline > 0) {
         chapterThreeUploadHold += DT;
         if (chapterThreeUploadHold >= 20) {
-          chapterThreeUploaded = true; chapterThreeVehicleAt = storyTime;
-          setStoryObjective('وصلت الإشارة. الكاميرا أصبحت دليلاً.', 'Signal sent. The camera is now evidence.');
-          CH3_WORLD.showVehicles(); audio.play('drone'); showToast('SIGNAL SENT — VEHICLES ON THE VALLEY ROAD');
+          chapterThreeUploaded = true;
+          setStoryObjective('انتشر التسجيل. انتظر وصول الجهات عند 05:10.', 'The footage is spreading. Hold until agencies arrive at 05:10.');
+          audio.play('chime'); showToast('SIGNAL SENT — HOLD UNTIL 05:10');
         }
       } else if (chapterThreeUploadHold > 0) {
         chapterThreeUploadAttempts++;
         chapterThreeUploadHold = 0;
-        if (chapterThreeUploadAttempts >= 2) { chapterThreeUploadFailed = true; setStoryObjective('انقطع الإرسال. انتظر وصول المركبات.', 'Upload failed. Vehicles are coming.'); showToast('UPLOAD INTERRUPTED — WINDOW LOST'); }
-        else showToast('UPLOAD INTERRUPTED — ONE RETRY LEFT');
+        showToast('UPLOAD INTERRUPTED — TRY AGAIN BEFORE 05:10');
       }
       const seconds = Math.ceil(chapterThreeDeadline);
       $('objective-en').textContent = `Upload before 05:10 · hold E (${Math.floor(chapterThreeUploadHold)} / 20 s) · ${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
     }
   }
-  if (CHAPTER_THREE_MODE && CH3_WORLD && playing && !chapterThreeUploaded) {
+  if (CHAPTER_THREE_MODE && CH3_WORLD && playing && chapterThreeVehicleAt < 0) {
     chapterThreeDeadline = Math.max(0, chapterThreeDeadline - DT);
-    if (chapterThreeStage < 5) $('objective-en').textContent = `Talk to the priest · deadline 05:10 · ${String(Math.floor(chapterThreeDeadline / 60)).padStart(2, '0')}:${String(Math.floor(chapterThreeDeadline % 60)).padStart(2, '0')}`;
-    if (chapterThreeDeadline <= 0 && chapterThreeVehicleAt < 0) {
-      chapterThreeUploadFailed = true; chapterThreeVehicleAt = storyTime; CH3_WORLD.showVehicles();
-      setStoryObjective('فات الموعد. المركبات تقترب.', '05:10 passed. Vehicles arrive.');
-      showToast('05:10 — VEHICLES ARRIVE, SIGNAL NOT SENT');
+    const clock = `${String(Math.floor(chapterThreeDeadline / 60)).padStart(2, '0')}:${String(Math.floor(chapterThreeDeadline % 60)).padStart(2, '0')}`;
+    if (chapterThreeStage < 5) $('objective-en').textContent = `Talk to the priest · deadline 05:10 · ${clock}`;
+    else if (chapterThreeUploaded) $('objective-en').textContent = `Footage spreading · agencies arrive at 05:10 · ${clock}`;
+    else $('objective-en').textContent = `Upload before 05:10 · hold E (${Math.floor(chapterThreeUploadHold)} / 20 s) · ${clock}`;
+    if (chapterThreeDeadline <= 0) {
+      chapterThreeVehicleAt = storyTime;
+      CH3_WORLD.showVehicles(); audio.play('drone');
+      if (chapterThreeUploaded) {
+        setStoryObjective('انتشر التسجيل. وصلت الجهات عند 05:10.', 'Footage has spread. Agencies arrive at 05:10.');
+        showToast('05:10 — AGENCIES ARRIVE');
+      } else {
+        chapterThreeUploadFailed = true;
+        setStoryObjective('فات موعد الرفع. وصلت الجهات عند 05:10.', 'The upload missed the deadline. Agencies arrive at 05:10.');
+        showToast('05:10 — VEHICLES ARRIVE, SIGNAL NOT SENT');
+      }
     }
   }
   if (CHAPTER_THREE_MODE && (chapterThreeUploaded || chapterThreeUploadFailed) && chapterThreeVehicleAt >= 0 && storyTime - chapterThreeVehicleAt >= 4 && endT < 0) startEnd();
@@ -722,6 +817,19 @@ function tick(input: Input) {
       startEnd();
     }
   }
+  // NPC routes and attention use the same fixed clock as player movement so their speed
+  // stays stable under low frame rates and simulation-driven route checks.
+  for (const a of ACTORS) {
+    tickActor(a, DT, player.pos.x, player.pos.y, player.pos.z, storyTime);
+    if (a.spec.stage === 'maryam-square' && !story.flags.has('maryam_reached_square')) {
+      story.flags.add('maryam_reached_square');
+      if (story.day === 1 && !story.medicalCheckComplete && !talkLog.some(e => e.npc === 'npc_omar')) {
+        setStoryObjective('تحدّث إلى عمر في المركز', 'Talk to Omar at the police post');
+      }
+    }
+  }
+  syncMovingActorBoxes();
+  syncNpcPicks();
   arena?.tick(DT, player, h);
 }
 
@@ -746,7 +854,7 @@ function restart() {
     prologueCow?.reset();
     $('objective-ar').textContent = 'اعثر على البقرة في الحظيرة'; $('objective-en').textContent = 'Find the cow in the barn';
   }
-  yaw = START_YAW; pitch = -0.03; storyTime = 0; endT = -1; introDone = false; turnbackCD = 0; zoomT = 0; subTime = 0; lockT = 0;
+  yaw = START_YAW; playerVisualYaw = START_YAW; pitch = -0.03; storyTime = 0; endT = -1; introDone = false; turnbackCD = 0; zoomT = 0; subTime = 0; lockT = 0;
   flying = false; V.carpet.mesh.visible = false; flyV.x = flyV.y = flyV.z = 0;   // a restart lands without a glide
   END.yaw1 = Math.atan2(-cave.x, -cave.z);
   fade.style.opacity = '0'; title.classList.remove('show'); rec.classList.remove('stopped');
@@ -830,6 +938,14 @@ function frame(now: number) {
 
   // Head bob from distance walked; one footstep per half cycle, at the bottom of the bob (heel strike).
   const speed = Math.hypot(player.vel.x, player.vel.z);
+  lorenzoViewModel?.tick(filmHeld && playing && endT < 0, speed, t, dt);
+  const thirdPersonActive = thirdPerson && !PROLOGUE_MODE && endT < 0 && !flying;
+  if (lorenzoViewModel) lorenzoViewModel.group.visible = !thirdPersonActive;
+  if (lorenzoPlayerModel) {
+    lorenzoPlayerModel.root.visible = thirdPersonActive;
+    if (speed > 0.18) playerVisualYaw = yaw;
+    lorenzoPlayerModel.update(player.pos.x, player.pos.y, player.pos.z, playerVisualYaw, speed, t, player.crouched);
+  }
   if (player.onGround && speed > 0.3) {
     const before = Math.floor(bobPhase / Math.PI);
     bobPhase += speed * dt / (0.75 + 0.12 * speed) * Math.PI;
@@ -857,12 +973,6 @@ function frame(now: number) {
   // End sequence: turn to the cave, fade into the Hall reveal, then show the continuation prompt.
   let fovTarget = FOV;
   if (endT >= 0) {
-    endT += dt;
-    if (CHAPTER_THREE_MODE && endT >= 4.1 && !chapterThreeSeized) {
-      chapterThreeSeized = true; filmHeld = false; film.rec = false; rec.classList.add('stopped');
-      CH3_WORLD!.grabbingHands.visible = true;
-      document.body.classList.remove('filming'); audio.play('groan'); showToast('CAMERA SEIZED — LORENZO DETAINED');
-    }
     const k = ease(endT / 3.2);
     yaw = END.yaw0 + (END.yaw1 - END.yaw0) * k;
     pitch = END.pitch0 + (END.pitch1 - END.pitch0) * k;
@@ -884,15 +994,6 @@ function frame(now: number) {
         prologueHall?.tick(endT - 7.5);
       } else fade.style.opacity = '1';
     }
-    if (endT > 9.1 && !title.classList.contains('show')) {
-      title.classList.add('show');
-      $('title-stats').textContent = PROLOGUE_MODE
-        ? 'THE ROOTS TAKE JOSEPH · R TO CONTINUE AS LORENZO'
-        : CHAPTER_TWO_MODE ? `CHAPTER 2 COMPLETE · FOOTAGE ${chapterTwoHallFilmed ? 'SECURED' : 'MISSED'} · R TO CONTINUE`
-        : CHAPTER_THREE_MODE ? chapterThreeUploaded ? 'SIGNAL · CAMERA SEIZED · LORENZO DETAINED' : 'SIGNAL MISSED · CAMERA SEIZED · LORENZO DETAINED'
-        : `${vs.examined.length}/${EXAMINABLES.length} clips · ${Math.floor(storyTime / 60)}:${pad(Math.floor(storyTime % 60))}`;
-      audio.play('drone');
-    }
   } else if (zoomT > 0) {
     zoomT -= dt;
     if (target === lastExamine) fovTarget = FOV - 8;
@@ -905,6 +1006,13 @@ function frame(now: number) {
   camera.rotation.set(pitch + swayP + sh * 0.05 * shake(t, 1), yaw + swayY + sh * 0.03 * shake(t, 2), -bobX * 0.15 + sh * 0.04 * shake(t, 3));
   const cy = Math.cos(yaw), sy = Math.sin(yaw);
   camera.position.set(player.pos.x + cy * bobX, player.pos.y + eyeY + bobY - bobAmp * 0.5 - landDip, player.pos.z - sy * bobX);
+  if (thirdPersonActive) {
+    const tx = player.pos.x, ty = player.pos.y + (player.crouched ? 1.12 : 1.52), tz = player.pos.z;
+    const desiredX = tx + sy * 3.35, desiredY = ty + 0.68, desiredZ = tz + cy * 3.35;
+    const blockedAt = segmentHit(tx, ty, tz, desiredX, desiredY, desiredZ);
+    const arm = Number.isFinite(blockedAt) ? Math.max(0.06, blockedAt - 0.045) : 1;
+    camera.position.set(tx + (desiredX - tx) * arm, ty + (desiredY - ty) * arm, tz + (desiredZ - tz) * arm);
+  }
   if (CHAPTER_THREE_MODE && endT >= 4.1) {
     const seized = ease((endT - 4.1) / 0.8);
     CH3_WORLD!.grabbingHands.visible = true;
@@ -926,22 +1034,12 @@ function frame(now: number) {
   }
 
   // Look target (logical eye and view, without bob), highlight fade.
-  eyeV.x = player.pos.x; eyeV.y = player.pos.y + eyeY; eyeV.z = player.pos.z;
-  const cp = Math.cos(pitch);
-  dirV.x = -sy * cp; dirV.y = Math.sin(pitch); dirV.z = -cy * cp;
+  refreshLookTargets(eyeY);
   if (arena) {   // fire along the logical view; the punch, the hurt roll and the fall go on top of the camera
     arena.frame(dt, eyeV, dirV, bobX, bobY);
     camera.rotation.x += arena.view.pitch; camera.rotation.z += arena.view.roll; camera.position.y -= arena.view.drop;
     trauma = Math.min(1, trauma + arena.trauma());
   }
-  target = endT >= 0 ? -1 : pickExaminable(eyeV, dirV, EXAMINABLES, SOLIDS);
-  npcTarget = endT >= 0 || target >= 0 ? -1 : pickExaminable(eyeV, dirV, NPC_PICKS, SIGHT_SOLIDS, TALK_RANGE);
-  if (!PROLOGUE_MODE && target < 0) {
-    const priest = TALKABLE_ACTORS.findIndex(a => a.id === 'npc_priest' && Math.hypot(a.x - player.pos.x, a.z - player.pos.z) < 3.2);
-    if (priest >= 0) npcTarget = priest; // near the altar, E stays easy without precise head aim
-  }
-  useTarget = endT >= 0 || target >= 0 || npcTarget >= 0 ? -1 : pickUsable(eyeV, dirV, SOLIDS);
-  buttonTarget = endT >= 0 || target >= 0 || npcTarget >= 0 || useTarget >= 0 ? -1 : pickExaminable(eyeV, dirV, BUTTONS, SOLIDS);
   for (let i = 0; i < EXAMINABLES.length; i++) {
     const h = V.highlights[i];
     if (!h) continue; // Chapter-specific evidence points may not have a baked village highlight mesh.
@@ -957,7 +1055,8 @@ function frame(now: number) {
     }
   }
   if (CHAPTER_THREE_MODE && chapterThreeStage >= 5 && !chapterThreeUploaded && !chapterThreeUploadFailed && endT < 0 && Math.hypot(player.pos.x - CH3_WORLD!.upload.x, player.pos.z - CH3_WORLD!.upload.z) < 1.8) {
-    promptAr.textContent = 'اضغط E باستمرار لرفع اللقطات'; promptEn.textContent = `Hold E to upload · ${Math.floor(chapterThreeUploadHold)} / 20 s`;
+    promptAr.textContent = CHAPTER_THREE_CAMPAIGN && !CAMPAIGN_HALL_FOOTAGE ? 'لقطات القاعة مفقودة' : 'اضغط E باستمرار لرفع اللقطات';
+    promptEn.textContent = CHAPTER_THREE_CAMPAIGN && !CAMPAIGN_HALL_FOOTAGE ? 'Hall footage missing — return to Chapter 2' : `Hold E to upload · ${Math.floor(chapterThreeUploadHold)} / 20 s`;
     prompt.classList.add('show'); prompt.classList.remove('seen', 'locked');
   } else if (target >= 0) {
     const e = EXAMINABLES[target];
@@ -1040,13 +1139,7 @@ function frame(now: number) {
 
   V.dustTime.value = t;
 
-  // NPCs: attention and idle (src/npcTalk.ts), then posed on the GPU (src/npcFigures.ts).
-  for (const a of ACTORS) {
-    tickActor(a, dt, player.pos.x, player.pos.y, player.pos.z, storyTime);
-    if (a.spec.stage === 'maryam-square') story.flags.add('maryam_reached_square');
-  }
-  syncMovingActorBoxes();
-  syncNpcPicks();
+  // NPCs: fixed-clock movement/attention in tick(); pose the GPU figures here.
   NPCF.update(ACTORS, t);
   // Camera: while RMB is held (and charged) Lorenzo records; an NPC held in frame for a second is logged, and again for
   // each line it is filmed saying (a testimony).
@@ -1056,7 +1149,12 @@ function frame(now: number) {
     const was = film.rec;
     const got = filmTick(film, dt, live, fa ? fa.id : null, fa ? fa.line : null, storyTime);
     if (film.rec !== was) audio.play('rec', film.rec ? 1 : 0);
-    if (live && !film.rec) { showToast('BATTERY EMPTY'); filmHeld = false; }   // held with no charge left
+    if (live && !film.rec) {
+      showToast(CHAPTER_TWO_MODE && chapterTwoStage >= 5 && !chapterTwoHallFilmed
+        ? 'BATTERY EMPTY — PRESS R TO RESTART CHAPTER' : 'BATTERY EMPTY');
+      if (CHAPTER_TWO_MODE && chapterTwoStage >= 5 && !chapterTwoHallFilmed) setStoryObjective('نفدت بطارية الكاميرا. اضغط R لإعادة الفصل', 'Camera battery empty. Press R to restart the chapter');
+      filmHeld = false;
+    }
     if (CHAPTER_TWO_MODE && CH2_WORLD && chapterTwoStage === 5 && film.rec) {
       _toHall.copy(CH2_WORLD.hallTarget).sub(camera.position);
       const distance = _toHall.length();
@@ -1117,6 +1215,8 @@ requestAnimationFrame(frame);
 // ---------- Test hook (Playwright, screenshots, measurements) ----------
 declare global { interface Window { __game: unknown } }
 window.__game = {
+  viewMode: () => thirdPerson ? 'third-person' : 'first-person',
+  setThirdPerson: (active: boolean) => { thirdPerson = active; },
   state: () => ({
     level: 'village', chapter: CHAPTER_THREE_MODE ? 3 : CHAPTER_TWO_MODE ? 2 : 1,
     chapterTwo: { stage: chapterTwoStage, recorder: chapterTwoRecorderFound, hallFilmed: chapterTwoHallFilmed, complete: chapterTwoComplete,
@@ -1152,9 +1252,11 @@ window.__game = {
   },
   examinables: () => EXAMINABLES.map(e => ({ id: e.id, pos: e.pos, from: e.from })),
   usables: () => USABLES.map((u, i) => ({ id: u.id, kind: u.kind, locked: u.locked, pos: u.pos, from: u.from, open: ENTS.doors[i].open, solid: ENTS.doors[i].solid })),
+  /** Nearby collision boxes for repeatable E2E route diagnosis. */
+  solidsAt: (x: number, z: number) => nearWorld(x, z, false).map(b => ({ min: { ...b.min }, max: { ...b.max } })),
   ents: () => ({ bells, props: ENTS.props.map(p => ({ id: p.id, pos: { ...p.pos }, vel: { ...p.vel } })), buttons: ENTS.buttons.map(b => ({ id: b.id, t: b.t, cool: b.cool })) }),
   buttonTarget: () => (buttonTarget >= 0 ? BELL_ROPE.id : null),
-  npcs: () => ACTORS.map(a => ({ id: a.id, x: a.x, y: a.y, z: a.z, rest: a.rest, yaw: a.yaw, headYaw: a.headYaw, headPitch: a.headPitch, seated: a.seated, talk: a.talk, line: a.line, label: actorLabel(a) })),
+  npcs: () => ACTORS.map(a => ({ id: a.id, x: a.x, y: a.y, z: a.z, rest: a.rest, yaw: a.yaw, headYaw: a.headYaw, headPitch: a.headPitch, seated: a.seated, cuffed: a.spec.cuffed, talk: a.talk, line: a.line, label: actorLabel(a) })),
   /** The furnished rooms: build stats, and on request the texture atlas as a PNG data URL (stills, debugging). */
   furniture: (atlas = false) => ({ ...FURN.stats, rooms: FURN.rooms.map(m => m.geometry.getAttribute('position').count),
     atlas: atlas ? ((FURN.rooms[0].material as THREE.MeshStandardMaterial).map?.image as HTMLCanvasElement | undefined)?.toDataURL?.() ?? null : null }),
@@ -1172,7 +1274,7 @@ window.__game = {
   audioPeaks: () => measureVillagePeaks(),
   press: (code: string) => keys.add(code),
   release: (code: string) => keys.delete(code),
-  look: (y: number, p: number) => { yaw = y; pitch = p; },
+  look: (y: number, p: number) => { yaw = y; pitch = p; refreshLookTargets(); },
   key: (code: string) => dispatchEvent(new KeyboardEvent('keydown', { code })),
   /** Advances the fixed gameplay simulation without render-frame throttling for state inspection. */
   advance: (seconds: number) => { const n = Math.max(0, Math.ceil(seconds / DT)), input = readInput(); for (let i = 0; i < n; i++) tick(input); },

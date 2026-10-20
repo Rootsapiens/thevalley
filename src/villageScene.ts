@@ -1616,14 +1616,16 @@ export function buildVillage(scene: THREE.Scene, renderer: THREE.WebGLRenderer, 
     + 18 * Math.exp(-((angDiff(b, 293) / 13) ** 2)) + 9 * (ringNoise(b, 64, 5.5) - 0.5) * Math.exp(-((angDiff(b, 280) / 22) ** 2))
     + 20 * Math.exp(-((angDiff(b, 130) / 34) ** 2)) + 12 * Math.exp(-((angDiff(b, 190) / 20) ** 2))
     + 8 * Math.exp(-((angDiff(b, 20) / 14) ** 2)) + 6 * Math.exp(-((angDiff(b, 70) / 10) ** 2));
-  const near = ridgeRing(230, nearH, { shade: mix('fogHaze', 'ink', 0.5, 1.0), lit: mix('wallPaint', 'sodium', 0.4, 0.5), snow: P('ink'), snowLine: 999, haze: 0.25, litK: 0.8 });
+  // Keep the nearby valley wall crisp and let the distant peaks recede into more of the dusk haze;
+  // the contrast between these two existing layers gives the view a stronger sense of scale.
+  const near = ridgeRing(230, nearH, { shade: mix('fogHaze', 'ink', 0.5, 1.0), lit: mix('wallPaint', 'sodium', 0.4, 0.5), snow: P('ink'), snowLine: 999, haze: 0.18, litK: 0.8 });
   const far = ridgeRing(470, b => {
     const m = 125 * Math.exp(-((angDiff(b, MOUNTAIN.bearing) / 12) ** 2)) + 70 * Math.exp(-((angDiff(b, MOUNTAIN.bearing - 23) / 10) ** 2))
       + 62 * Math.exp(-((angDiff(b, MOUNTAIN.bearing + 27) / 13) ** 2)) + 30 * Math.exp(-((angDiff(b, -15) / 16) ** 2))
       + 25 * Math.exp(-((angDiff(b, 110) / 18) ** 2));
     const rock = (6 * ringNoise(b, 28, 4.2) + 3 * ringNoise(b, 92, 9.1)) * Math.min(1, m / 60);
     return 14 + 6 * ringNoise(b, 3.4, 1.3) + m + rock;
-  }, { shade: mix('fogHaze', 'skyNight', 0.3, 1.25), lit: mix('sodium', 'rust', 0.45, 1.0), snow: mix('hudAmber', 'concrete', 0.5, 2.3), snowLine: 95, haze: 0.32, litK: 1.15 });
+  }, { shade: mix('fogHaze', 'skyNight', 0.3, 1.25), lit: mix('sodium', 'rust', 0.45, 1.0), snow: mix('hudAmber', 'concrete', 0.5, 2.3), snowLine: 95, haze: 0.43, litK: 1.15 });
   const ringMat = new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, side: THREE.DoubleSide });
   // Cave mouth: the black arch low on the mountain face.
   const arch = new THREE.Shape();

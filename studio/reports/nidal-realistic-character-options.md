@@ -1,0 +1,13 @@
+# Free character sources for Omega Valley — 2026-10-21
+
+Research handoff for Nidal's interrupted task. This is a source shortlist, not a downloaded or integrated character. The project ships in Three.js; Lorenzo's film appearance remains the reference.
+
+| Source | Verified terms and useful material | Fit and next action |
+| --- | --- | --- |
+| [MakeHuman core assets](https://static.makehumancommunity.org/about/license.html) and [system asset inventory](https://static.makehumancommunity.org/assets/assetpacks/makehuman_system_assets.html) | Core graphics are CC0. The inventory includes male body/skin, casual suits, work suit, shoes, and hair. [Exported models are CC0](https://static.makehumancommunity.org/makehuman/faq/can_i_sell_models_created_with_makehuman.html). | Best free basis here for a more natural adult body and face. Build one clothed Lorenzo candidate; inspect polygon count, rig, textures, pose and game cost before replacement. Core outfits still need film-specific jacket/sweater tailoring and animation work. |
+| [MakeHuman CC0 asset packs](https://static.makehumancommunity.org/assets/assetpacks.html), including [shirts](https://static.makehumancommunity.org/assets/assetpacks/shirts01.html) | The packs label each asset's license; shirts include sweaters and tops under CC0. Some other community assets are CC-BY, so verify each chosen item before adding it. | Candidate sweater layers and villager variants. Record exact author, item URL and license in the game's asset manifest. Check clipping and fit after export. |
+| [Quaternius Ultimate Modular Men](https://quaternius.com/packs/ultimatemodularcharacters.html) | Official listing says CC0, 11 modular characters and 24 animations, with glTF among the formats. | Fast animated NPC prototype, but its style is clearly stylized. Useful for movement and interaction prototyping, not the owner's cinematic likeness target. |
+
+The locally available [Quaternius Universal Base Characters](https://quaternius.com/packs/universalbasecharacters.html) and animation packs are already audited in `studio/reports/aktham-lorenzo-realism.md`. Their differing bind poses make raw clip transfer unsuitable. Do not duplicate those downloads or declare animation integration complete.
+
+**Recommended bounded experiment:** export a CC0 MakeHuman adult male with system clothes and a neutral rig into a separate prototype folder. Compare front/back silhouette to the supplied film stills; measure triangles, texture memory, rig joints, load time, and walking/idle feasibility. Keep the current playable Lorenzo model until a clothed, animated candidate passes rendered review. No asset was downloaded or game file modified by this research.
