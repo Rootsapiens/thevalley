@@ -51,7 +51,8 @@ test('NPCs: talk to three with E (lines in order), film one with RMB', async ({ 
   // The priest at the altar, from the aisle: his canon line first, then the ladder.
   await face(page, 'npc_priest', 18.6, 30.75);
   await talk(page, 'npc_priest', 'priest_altar');
-  await talk(page, 'npc_priest', 'priest_ladder');
+  // The ladder line is Chapter 3 content; in Chapter 1 the canon altar warning repeats.
+  await talk(page, 'npc_priest', 'priest_altar');
   // A villager on the square: the Ravens, then (Omar is at the post) the question about him, then that again.
   await face(page, 'npc_square_villager_1', 19, 44);
   await talk(page, 'npc_square_villager_1', 'npc_square_villager_1_animals');
