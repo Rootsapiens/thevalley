@@ -119,3 +119,7 @@
 **Verified:** Issa ran the local `OmegaValley-publish-pages` Team Studio in headless Chromium after loading all GLBs. Fourteen actors rendered, each worker was seated at the matching desk/chair, status labels updated, and the browser console reported zero errors. Screenshot: `C:\Users\nadee\AppData\Local\Temp\team-office-check.png`.
 **Limit:** This proves the local gh-pages snapshot, not the remote GitHub URL. Mobile 2D layout remains a separate responsive path. NPC appearance inside the main game and Unreal editor runtime remain unverified.
 
+## 2026-10-20 — NPC browser route verified
+**Proof:** `npx playwright test tests/e2e/npcs.spec.ts` passed (1 test, 1.9 minutes) after keeping the priest prompt reachable near the altar and aligning the test with the canon rule that `priest_ladder` is Chapter 3 content. The test covered three NPC conversations, repeated canon dialogue, recording an officer, and the police-post interaction.
+**Limit:** This is a scripted browser route, not a complete player-driven episode run. Full prologue-to-Chapter 3 continuity, Unreal runtime, and NPC GLB appearance in the main game remain open.
+
