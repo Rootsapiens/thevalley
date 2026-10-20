@@ -41,6 +41,7 @@ GROUP_MAT = {"fence": "fence", "wall": "stone", "step": "stone", "prop": "stone"
 VSTILLS = [
     ("VStill_Aerial", (-70.0, 60.0, 150.0), (30.0, 0.0, 40.0), 55.0),
     ("VStill_Square", (-5.0, 1.7, 58.0), (24.0, 4.0, 30.0), 65.0),
+    ("VStill_NPCs", (30.0, 1.8, 61.5), (22.0, 1.4, 49.5), 65.0),
 ]
 
 
@@ -115,10 +116,35 @@ def build_town(town, mats):
 
 
 def build_trees(town, mats):
+    nature_meshes = [
+        EAL.load_asset("/Game/OmegaValley/Environment/Nature/QuaterniusCC0/Tree1/Tree1"),
+        EAL.load_asset("/Game/OmegaValley/Environment/Nature/QuaterniusCC0/Tree2/Tree2"),
+        EAL.load_asset("/Game/OmegaValley/Environment/Nature/QuaterniusCC0/Tree4/Tree4"),
+    ]
+    use_nature_meshes = all(nature_meshes)
+    B.STATS["natureMeshTrees"] = 0
     for i, t in enumerate(town["trees"]["olives"]):
         s = t["s"]
-        B.shape("Cylinder", U.loc(t["x"], t["y"] + 0.9 * s, t["z"]), (26 * s, 26 * s, 180 * s), mats["woodDark"], "Olive%03d_Trunk" % i, "Town/Trees")
-        B.shape("Sphere", U.loc(t["x"], t["y"] + 2.5 * s, t["z"]), (340 * s, 340 * s, 260 * s), mats["olive"], "Olive%03d_Crown" % i, "Town/Trees")
+        if use_nature_meshes:
+            mesh = nature_meshes[i % len(nature_meshes)]
+            bounds = mesh.get_bounds()
+            centre, ext = bounds.origin, bounds.box_extent
+            scale_xy = 2.1 * s
+            scale_z = 1.2 * s
+            # FBX pivots are offset from the trunk base. Compensate so the roots remain on the
+            # authored terrain point; all source x/z coordinates stay unchanged.
+            base_x, base_y, base_z = centre.x, centre.y, centre.z - ext.z
+            x, y, z = U.loc(t["x"], t["y"], t["z"])
+            actor = B.spawn(unreal.StaticMeshActor,
+                            (x - base_x * scale_xy, y - base_y * scale_xy, z - base_z * scale_z),
+                            None, "Olive%03d_CC0" % i, "Town/Trees")
+            actor.static_mesh_component.set_static_mesh(mesh)
+            actor.static_mesh_component.set_editor_property("mobility", unreal.ComponentMobility.STATIC)
+            actor.set_actor_scale3d(unreal.Vector(scale_xy, scale_xy, scale_z))
+            B.STATS["natureMeshTrees"] += 1
+        else:
+            B.shape("Cylinder", U.loc(t["x"], t["y"] + 0.9 * s, t["z"]), (26 * s, 26 * s, 180 * s), mats["woodDark"], "Olive%03d_Trunk" % i, "Town/Trees")
+            B.shape("Sphere", U.loc(t["x"], t["y"] + 2.5 * s, t["z"]), (340 * s, 340 * s, 260 * s), mats["olive"], "Olive%03d_Crown" % i, "Town/Trees")
     for i, t in enumerate(town["trees"]["pines"]):
         h = t["h"]
         B.shape("Cylinder", U.loc(t["x"], t["y"] + h * 0.2, t["z"]), (h * 3.5, h * 3.5, h * 40), mats["woodDark"], "Pine%03d_Trunk" % i, "Town/Trees")
@@ -162,6 +188,7 @@ def main():
         import decorate_rooms_tareq
         res["publicRooms"] = decorate_rooms_tareq.decorate(town, mats)
         res["trees"] = build_trees(town, mats)
+        res["natureMeshOlives"] = B.STATS.get("natureMeshTrees", 0)
         res["streamStrips"] = build_stream(town, mats)
         B.build_lighting(d, sky_mi)
         B.build_lanterns(d, mats)

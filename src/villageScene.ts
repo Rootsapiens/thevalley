@@ -1663,6 +1663,12 @@ export function buildVillage(scene: THREE.Scene, renderer: THREE.WebGLRenderer, 
   sun.shadow.radius = 2.5;
   scene.add(sun, sun.target);
 
+  // Soft sky fill keeps the village characters readable in the low dusk light
+  // while leaving the warm directional sun responsible for the scene's shadows.
+  const skyFill = new THREE.HemisphereLight('#d7c9ae', '#26312d', 0.28);
+  skyFill.position.set(0, 18, 0);
+  scene.add(skyFill);
+
   // Dust motes: drift and the doorway-light falloff run in the vertex shader (no per-frame CPU work or buffer uploads).
   const N = 420, dp = new Float32Array(N * 3), dph = new Float32Array(N);
   for (let i = 0; i < N; i++) { dp[i * 3] = rr(-2.6, 2.6); dp[i * 3 + 1] = rr(0.2, 4.0); dp[i * 3 + 2] = rr(-9.6, 1); dph[i] = R() * 100; }
