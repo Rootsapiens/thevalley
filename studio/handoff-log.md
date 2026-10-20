@@ -1,3 +1,10 @@
+# 2026-10-20 — Day 2 Elia–Omar story handoff
+
+- **Fixed:** Day 1 and Day 2 scene transitions now make one navigation request after the fade. Previously the game assigned `location.search` on every simulation tick, repeatedly aborting the page's pending requests.
+- **Verified in Chromium:** `npx playwright test tests/e2e/day-two-handoff.spec.ts` passed. The live Day 2 route displays Moreno's assignment in the opening card; Omar's cover line repeats as unavailable until Lorenzo hears Elia's photo line; then Omar's cover line advances the game to Chapter 2. No browser console, page, or request errors were reported.
+- **Test scope:** The browser test uses the game's test hook to position Lorenzo near each NPC, then uses the real E key and checks the visible bilingual lines and route change. It does not verify walking the stairs to Elia's balcony.
+- **Open:** A natural walk-through of the balcony access and full Chapter 1 route remains unverified. Proposed Arabic dialogue remains draft.
+
 # 2026-10-20 — Subzero: Unreal CC0 orchard mesh pass
 
 - **Done:** Imported three usable Quaternius LowPoly Nature Pack v3 trees into the Unreal mirror (`Tree1`, `Tree2`, `Tree4`) and replaced the 56 authored olive-tree trunk/crown primitive pairs with one textured static-mesh actor per existing anchor. No village-town data, actor coordinates, or story logic changed. Left all 213 tall pine placements and the quarry/story direction untouched. Added an NPC close still at existing square NPCs and an idempotent content importer/bounds report; the fourth source (`Tree3.fbx`) was excluded after UE 5.8 FBX SDK reported malformed `Icosphere_008` triangulation. Added a `look.json` override raising sky fill from 2.2 to 3.4.

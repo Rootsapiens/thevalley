@@ -560,11 +560,17 @@ function tick(input: Input) {
   }
   if (dayTwoTransitionAt > 0 && storyTime >= dayTwoTransitionAt) {
     fade.style.opacity = '1';
-    if (storyTime >= dayTwoTransitionAt + 1.8) location.search = '?day=2';
+    if (storyTime >= dayTwoTransitionAt + 1.8) {
+      dayTwoTransitionAt = -1;
+      location.search = '?day=2';
+    }
   }
   if (chapterTwoTransitionAt > 0 && storyTime >= chapterTwoTransitionAt) {
     fade.style.opacity = '1';
-    if (storyTime >= chapterTwoTransitionAt + 1.8) location.search = '?chapter=2';
+    if (storyTime >= chapterTwoTransitionAt + 1.8) {
+      chapterTwoTransitionAt = -1;
+      location.search = '?chapter=2';
+    }
   }
   if (!introDone && storyTime > 1.4) { introDone = true; if (subTime <= 0 && !CHAPTER_TWO_MODE && !CHAPTER_THREE_MODE) subtitle(OPENING_LINE, 6.5); }   // never cut off a line
   if (maryamQuestionedAt > -Infinity && storyTime - maryamQuestionedAt >= 8) story.flags.add('maryam_waited_without_joseph');
