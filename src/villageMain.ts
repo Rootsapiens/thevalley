@@ -37,7 +37,10 @@ const TC_START = new URLSearchParams(location.search).get('chapter') === '3'
   : (16 * 60 + 41) * 60 + 12;   // Ch1/2 camcorder clock: 16:41:12, nine minutes before sunset (world-bible)
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+// Small screens are usually running on software or mobile GPUs; keeping a 1x
+// target there avoids rendering four times as many pixels while preserving the
+// sharper 2x presentation on desktop.
+renderer.setPixelRatio(Math.min(devicePixelRatio, innerWidth <= 700 ? 1 : 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
