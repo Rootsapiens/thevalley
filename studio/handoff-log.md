@@ -1,9 +1,15 @@
+## 2026-10-20 — Day 2 balcony walk verification
+
+- **Verified:** A Playwright route walks Lorenzo from the Day 2 spawn around the graveyard wall and police post, crosses the square to the foot of the café stairs, then reaches balcony height with W key input and no teleport. `npx playwright test tests/e2e/day-two-handoff.spec.ts -g "real keyboard route"` passed (1 test, 1.1 min). The test advances the normal fixed-step simulation while W is physically held, so collision and stair checks stay active.
+- **Full checks:** `npx vitest run --testTimeout=30000 --maxWorkers=3` passed all 195 tests across 20 files; `npm run build` passed (83 modules). The default-parallel run hit three 5-second timeouts under 20 workers; capped-worker rerun passed. Existing materials chunk-size warning remains.
+- **Open:** This verifies balcony access and the adjacent Day 2 interaction path, not a complete natural playthrough of Chapter 1 or all of Episode One. Proposed Arabic dialogue remains draft.
+
 # 2026-10-20 — Day 2 Elia–Omar story handoff
 
 - **Fixed:** Day 1 and Day 2 scene transitions now make one navigation request after the fade. Previously the game assigned `location.search` on every simulation tick, repeatedly aborting the page's pending requests.
 - **Verified in Chromium:** `npx playwright test tests/e2e/day-two-handoff.spec.ts` passed. The live Day 2 route displays Moreno's assignment in the opening card; Omar's cover line repeats as unavailable until Lorenzo hears Elia's photo line; then Omar's cover line advances the game to Chapter 2. No browser console, page, or request errors were reported.
-- **Test scope:** The browser test uses the game's test hook to position Lorenzo near each NPC, then uses the real E key and checks the visible bilingual lines and route change. It does not verify walking the stairs to Elia's balcony.
-- **Open:** A natural walk-through of the balcony access and full Chapter 1 route remains unverified. Proposed Arabic dialogue remains draft.
+- **Test scope:** The story test uses the game's test hook to position Lorenzo near each NPC, then uses the real E key and checks the visible bilingual lines and route change. The newer balcony-walk entry above verifies stair access with W-key movement.
+- **Open:** The full Chapter 1 route remains unverified. Proposed Arabic dialogue remains draft.
 
 # 2026-10-20 — Subzero: Unreal CC0 orchard mesh pass
 

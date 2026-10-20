@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { watchPage, expectNoProblems, waitForGame } from './helpers';
+import { watchPage, expectNoProblems, waitForGame, startPlay } from './helpers';
 import { NPCS, type NpcId } from '../../src/npcData';
 import { CAST } from '../../src/npcTalk';
 
@@ -61,4 +61,48 @@ test('Day 2: Moreno assignment, Elia cover, then Omar response', async ({ page }
   await page.evaluate(() => (window as unknown as { __game: { advance: (seconds: number) => void } }).__game.advance(10));
   await expect(page).toHaveURL(/\?chapter=2$/, { timeout: 60_000 });
   await expectNoProblems(problems);
+});
+
+test('Day 2: real keyboard route reaches Elia balcony', async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.addInitScript(() => sessionStorage.setItem('ov-prologue-complete', '1'));
+  await waitForGame(page, '/?day=2');
+  await startPlay(page);
+  await expect(page.locator('#overlay')).toBeHidden();
+  const walkToward = async (x: number, z: number, targetY = -Infinity) => {
+    await page.keyboard.down('KeyW');
+    let result;
+    try {
+      // Batch the normal fixed-step simulation in the page. W remains a real keyboard input;
+      // only the test clock is advanced, so collisions and stair height checks still run.
+      result = await page.evaluate(({ x, z, targetY }) => {
+        const g = (window as unknown as { __game: { look: (yaw: number, pitch: number) => void; advance: (seconds: number) => void; state: () => { pos: { x: number; y: number; z: number } } } }).__game;
+        let s = g.state();
+        for (let i = 0; i < 500; i++) {
+          if ((Number.isFinite(targetY) && s.pos.y > targetY) || Math.hypot(s.pos.x - x, s.pos.z - z) < 1.0) break;
+          g.look(Math.atan2(-(x - s.pos.x), -(z - s.pos.z)), -0.03);
+          g.advance(0.12);
+          const next = g.state();
+          if (Math.hypot(next.pos.x - s.pos.x, next.pos.z - s.pos.z) < 0.015 && i > 12) break;
+          s = next;
+        }
+        return s.pos;
+      }, { x, z, targetY });
+    } finally { await page.keyboard.up('KeyW'); }
+    const reached = (Number.isFinite(targetY) && result.y > targetY) || Math.hypot(result.x - x, result.z - z) < 1.0;
+    expect(reached, `walkToward blocked at ${JSON.stringify(result)} while heading for (${x}, ${z})`).toBe(true);
+  };
+  // The graveyard wall runs west from x=-0.5 to x=-20; go around its west end
+  // and the police post before crossing the square toward the café stairs.
+  await walkToward(-22.0, 21.5);
+  await walkToward(-22.0, 56);
+  await walkToward(9.8, 54.8);
+  await walkToward(9.8, 59.8, 2.5);
+  const reached = await page.evaluate(() => {
+    const g = (window as unknown as { __game: { state: () => { pos: { x: number; y: number; z: number }; npc: string | null } } }).__game.state();
+    return { pos: g.pos, npc: g.npc };
+  });
+  expect(reached.pos.y).toBeGreaterThan(2.5);
+  expect(reached.pos.x).toBeGreaterThan(7);
+  expect(reached.pos.x).toBeLessThan(13);
 });
