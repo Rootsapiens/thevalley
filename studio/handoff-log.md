@@ -1,3 +1,7 @@
+## 2026-10-20 — Full internal test suite verification
+
+- **Verified:** `npm test -- --run` passed: 20 test files, 194 tests, 0 failures in 8.25s.
+- **Scope:** physics, village data, NPC data/placement/talk, interiors, combat, network and root-bot systems.
 ## 2026-10-20 — Arena default route verification
 
 - **Verified:** `npx playwright test tests/e2e/arena.spec.ts -g "arena is off by default"` passed in Chromium: 1 test passed in 24.6s. The normal village route has no arena walkers, caster, or hit marker.
