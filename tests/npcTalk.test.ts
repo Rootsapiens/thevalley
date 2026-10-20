@@ -53,10 +53,11 @@ describe('NPC talk (src/npcTalk.ts)', () => {
   });
 
   it('keeps the Elia-to-Omar Day 2 handoff playable and Omar on the authored floor', () => {
-    const day2 = story({ chapter: 2, day: 2, events: ORDER.slice(0, 6), flags: new Set(['elia_cover_introduced']) });
+    const day2 = story({ chapter: 1, day: 2, events: ORDER.slice(0, 6), flags: new Set(['elia_cover_introduced']), medicalCheckComplete: true });
     const heard = new Set<string>();
     expect(nextLine(NPCS.npc_elia, day2, heard)?.id).toBe('elia_rest');
     expect(nextLine(NPCS.npc_elia, day2, heard)?.id).toBe('elia_photos');
+    expect(nextLine(NPCS.npc_omar, day2, heard)?.id).toBe('omar_mountain');
     expect(nextLine(NPCS.npc_omar, day2, heard)?.id).toBe('omar_watcher');
     const omar = makeActors(day2).find(a => a.id === 'npc_omar');
     expect(omar?.y).toBe(BUILDINGS.find(b => b.id === 'school')!.floor);
