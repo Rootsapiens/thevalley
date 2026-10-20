@@ -1,0 +1,19 @@
+{
+  "updatedAt": "2026-10-20T16:15:00+02:00",
+  "members": [
+    { "name": "Cyrex", "status": "working", "task": "Coordinating the resumed game build and integrating current work." },
+    { "name": "Noor", "status": "queued", "task": "Review Episode One continuity and approve final Arabic dialogue." },
+    { "name": "Rajaie", "status": "queued", "task": "Continue NPC interaction, camera feel and village interiors." },
+    { "name": "Zurub", "status": "queued", "task": "Review gameplay data, NPC behavior and audio integration." },
+    { "name": "Imad", "status": "queued", "task": "Review episode logic, clues and puzzle progression." },
+    { "name": "Layla", "status": "queued", "task": "Continue the Episode One playable story treatment." },
+    { "name": "Aktham", "status": "queued", "task": "Review character art, textures, props and model fit." },
+    { "name": "Khaled", "status": "done", "task": "Added procedural barn room tone, cow calls and straw sounds; integrated in the game loop." },
+    { "name": "Tariq", "status": "queued", "task": "Review Unreal village and character scenes." },
+    { "name": "Issa", "status": "working", "task": "Implement Unreal NPC event staging in the approved story order." },
+    { "name": "Firas", "status": "queued", "task": "Verify prologue, NPC conversations and chapter progression." },
+    { "name": "Razan", "status": "queued", "task": "Keep team assignments and progress records current." },
+    { "name": "Subzero", "status": "queued", "task": "Review chapter flow and integrate completed game work." },
+    { "name": "Nidal", "status": "working", "task": "Prepare nine free, licensed Ottoman villager models for game integration." }
+  ]
+}
