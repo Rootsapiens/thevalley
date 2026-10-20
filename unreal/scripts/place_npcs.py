@@ -1,4 +1,4 @@
-"""Places the village NPCs in /Game/OmegaValley/Maps/BarnSlice from unreal/data/village-npcs.json
+"""Places the village NPCs in a generated Omega Valley map from unreal/data/village-npcs.json
 (exported by scripts/export-npcs.ts from src/npcData.ts).
 
 Run headless (what run_npcs.ps1 does):
@@ -45,7 +45,7 @@ if SCRIPTS not in sys.path:
 import ov_units as U  # noqa: E402
 
 DATA = os.environ.get("OV_NPC_DATA") or os.path.join(REPO, "unreal", "data", "village-npcs.json")
-MAP = "/Game/OmegaValley/Maps/BarnSlice"   # same level as build_barn_level.py
+MAP = os.environ.get("OV_NPC_MAP") or "/Game/OmegaValley/Maps/BarnSlice"
 TAG = "OV_NPC"
 FOLDER = "NPCs"
 EXPECTED_COUNT = 15

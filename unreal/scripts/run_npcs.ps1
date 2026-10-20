@@ -17,7 +17,8 @@
 param(
   [int]$TimeoutSec = 900,
   [switch]$SkipExport,
-  [ValidateSet('Commandlet', 'Editor')][string]$BuildMode = 'Commandlet'
+  [ValidateSet('Commandlet', 'Editor')][string]$BuildMode = 'Commandlet',
+  [ValidateSet('BarnSlice', 'Village')][string]$TargetMap = 'BarnSlice'
 )
 . (Join-Path $PSScriptRoot 'ov_env.ps1')     # $Repo (git), $Proj (mirror project), $DataDir, Invoke-Engine
 $Json = Join-Path $DataDir 'village-npcs.json'
@@ -49,6 +50,7 @@ if (-not (Test-Path $villagerMesh)) {
 $resultFile = Join-Path $Saved 'ov_npcs_result.json'
 $script = Join-Path $Scripts 'place_npcs.py'
 $env:OV_NPC_DATA = $Json
+$env:OV_NPC_MAP = "/Game/OmegaValley/Maps/$TargetMap"
 $res = $null
 $modes = if ($BuildMode -eq 'Commandlet') { @('Commandlet', 'Editor') } else { @('Editor') }
 foreach ($mode in $modes) {
