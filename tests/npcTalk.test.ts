@@ -6,6 +6,7 @@ import {
 } from '../src/npcTalk';
 import { villageSolids, EXAMINABLES, USABLES, BELL_ROPE } from '../src/village';
 import { overlaps, TUNING } from '../src/physics';
+import { BUILDINGS } from '../src/villageMap';
 
 // Build step 2: talking to the village NPCs (E), their attention and idle, and Lorenzo's camera (hold RMB).
 const story = (over: Partial<Story> = {}): Story => ({ ...CH1_DAY1, flags: new Set<string>(), ...over });
@@ -49,6 +50,16 @@ describe('NPC talk (src/npcTalk.ts)', () => {
     expect(ids(NPCS.npc_moreno, before)).toEqual(['moreno_reporter']);
     expect(nextLine(NPCS.npc_officer_2, before, new Set())).toBeNull();
     expect(makeActors(before).map(a => a.id)).not.toContain('npc_omar');
+  });
+
+  it('keeps the Elia-to-Omar Day 2 handoff playable and Omar on the authored floor', () => {
+    const day2 = story({ chapter: 2, day: 2, events: ORDER.slice(0, 6), flags: new Set(['elia_cover_introduced']) });
+    const heard = new Set<string>();
+    expect(nextLine(NPCS.npc_elia, day2, heard)?.id).toBe('elia_rest');
+    expect(nextLine(NPCS.npc_elia, day2, heard)?.id).toBe('elia_photos');
+    expect(nextLine(NPCS.npc_omar, day2, heard)?.id).toBe('omar_watcher');
+    const omar = makeActors(day2).find(a => a.id === 'npc_omar');
+    expect(omar?.y).toBe(BUILDINGS.find(b => b.id === 'school')!.floor);
   });
 
   it('respects flags: Maryam and the priest speak of the posters only once Lorenzo has seen them', () => {
