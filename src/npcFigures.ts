@@ -20,6 +20,9 @@ export const NPC_MODEL_BY_ID: Readonly<Record<string, string>> = {
   npc_farmer: 'poor.glb',
   npc_priest: 'clergyman.glb',
   npc_square_villager_1: 'guy.glb',
+  npc_square_villager_2: 'lady.glb',
+  npc_square_villager_3: 'woman.glb',
+  npc_square_villager_4: 'a-normal-guy-with-dark-skin.glb',
 };
 
 /** Match the observed 3.45–3.97 unit Ottoman GLB bounds to the game’s human height, using 0.5 as the starting scale. */
