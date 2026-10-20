@@ -162,7 +162,16 @@
     const dayTwo = storyParams.get('day') === '2';
     const chapterTwo = storyParams.get('chapter') === '2';
     const chapterThree = storyParams.get('chapter') === '3';
+    const arenaMode = storyParams.get('arena') === '1' || storyParams.get('roots') === '1';
     const singlePlayer = document.getElementById('single-player');
+    if (arenaMode) {
+      document.getElementById('multiplayer').style.display = 'none';
+      singlePlayer.textContent = 'Enter Arena';
+      document.querySelector('#overlay .ar').textContent = 'ساحة الجذور — تدريب فردي';
+      document.querySelector('#overlay > p:nth-of-type(2)').textContent = 'Village Arena — single player';
+      document.querySelector('#overlay > p:nth-of-type(3)').textContent = 'Use the spark caster to stop the root walkers.';
+      document.querySelector('#overlay > p:nth-of-type(4)').textContent = 'WASD walk · Mouse look · LMB fire · R reload';
+    }
     if (prologueMode) {
       document.querySelector('#overlay .ar').textContent = 'الفصل التمهيدي — جوزيف';
       document.querySelector('#overlay > p:nth-of-type(2)').textContent = 'Prologue — Joseph, Night 0';
@@ -199,7 +208,7 @@
       document.querySelector('#title-stats').textContent = 'MORENO ASSIGNS ELIA · DAY 2';
     }
     singlePlayer.addEventListener('click', event => {
-      if (!prologueMode && !chapterTwo && !chapterThree && sessionStorage.getItem('ov-prologue-complete') !== '1') {
+      if (!arenaMode && !prologueMode && !chapterTwo && !chapterThree && sessionStorage.getItem('ov-prologue-complete') !== '1') {
         event.preventDefault();
         event.stopImmediatePropagation();
         location.search = '?prologue=1';
