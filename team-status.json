@@ -1,10 +1,10 @@
 {
-  "updatedAt": "2026-10-20T14:14:29.632Z",
+  "updatedAt": "2026-10-20T14:18:44.0617469Z",
   "members": [
     {
       "name": "Cyrex",
       "status": "working",
-      "task": "Coordinating the game build and integrating current work."
+      "task": "Coordinating game work; fixing Elia/Omar story gates and integrating completed NPC changes."
     },
     {
       "name": "Noor",
@@ -23,8 +23,8 @@
     },
     {
       "name": "Imad",
-      "status": "working",
-      "task": "Auditing Episode One chronology and runtime consistency."
+      "status": "done",
+      "task": "Completed Episode One continuity audit; found Elia assignment and Omar conversation gate mismatch, now being fixed."
     },
     {
       "name": "Layla",
@@ -48,8 +48,8 @@
     },
     {
       "name": "Issa",
-      "status": "working",
-      "task": "Integrating free villager models with NPC animations and fallback behavior."
+      "status": "done",
+      "task": "Integrated three CC0 villager models with Idle/Speak/Walk animations and procedural fallback; visual in-game review remains."
     },
     {
       "name": "Firas",
