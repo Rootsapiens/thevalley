@@ -1,3 +1,6 @@
+## 2026-10-20 — Arena default route verification
+
+- **Verified:** `npx playwright test tests/e2e/arena.spec.ts -g "arena is off by default"` passed in Chromium: 1 test passed in 24.6s. The normal village route has no arena walkers, caster, or hit marker.
 ## 2026-10-20 — Village road runtime verification
 
 - **Verified:** `npx playwright test tests/e2e/village-tour.spec.ts -g "valley road south"` passed in Chromium: 1 test passed in 55.8s. Lorenzo reaches the south edge, receives the turn-back line, and remains inside the village.
