@@ -1,3 +1,8 @@
+## 2026-10-20 — Unreal full-village NPC staging
+
+- **Verified:** Unreal Engine 5.8.3 built `/Game/OmegaValley/Maps/Village` successfully: 2,138 actors, 10 residential rooms, 14 roofs, 269 trees, 66 stream strips, terrain error 0 cm.
+- **Connected:** `run_npcs.ps1 -TargetMap Village -SkipExport` placed all 15 exported NPC records into the full Village map. The tool keeps `BarnSlice` as the default and supports both maps without duplicating story data.
+- **Limit:** This is editor-side staging; a packaged Unreal story controller and runtime playthrough remain to be built and verified.
 ## 2026-10-20 — Mobile render scale regression check
 
 - **Verified:** After reducing the village renderer to 1x on screens up to 700px, the Chromium mobile viewport still passed the normal-route Arena-off check: 1 test passed in 26.7s.
