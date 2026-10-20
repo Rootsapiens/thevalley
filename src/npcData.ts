@@ -4,6 +4,7 @@
 import { BUILDINGS } from './villageMap';
 
 const CAFE_BALCONY_Y = BUILDINGS.find(b => b.id === 'cafe')!.floor + 3.25;
+const SCHOOL_FLOOR = BUILDINGS.find(b => b.id === 'school')!.floor;
 
 export type NpcId =
   | 'npc_maryam'
@@ -227,7 +228,8 @@ export const NPCS: Record<NpcId, NpcSpec> = {
     // school has an interior (src/interiors.ts), in line with the door. Floor y = the school's (villageMap).
     // Current day-1 arrival follows event 5, after the handcuffed mountain transport. On Day 2 he remains guarded at
     // the post after the medical check; café upstairs geometry/height remains unbuilt and is not guessed.
-    position: { x: -15.0, y: 0.02, z: 47.5 },
+    // Keep Omar on the authored police-post floor. The old fixed zero placed him below the school when terrain changed.
+    position: { x: -15.0, y: SCHOOL_FLOOR, z: 47.5 },
     yaw: -Math.PI / 2, // faces east, the door
     floorKnown: true,
     cuffed: true,
