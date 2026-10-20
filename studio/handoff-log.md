@@ -123,3 +123,6 @@
 **Proof:** `npx playwright test tests/e2e/npcs.spec.ts` passed (1 test, 1.9 minutes) after keeping the priest prompt reachable near the altar and aligning the test with the canon rule that `priest_ladder` is Chapter 3 content. The test covered three NPC conversations, repeated canon dialogue, recording an officer, and the police-post interaction.
 **Limit:** This is a scripted browser route, not a complete player-driven episode run. Full prologue-to-Chapter 3 continuity, Unreal runtime, and NPC GLB appearance in the main game remain open.
 
+## 2026-10-20 — NPC story logic checks
+**Proof:** `npm test -- tests/npcTalk.test.ts` passed: 1 file, 15 tests. The pure story/NPC rules remain green after the priest interaction fix and the Elia/Omar chronology gate. No new canon or proposed dialogue was added.
+
