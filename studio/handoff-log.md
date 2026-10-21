@@ -1,3 +1,8 @@
+# 2026-10-21 — Deer idle animation offline review
+
+- Aktham isolated the incoming Quaternius deer's `Idle` clip in Blender at the earlier trial scale. Five sampled poses have no measured root drift or floor penetration; one front hoof stays about 3.6 cm raised. The animated height is about 1.35 m versus 1.65 m in the earlier default pose. See `studio/reports/aktham-deer-animation.md`, its frame-40 still and reproducible script.
+- The deer remains in `art-incoming/`. No runtime placement or asset promotion occurred. A Three.js render and animation comparison are needed to set the game scale and verify skinning, floor contact and performance. Browser use is disabled, so these remain unverified.
+
 # 2026-10-21 — Deer offline scale calibration
 
 - Aktham rendered one incoming Quaternius deer in Blender against a 1 m ruler and saved a reproducible script, image and measured report in `studio/reports/aktham-deer-calibration.*` / `deer_calibration_preview.py`. Trial scale `0.3149539229` gives a 1.65 m evaluated height with the lowest hoof at the flat floor; other hooves are slightly raised in its default pose.
