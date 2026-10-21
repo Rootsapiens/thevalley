@@ -1,5 +1,9 @@
 # Quarry and mine clue audit
 
+## Decision after this audit — 2026-10-21
+
+The owner selected the existing Ravens chalk arrow on the barn door as Lorenzo's lead to the southbound quarry route. The findings below record the earlier gap, before that decision. Chapter 2 now starts with an inspect-arrow objective; the route/connector is being handled separately and has not been verified by a continuous playthrough. This choice gives the arrow a new investigative purpose without changing its south-pointing geometry or adding dialogue.
+
 ## Finding
 
 The current village clues do **not** lead Lorenzo from the village to the quarry or mine. The build transitions him into Chapter 2 and displays “Follow the road east toward the quarry,” but the story has no established observation or event that motivates that route. The script itself flags this gap.

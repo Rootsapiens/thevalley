@@ -318,12 +318,12 @@ if (PROLOGUE_MODE) {
 const evidenceLedger = $('evidence-ledger');
 if (!PROLOGUE_MODE && STORY_DAY === 1 && !CHAPTER_TWO_MODE && !CHAPTER_THREE_MODE) evidenceLedger.style.display = 'block';
 if (STORY_DAY === 2 && !PROLOGUE_MODE) {
-  // This unvoiced objective card communicates Moreno's already-approved assignment; it is not NPC dialogue.
-  $('objective-ar').textContent = 'قابل إيليا؛ كلّفها مورينو بالتظاهر بأنها حبيبة عمر';
-  $('objective-en').textContent = "Meet Elia. Moreno assigned her to pose as Omar's girlfriend.";
+  // Moreno's assignment happened off-screen; Lorenzo learns about the cover through the existing encounters.
+  $('objective-ar').textContent = 'تحدّث إلى إيليا في شرفة المقهى';
+  $('objective-en').textContent = 'Speak with Elia on the café balcony';
 } else if (CHAPTER_TWO_MODE) {
-  $('objective-ar').textContent = 'اتبع الطريق شرقاً نحو المحجر';
-  $('objective-en').textContent = 'Follow the road east toward the quarry';
+  $('objective-ar').textContent = 'افحص سهم الغربان على باب الحظيرة';
+  $('objective-en').textContent = "Inspect the Ravens' chalk arrow on the barn door";
 } else if (CHAPTER_THREE_MODE) {
   $('objective-ar').textContent = CHAPTER_THREE_CAMPAIGN && !CAMPAIGN_HALL_FOOTAGE
     ? 'لقطات القاعة مفقودة. عُد إلى الفصل الثاني'
@@ -541,6 +541,9 @@ function examine() {
   if (markExamined(vs, e.id)) { audio.play('chime'); clips.classList.remove('pulse'); void clips.offsetWidth; clips.classList.add('pulse'); }
   subtitle(e.line);
   lastExamine = target; zoomT = subTime;
+  if (CHAPTER_TWO_MODE && e.id === 'chalk' && chapterTwoStage === 0) {
+    setStoryObjective('اتبع أثر الغربان نحو المحجر', "Follow the Ravens' trail toward the quarry");
+  }
   if (CHAPTER_TWO_MODE && e.id === 'ch2-recorder') {
     chapterTwoRecorderFound = true;
     setChapterTwoStage(4);

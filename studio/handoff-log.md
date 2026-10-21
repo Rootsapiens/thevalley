@@ -1,3 +1,8 @@
+# 2026-10-21 — Owner decisions integrated into Episode One objectives
+
+- The owner selected the barn's existing south-pointing Ravens chalk arrow as Lorenzo's quarry lead and chose to keep Moreno's Elia assignment off-screen. `src/villageMain.ts` now begins Chapter 2 with an inspect-arrow objective, advances the objective on inspection, and removes the assignment disclosure from the Day 2 card. It does not change the quarry connector, NPC dialogue, or event order.
+- The script and story queue record both decisions; the earlier quarry audit is annotated as historical. Route geometry still belongs to another chat. The changed objective flow has source/typecheck/build evidence only; a natural browser playthrough and rendered review remain outstanding.
+
 # 2026-10-21 — Fifteen-minute Episode One coordination pass
 
 - **Story movement:** `src/npcTalk.ts` now lets Maryam continue her committed walk to the square even when Lorenzo follows within four metres. Conversation still pauses her, and her body faces the route while walking; confirmation remains the start gate. Firas reviewed the source behavior and flagged the remaining need to check actual feet, collision and animation in game.

@@ -1,5 +1,11 @@
 # Episode One story work queue — 2026-10-21
 
+## Owner decisions received 2026-10-21
+
+- Lorenzo's Chapter 2 lead is the existing Ravens chalk arrow on the barn door. The arrow points south; the approved quarry route is southbound. Chapter 2 now asks the player to inspect that arrow before showing the quarry objective. Route/connector work remains with its owner; a continuous playthrough is unverified.
+- Moreno assigns Elia off-screen, after Omar is found and before her Day 2 appearance. The Day 2 objective no longer reveals this secret to Lorenzo. Existing Elia then Omar interactions carry the cover story; no new dialogue was approved.
+- Open-decision wording below is historical and superseded by these direct owner decisions. Omar's visible discovery/transport, room heights, farmer/wife references, and final Arabic dialogue review remain open.
+
 This is Razan's coordination snapshot, updated by Cyrex/Subzero after the 15-minute story pass; it is not live telemetry. `/root` remains active for integration. Rajaie, Khaled, Nidal and Firas completed new bounded turns in this pass. Previous Layla, Noor, Razan, Imad, Zurub, Aktham and Issa turns are also complete. Other names are **queued assignments**, not running workers. Four concurrent slots include the coordinator.
 
 ## Shared boundaries
@@ -7,7 +13,7 @@ This is Razan's coordination snapshot, updated by Cyrex/Subzero after the 15-min
 - Preserve the owner's binding order: Omar at café with Ravens → root attack and transformations → amnesiac escape → police find him near the mountain → cuffed transport to post [6] → Moreno assigns Elia → Elia appears on Day 2 and begins the girlfriend cover. Cuffs come off during the guarded medical check; later Elia meetings show Omar uncuffed.
 - The farmer searches in the Prologue, then Lorenzo may speak with him. Maryam goes to the square only after confirming Joseph has not returned. Keep secondary roles unnamed, with stable internal IDs.
 - Every `proposed` line remains a test draft pending Noor's final Arabic review. Do not record it. Do not assign the farmer/wife `[ref]` lines by inference or set café/school floor heights without scene geometry.
-- The owner approved the Chapter 2 quarry route **south** to match `studio/world/regions/village.md`. The clue that motivates Lorenzo to take that route is still undecided. Do not invent the clue or alter the route in this story pass.
+- The owner approved the Chapter 2 quarry route **south** and selected the existing barn chalk arrow as its lead. Do not invent another clue or alter route geometry in this story pass.
 - Three.js + TypeScript is the shipping game. UE5 is paused. Preserve in-progress work and do not update Team Studio. The owner authorized GitHub updates when work is solid; stage only the relevant reviewed files for each update.
 
 ## Assignments and dependencies
@@ -28,9 +34,9 @@ This is Razan's coordination snapshot, updated by Cyrex/Subzero after the 15-min
 
 ## Open decisions and review gates
 
-1. **Quarry clue:** `studio/reviews/imad-quarry-clue.md` finds no authored village observation that motivates the quarry. Southward direction is approved; the **reason to go there** needs owner/Noor direction before writing new canon or a trigger.
+1. **Quarry clue:** Owner-selected barn chalk arrow is now the Chapter 2 opening objective. The south route/connector belongs to another chat and still needs a natural-play verification after integration.
 2. **Omar arrival presentation:** the current build seeds café/attack/escape/find/transport as past events and shows him at post [6]. Decide whether to stage visible arrival or keep it explicitly off-screen; the current script must not imply it was playable.
-3. **Moreno assignment:** current Day 2 seed marks the assignment without a player-visible beat. Noor must review any proposed Arabic line; implementation can expose the beat only after source/approval status is clear. The old Imad claim that Omar's Day 2 line can skip Elia is stale: `src/npcData.ts:245` and `src/villageMain.ts:570-573` now enforce the order.
+3. **Moreno assignment:** owner chose off-screen assignment. The Day 2 seed preserves chronology and its objective does not reveal the secret. Noor must still review proposed Arabic dialogue. The old Imad claim that Omar's Day 2 line can skip Elia is stale: `src/npcData.ts` and `src/villageMain.ts` enforce the order.
 4. **Hall footage:** current code requires Joseph/animals footage before Chapter 2 completion and campaign Chapter 3 upload. Battery depletion before the shot offers an R chapter restart; a shorter recovery remains a possible design improvement. This changed route has typecheck/build evidence, not a continuous browser playthrough. Direct `?chapter=3` remains a debug preview.
    Firas found and Rajaie fixed an early-stage battery prompt gap; source review confirms R now works before any Chapter 2 stage if charge is empty and the Hall shot is absent. Player-input verification remains open.
 5. **Proposed Arabic and `[ref]`:** Noor's review is pending; farmer/wife attribution requires original `characters.md` references. Neither is an asset or engineering guess.
