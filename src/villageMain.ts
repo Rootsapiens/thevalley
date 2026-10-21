@@ -980,7 +980,7 @@ function restart() {
   resetEnts();
   heard.clear(); talkLog.length = 0; film = newFilm(); filmHeld = false; story.flags.clear(); maryamQuestionedAt = -Infinity; maryamSavedAt = 0;
   familyPhotoShown.clear(); ch1TestimonyKeys.clear(); familyPhotoAt = -1; updateEvidenceLedger();
-  medicalCheckAt = dayTwoTransitionAt = -1; story.medicalCheckComplete = STORY_DAY >= 2; NPCF.setCuffed(ACTORS);
+  medicalCheckAt = dayTwoTransitionAt = -1; story.medicalCheckComplete = STORY_DAY >= 2;
   chapterThreeStage = 0; chapterThreeClimbing = false; chapterThreeSeized = false; chapterThreeUploadHold = 0; chapterThreeUploadAttempts = 0; chapterThreeDeadline = 300;
   chapterThreeUploaded = false; chapterThreeUploadFailed = false; chapterThreeVehicleAt = -1;
   CH3_WORLD?.resetVehicles();
@@ -994,6 +994,12 @@ function restart() {
     a.searchWaypoint = 1; a.searchDirection = 1; a.searchPause = start.stage === 'prologue-search' ? 1 : 0;
     a.walkPhase = 0; a.walkWeight = 0; a.maryamMoving = false;
     a.yaw = a.rest; a.headYaw = a.headPitch = 0; a.talk = 0; a.line = null;
+  }
+  NPCF.setCuffed(ACTORS);
+  if (!PROLOGUE_MODE && !CHAPTER_TWO_MODE && !CHAPTER_THREE_MODE) {
+    $('story-objective').style.display = 'block';
+    if (STORY_DAY === 1) setStoryObjective('تحقّق من المزرعة وتحدّث إلى الفلاح', 'Investigate the farm and speak with the farmer');
+    else setStoryObjective('تحدّث إلى إيليا في شرفة المقهى', 'Speak with Elia on the café balcony');
   }
   arena?.reset();
 }

@@ -1,3 +1,8 @@
+# 2026-10-21 — Episode One in-page restart state
+
+- In-page `R` is a fresh chapter restart, not a campaign resume. Its saved Day 1 record and Maryam actor both return to the home baseline. Firas's Maryam report was corrected after reviewing that reset. The actual UI gap was a stale Day 1/Day 2 objective after restart; the opening objective and card visibility now reset with the chapter.
+- Omar's cuff prop now updates after actor states reset, so an `R` after the guarded check can show his initial cuffed state again. No dialogue, route, geometry, or saved chronology changed. Typecheck and production build passed; browser playthrough is unavailable.
+
 # 2026-10-21 — Farmer Prologue source audit
 
 - Issa confirmed the stable `npc_farmer` appears alone as a non-talkable `prologue-search` actor, with an existing trough-to-pasture walk, moving collision and walk-pose hooks. Chapter 1 switches him to `post-prologue` and permits Lorenzo's draft conversation. The source does not establish whether Joseph actually sees the search on the playable route; see `studio/reports/issa-farmer-prologue-audit.md`.
