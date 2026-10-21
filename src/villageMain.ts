@@ -1085,7 +1085,9 @@ function frame(now: number) {
   const dt = Math.min(ms / 1000, 0.1), t = now / 1000;
   acc += dt;
   const input = readInput();
-  while (acc >= DT) { tick(input); acc -= DT; }
+  // Drain paused time without advancing story routes or timers behind the start/pause overlay.
+  // An ending keeps its own clock so the detention/title sequence can finish.
+  while (acc >= DT) { if (playing || endT >= 0) tick(input); acc -= DT; }
 
   // Head bob from distance walked; one footstep per half cycle, at the bottom of the bob (heel strike).
   const speed = Math.hypot(player.vel.x, player.vel.z);

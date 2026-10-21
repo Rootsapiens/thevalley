@@ -1,3 +1,8 @@
+# 2026-10-21 — Pause story routes behind the overlay
+
+- Firas confirmed that the fixed simulation kept advancing while the start or pause overlay was visible: a resumed Maryam walk could reach the square and save that result before Lorenzo entered. `src/villageMain.ts` now drains paused frame time without running gameplay ticks until play resumes. The chapter ending continues ticking so its detention/title sequence can finish. Maryam's route, arrival gate and existing snapshot format are unchanged.
+- Typecheck and production build passed; diff check is part of staged review. A real pause/resume and route playthrough is unverified because browser use is disabled.
+
 # 2026-10-21 — Maryam walk cue and Hall asset readiness
 
 - Khaled audited current sound calls and found Omar's cuff-release and Hall REC/chime already wired. `src/villageMain.ts` now emits quiet existing step synthesis only when Maryam actually walks toward the square, is close to the player, and is in active play; the cadence is capped and restart clears it. The gate's existing latch is not duplicated. See `studio/reports/khaled-story-sound-followup.md`.
