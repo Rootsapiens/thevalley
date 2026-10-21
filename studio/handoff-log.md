@@ -1,3 +1,8 @@
+# 2026-10-21 — Day 1 branch gate audit
+
+- Imad confirmed from source that earned Day 2 requires Omar heard, guarded medical check complete, and Moreno heard. Maryam's confirmation and square arrival are not part of that transition gate; Lorenzo can skip her branch despite the treatment's objective trail. Maryam's own confirm-before-walk sequence remains intact. See `studio/reports/imad-day1-gate-audit.md`.
+- Asked the owner whether Maryam's branch is mandatory before Day 2, and if so at confirmation or square arrival. No runtime gate or canon changed pending that decision; no browser playthrough was run.
+
 # 2026-10-21 — Episode One in-page restart state
 
 - In-page `R` is a fresh chapter restart, not a campaign resume. Its saved Day 1 record and Maryam actor both return to the home baseline. Firas's Maryam report was corrected after reviewing that reset. The actual UI gap was a stale Day 1/Day 2 objective after restart; the opening objective and card visibility now reset with the chapter.
