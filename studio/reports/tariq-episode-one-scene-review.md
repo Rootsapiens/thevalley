@@ -1,0 +1,19 @@
+# Episode One Hall and tower scene review — Tariq
+
+**Status:** source-grounded staging suggestions, 2026-10-21. This is for the shipping Three.js/TypeScript game; UE5 work remains paused. I did not change runtime code or measure frame rate. These suggestions need a rendered first-person review on the owner's weak hardware before adoption.
+
+## Current scene and quality facts
+
+- `src/chapterTwo.ts` builds the Hall around the daylight well at `(344, 42)`, places Joseph's silhouette at `(339, 42)`, loads `public/models/animals/cow.glb` and `sheep.glb`, and returns a film target at Joseph's upper body. `src/villageMain.ts` accepts the Hall shot only within 28 m while the camera faces that target closely (`dot > 0.965`). Existing Hall point lights have no new shadow maps; the village sun uses one static shadow map.
+- `src/chapterThree.ts` builds four ladder flights, a top platform, an amber torus upload marker and one short-range point light. `src/villageMain.ts` requires a 20-second hold on E within 1.8 m, displays text progress, and waits until 05:10 after upload. The marker does not currently communicate progress in the 3D scene.
+- `src/villageMain.ts` caps pixel ratio at 1 on narrow screens and 2 on desktop, uses ACES exposure 1.0, and disables automatic shadow-map updates. `src/villageScene.ts` chooses a 4096 or 2048 static village shadow map by texture capability. No chapter-specific frame time or memory measurements were made in this review.
+
+## Two bounded improvements
+
+1. **Frame the Hall filming target with existing light and geometry.** Keep the well and Joseph where they are. In `src/chapterTwo.ts`, use one small, unlit pale floor/stone patch just behind Joseph and the nearest cow, or adjust the existing `hallFill` position/range after a first-person screenshot, so their silhouettes separate from the dark shell when Lorenzo aims from the reachable tunnel. Reuse the existing material or merge the patch with Hall dressing; do not add a shadow-casting light, dense animal crowd, or a new clue. **Accept when:** from a normal reachable filming position, Joseph and at least one animal are discernible without the HUD, the required target remains within the camera framing gate, the well still leads the eye, and measured draw calls/frame time on Iris Xe do not materially regress against an identical before capture. Check both with and without the camera lamp. Existing cow/sheep assets are `public/models/animals/cow.glb` and `sheep.glb`; the incoming goat/deer/dog are review-only per `studio/reports/nidal-hall-animal-sources.md`.
+
+2. **Make upload progress legible on the existing tower marker.** Keep the current `src/chapterThree.ts` top marker and amber lamp. Drive the marker's basic-material color/opacity or scale from the existing `chapterThreeUploadHold / 20` state in `src/villageMain.ts`; reset it when E is released and leave the text timer as an accessible fallback. This changes no geometry count, adds no light, and does not imply a new device or service. **Accept when:** a player at the top can distinguish idle, partial, reset and completed upload at the actual viewing angle; the 20-second hold and 05:10 deadline are unchanged; the marker remains visible at the game's current pixel-ratio settings; GPU/CPU frame time and draw calls are measured before/after on the target hardware. Do not show arriving vehicles before the deadline.
+
+## Verification boundary
+
+The existing report `studio/script/episode-one-gameplay.md` cites a bounded Chapter 3 Chromium route test; it does not measure visual readability, natural climb duration or hardware FPS. These two proposals are not implemented or visually verified. The owner later selected the barn's Ravens chalk arrow as the quarry lead; keep the approved southbound route intact and all dialogue marked `proposed` until Noor's approval.

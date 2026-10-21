@@ -1,3 +1,8 @@
+# 2026-10-21 — Pending scene and progress reviews assessed
+
+- Reviewed the offline animal fit preview: incoming goat, deer and dog are visible, but the dog appears above its display base and cow/sheep/horse models are absent from this image. This is not an in-game Hall check. The incoming animals remain outside the runtime scene pending bounds, floor and performance review; see `studio/reports/aktham-hall-animal-fit.md`.
+- Tariq's Hall/tower review and Zurub's campaign progress contract are design reports only. Both have been reviewed against the owner's settled barn-arrow clue and off-screen Elia assignment. Neither report claims implementation, tests, rendered quality or FPS.
+
 # 2026-10-21 — Owner decisions integrated into Episode One objectives
 
 - The owner selected the barn's existing south-pointing Ravens chalk arrow as Lorenzo's quarry lead and chose to keep Moreno's Elia assignment off-screen. `src/villageMain.ts` now begins Chapter 2 with an inspect-arrow objective, advances the objective on inspection, and removes the assignment disclosure from the Day 2 card. It does not change the quarry connector, NPC dialogue, or event order.

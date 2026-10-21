@@ -1,0 +1,5 @@
+# Hall animal fit — preview review, 2026-10-21
+
+The accompanying `aktham-hall-animal-fit.png` is an offline staging preview, not an in-game Hall capture or an FPS measurement. It shows the incoming goat, deer and dog models on separate display plinths. The dog appears above its plinth; its apparent vertical offset needs a mesh-origin/rig review before placement. The cow, sheep and horse labels/plinths are visible, but those models are not visible in this preview, so this image cannot confirm a six-animal composition or diagnose why those three are absent.
+
+Do not integrate the incoming goat, deer or dog into the runtime Hall from this preview alone. Check import paths, bounds, feet-to-ground placement, animation/rest pose and draw cost in the actual Three.js scene. Preserve existing cow/sheep placement until a rendered comparison confirms any change. License/source notes for the incoming files remain in `art-incoming/nidal-hall-animals/` and `studio/reports/nidal-hall-animal-sources.md`.
