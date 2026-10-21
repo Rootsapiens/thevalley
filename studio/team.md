@@ -1,6 +1,26 @@
 # Omega Valley — Current team execution
 
-Snapshot: 2026-10-21, 15-minute story coordination pass. `/root` is coordinating story integration. Rajaie, Khaled, Nidal and Firas completed new bounded turns; earlier Layla, Noor, Razan, Imad, Zurub, Aktham and Issa turns are complete. Refresh live state from actual processes, not this snapshot. The older visual worker snapshot below is historical. Named roles are assignments in Codex, not claims that every historical worker is live. The owner's later decisions select the barn's Ravens chalk arrow as the southbound quarry lead and keep Moreno's assignment of Elia off-screen; older open-decision wording below is historical.
+Snapshot: 2026-10-21, refreshed from this task's live agent list, source tree and reports. Only `/root` is running now. Cyrex and Subzero are names for that one coordination process, not two workers. All other listed agents have completed their latest turns or are queued; a queued task does not run by itself. Processes in unrelated chats cannot be confirmed from this task. The older snapshots below are historical.
+
+## Next assignments
+
+| Role | Current execution | Next bounded task and completion evidence |
+|---|---|---|
+| Cyrex / Subzero | Running as `/root` | Integrate reviewed work, protect canon and file ownership, keep the handoff accurate, and publish only a verified coherent increment. |
+| Razan | Queued | Refresh this roster from actual agent status and new reports; separate running, completed and queued work. |
+| Rajaie | Queued | Review the next source-grounded Episode One gameplay blocker, then implement one bounded fix with typecheck/build evidence. Owns `src/` and `tests/` changes. |
+| Zurub | Queued | Review campaign save and event order with Rajaie; document one concrete state risk before any shared code edit. |
+| Noor | Queued | Review final Arabic NPC lines and `characters.md` references; explicitly approve lines or leave `proposed` drafts and unresolved `[ref]` untouched. |
+| Imad | Queued | Reconcile the Episode One treatment with the implemented Omar arrival and Maryam gate; no new clue or visible Elia assignment. |
+| Layla | Queued | Revise the Arabic-first Episode One scene treatment after Imad/Noor review; keep draft dialogue labeled. Owns `studio/script/`. |
+| Aktham | Queued | Compare the incoming deer idle pose and scale with the Hall scene before runtime promotion; current offline preview shows 1.35 m animated height. Owns art/model work. |
+| Nidal | Queued | Check provenance and practical integration cost for the next needed Hall animal or environment asset; keep incoming files outside the shipping build until reviewed. |
+| Khaled | Queued | Review the timing and level of existing Maryam steps and Omar cuff-release cues; no recording of draft dialogue. |
+| Issa | Queued | Source-audit web NPC poses and placements for Omar at the post and Elia on Day 2; do not guess room heights. UE5 work remains paused. |
+| Tariq | Queued; UE5 paused | Keep the UE village notes available for later engine work; no parallel shipping implementation while Three.js remains the game. |
+| Firas | Queued | Perform source acceptance on the next changed route or NPC state; full browser playthrough waits for browser access. |
+
+The latest completed turns include Firas's Day 1 reload audit and farmer sequence audit, and Aktham's deer animation calibration. The Omar reload repair is on `main` at `804e37e`; the deer is still only in `art-incoming/`.
 
 Current story coordination: [story work queue](reports/story-work-queue.md), [Layla's Episode One pass](reports/layla-episode-one-story-pass.md), [Noor's canon audit](reports/noor-story-canon-review.md), [Imad's causality pass](reports/imad-story-causality-followup.md), [Rajaie's implementation plan](reports/rajaie-story-implementation-plan.md), [Zurub's state review](reports/zurub-story-state-review.md), [Firas's acceptance map](reports/firas-episode-one-acceptance.md), [Khaled's sound map](reports/khaled-episode-one-sound-map.md), [Aktham's staging map](reports/aktham-episode-one-staging.md), [Issa's NPC audit](reports/issa-episode-one-npc-staging.md), and [Nidal's animal sources](reports/nidal-hall-animal-sources.md). The owner authorized a GitHub update when reviewed work is ready.
 

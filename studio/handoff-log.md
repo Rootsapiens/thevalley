@@ -1,3 +1,8 @@
+# 2026-10-21 — Team assignments refreshed
+
+- `studio/team.md` now gives every named role a bounded next task and records that only `/root` is running in this task. `studio/reports/story-work-queue.md` distinguishes completed Firas/Aktham reviews from queued roles. Cyrex and Subzero share one coordinator process; no independent worker was claimed active or started by this documentation update.
+- Gameplay and assets were not changed. Browser route and visual verification remain unavailable under the current Work setting.
+
 # 2026-10-21 — Resume Omar's guarded medical check
 
 - Firas found that a campaign reload after Omar's Day 1 line but before the guarded check finished discarded its in-memory timer. `src/villageMain.ts` now resumes the short pending check from the saved `omarHeard` beat, keeps his line heard, and shows the wait objective. Maryam reaching the square during that wait no longer tells Lorenzo to repeat Omar's line.

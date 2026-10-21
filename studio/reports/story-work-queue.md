@@ -13,7 +13,7 @@
 - Hall animal follow-up: Aktham and Firas confirmed the current cow/sheep GLBs use alpha-masked materials with zero base alpha and no textures. `src/chapterTwo.ts` now corrects that specific runtime import state before the Hall clones are placed. Actual appearance and performance remain unverified; incoming goat/deer/dog are still not integrated.
 - Omar follow-up: `imad-omar-arrival-review.md` confirms normal Day 1 begins after discovery/transport, without a visible scene. `issa-omar-event-staging-audit.md` finds that data-only café/mountain stages still use the post position and seated visual. Keep those intermediate states out of playable entry until a presentation decision and geometry-backed position/pose/collision plan exist. No runtime change was made in this audit.
 
-This is Razan's coordination snapshot, updated by Cyrex/Subzero after the 15-minute story pass; it is not live telemetry. `/root` remains active for integration. Rajaie, Khaled, Nidal and Firas completed new bounded turns in this pass. Previous Layla, Noor, Razan, Imad, Zurub, Aktham and Issa turns are also complete. Other names are **queued assignments**, not running workers. Four concurrent slots include the coordinator.
+Current execution snapshot: only `/root` is running in this task. Cyrex/Subzero share that one coordinator process. Firas's latest Day 1 reload and farmer audits and Aktham's deer animation review are complete; the Omar reload repair is on `main` at `804e37e`. All other role assignments are queued, not running, and processes in other chats are not observable here. See `studio/team.md` for each role's next bounded task. This is a dated coordination record, not live telemetry.
 
 ## Shared boundaries
 
