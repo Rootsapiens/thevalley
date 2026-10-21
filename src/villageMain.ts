@@ -26,6 +26,7 @@ import { buildSouthFarmland } from './southFarmland';
 import { buildChapterTwo } from './chapterTwo';
 import { buildChapterThree } from './chapterThree';
 import { ORDER } from './npcData';
+import { newCampaignProgress, readCampaignProgress, writeCampaignProgress } from './campaignProgress';
 import { createArena } from './arena';
 import { LorenzoViewModel } from './lorenzoViewModel';
 import { LorenzoPlayerModel } from './lorenzoPlayerModel';
@@ -61,10 +62,21 @@ const QUERY = new URLSearchParams(location.search);
 const CHAPTER_TWO_MODE = QUERY.get('chapter') === '2';
 const CHAPTER_THREE_MODE = QUERY.get('chapter') === '3';
 const PROLOGUE_MODE = QUERY.get('prologue') === '1';
-// Direct ?chapter=3 is an explicit debug preview. Campaign entry carries the Hall shot across reloads.
-const CHAPTER_THREE_CAMPAIGN = CHAPTER_THREE_MODE && QUERY.get('from') === 'hall';
-const CAMPAIGN_HALL_FOOTAGE = CHAPTER_THREE_CAMPAIGN && sessionStorage.getItem('ov-hall-footage') === '1';
-if (CHAPTER_TWO_MODE) sessionStorage.removeItem('ov-hall-footage');
+const campaignProgress = readCampaignProgress();
+const requestedPhase = CHAPTER_THREE_MODE ? 'ch3' : CHAPTER_TWO_MODE ? 'ch2' : QUERY.get('day') === '2' ? 'day2' : 'day1';
+let entryKind: 'campaign' | 'preview' = PROLOGUE_MODE || (campaignProgress?.phase === requestedPhase
+  && (!CHAPTER_THREE_MODE || QUERY.get('from') === 'hall')) ? 'campaign' : 'preview';
+// Only earned Chapter 2 footage can authorize the campaign Chapter 3 upload.
+const CHAPTER_THREE_CAMPAIGN = CHAPTER_THREE_MODE && entryKind === 'campaign';
+const CAMPAIGN_HALL_FOOTAGE = CHAPTER_THREE_CAMPAIGN && campaignProgress?.ch2.hallFootage === true;
+function saveCampaignProgress(): boolean {
+  if (!campaignProgress || entryKind !== 'campaign') return false;
+  if (writeCampaignProgress(campaignProgress)) return true;
+  entryKind = 'preview';
+  showToast('PROGRESS COULD NOT BE SAVED — PREVIEW ONLY');
+  return false;
+}
+if (CHAPTER_TWO_MODE) { try { sessionStorage.removeItem('ov-hall-footage'); } catch { /* preview remains playable */ } }
 const camera = new THREE.PerspectiveCamera(FOV, innerWidth / innerHeight, 0.05, 2000);
 camera.rotation.order = 'YXZ';
 scene.add(camera);
@@ -452,7 +464,8 @@ addEventListener('keydown', e => {
   }
   if (e.code === 'KeyR' && endT > 9) {
     if (PROLOGUE_MODE) {
-      sessionStorage.setItem('ov-prologue-complete', '1');
+      if (!writeCampaignProgress(newCampaignProgress())) { entryKind = 'preview'; showToast('PROGRESS COULD NOT BE SAVED — PREVIEW ONLY'); }
+      try { sessionStorage.setItem('ov-prologue-complete', '1'); } catch { /* progress warning shown above */ }
       location.search = '';
     } else if (CHAPTER_TWO_MODE) location.search = '?chapter=3&from=hall';
     else restart();
@@ -581,14 +594,17 @@ function talk(a: Actor) {
     if (gate && gate.goal === 0) use(gateIndex);
   }
   if (a.id === 'npc_omar' && line.id === 'omar_mountain' && story.day === 1 && a.spec.cuffed) {
+    if (entryKind === 'campaign' && campaignProgress) { campaignProgress.day1.omarHeard = true; saveCampaignProgress(); }
     medicalCheckAt = storyTime + subTime + 2.5;
     setStoryObjective('انتظر اكتمال الفحص الطبي تحت الحراسة', 'Wait for the guarded medical check to finish');
   }
   if (story.day === 2 && a.id === 'npc_elia' && line.id === 'elia_photos') {
+    if (entryKind === 'campaign' && campaignProgress) { campaignProgress.day2.eliaPhotosHeard = true; saveCampaignProgress(); }
     story.flags.add('elia_cover_introduced');
     setStoryObjective('اسأل عمر عن المرأة على الشرفة', 'Ask Omar about the woman on the balcony');
   }
   if (story.day === 2 && a.id === 'npc_omar' && line.id === 'omar_watcher') {
+    if (entryKind === 'campaign' && campaignProgress) { campaignProgress.day2.omarWatcherHeard = true; saveCampaignProgress(); }
     $('story-objective').style.display = 'none';
     showToast('DAY 2 STORY BEAT COMPLETE');
     chapterTwoTransitionAt = storyTime + subTime + 0.8;
@@ -597,6 +613,9 @@ function talk(a: Actor) {
   // assignment event 6; the Day 2 reload then places Elia on the built café balcony and removes Omar's cuffs.
   if (a.id === 'npc_moreno' && line.id === 'moreno_said' && story.day === 1 && story.medicalCheckComplete && story.events.length >= 5
       && talkLog.some(e => e.npc === 'npc_omar')) {
+    if (entryKind === 'campaign' && campaignProgress && campaignProgress.day1.medicalCheckComplete) {
+      campaignProgress.day1.morenoHeard = true; saveCampaignProgress();
+    }
     dayTwoTransitionAt = storyTime + subTime + 0.65;
   }
 }
@@ -625,6 +644,9 @@ function tick(input: Input) {
     }
     if (endT > 9.1 && !title.classList.contains('show')) {
       title.classList.add('show');
+      if (CHAPTER_THREE_MODE && chapterThreeUploaded && entryKind === 'campaign' && campaignProgress?.phase === 'ch3') {
+        campaignProgress.phase = 'ended'; saveCampaignProgress();
+      }
       $('title-stats').textContent = PROLOGUE_MODE
         ? 'THE ROOTS TAKE JOSEPH · R TO CONTINUE AS LORENZO'
         : CHAPTER_TWO_MODE ? `CHAPTER 2 COMPLETE · FOOTAGE ${chapterTwoHallFilmed ? 'SECURED' : 'MISSED'} · R TO CONTINUE`
@@ -638,7 +660,10 @@ function tick(input: Input) {
   if (medicalCheckAt > 0 && storyTime >= medicalCheckAt) {
     medicalCheckAt = -1; story.medicalCheckComplete = true;
     const omar = ACTORS.find(a => a.id === 'npc_omar');
-    if (omar?.spec.cuffed) { omar.spec.cuffed = false; NPCF.setCuffed(ACTORS); audio.play('cuffrelease'); }
+    if (omar?.spec.cuffed) {
+      omar.spec.cuffed = false; NPCF.setCuffed(ACTORS); audio.play('cuffrelease');
+      if (entryKind === 'campaign' && campaignProgress) { campaignProgress.day1.medicalCheckComplete = true; saveCampaignProgress(); }
+    }
     if (story.day === 1) setStoryObjective('تحدّث إلى مورينو عن عمر', 'Speak to Moreno about Omar');
     showToast('GUARDED MEDICAL CHECK COMPLETE');
   }
@@ -646,6 +671,9 @@ function tick(input: Input) {
     fade.style.opacity = '1';
     if (storyTime >= dayTwoTransitionAt + 1.8) {
       dayTwoTransitionAt = -1;
+      if (entryKind === 'campaign' && campaignProgress && campaignProgress.day1.omarHeard && campaignProgress.day1.medicalCheckComplete && campaignProgress.day1.morenoHeard) {
+        campaignProgress.phase = 'day2'; saveCampaignProgress();
+      }
       location.search = '?day=2';
     }
   }
@@ -653,6 +681,9 @@ function tick(input: Input) {
     fade.style.opacity = '1';
     if (storyTime >= chapterTwoTransitionAt + 1.8) {
       chapterTwoTransitionAt = -1;
+      if (entryKind === 'campaign' && campaignProgress && campaignProgress.day2.eliaPhotosHeard && campaignProgress.day2.omarWatcherHeard) {
+        campaignProgress.phase = 'ch2'; saveCampaignProgress();
+      }
       location.search = '?chapter=2';
     }
   }
@@ -753,7 +784,10 @@ function tick(input: Input) {
         if (film.battery <= 0) setStoryObjective('نفدت بطارية الكاميرا. اضغط R لإعادة الفصل', 'Camera battery empty. Press R to restart the chapter');
       } else {
         chapterTwoComplete = true; $('story-objective').style.display = 'none';
-        sessionStorage.setItem('ov-hall-footage', '1');
+        try { sessionStorage.setItem('ov-hall-footage', '1'); } catch { /* the campaign record is authoritative */ }
+        if (entryKind === 'campaign' && campaignProgress && campaignProgress.ch2.hallFootage) {
+          campaignProgress.phase = 'ch3'; saveCampaignProgress();
+        }
         showToast('CHAPTER 2 COMPLETE · FOOTAGE SECURED'); startEnd();
       }
     }
@@ -806,7 +840,9 @@ function tick(input: Input) {
       }
     }
   }
-  if (CHAPTER_THREE_MODE && (chapterThreeUploaded || chapterThreeUploadFailed) && chapterThreeVehicleAt >= 0 && storyTime - chapterThreeVehicleAt >= 4 && endT < 0) startEnd();
+  if (CHAPTER_THREE_MODE && (chapterThreeUploaded || chapterThreeUploadFailed) && chapterThreeVehicleAt >= 0 && storyTime - chapterThreeVehicleAt >= 4 && endT < 0) {
+    startEnd();
+  }
   for (const ev of zoneEvents(vs, pb, zoneOut, !CHAPTER_TWO_MODE && !CHAPTER_THREE_MODE)) {
     if (ev === 'end' && endT < 0) {
       if (PROLOGUE_MODE && prologueAttackT < 0) {
@@ -854,6 +890,15 @@ function startEnd() {
   if (document.pointerLockElement) document.exitPointerLock();
 }
 function restart() {
+  if (entryKind === 'campaign' && campaignProgress) {
+    if (STORY_DAY === 1 && !PROLOGUE_MODE) campaignProgress.day1 = { omarHeard: false, medicalCheckComplete: false, morenoHeard: false };
+    else if (STORY_DAY === 2) campaignProgress.day2 = { eliaPhotosHeard: false, omarWatcherHeard: false };
+    else if (CHAPTER_TWO_MODE) {
+      campaignProgress.ch2.hallFootage = false;
+      try { sessionStorage.removeItem('ov-hall-footage'); } catch { /* preview remains playable */ }
+    }
+    saveCampaignProgress();
+  }
   player = newPlayer(START); vs = newVillageState();
   if (PROLOGUE_MODE) {
     prologueCowFound = false; prologueRespawns = 0; prologueSafeClock = 0;
@@ -1169,6 +1214,7 @@ function frame(now: number) {
       chapterTwoFilmHold = framedHall ? chapterTwoFilmHold + dt : 0;
       if (chapterTwoFilmHold >= 1.0) {
         chapterTwoHallFilmed = true; setChapterTwoStage(6); CH2_WORLD.setHazard(false, false, true);
+        if (entryKind === 'campaign' && campaignProgress) { campaignProgress.ch2.hallFootage = true; saveCampaignProgress(); }
         showToast('JOSEPH AND THE ANIMALS FILMED'); audio.play('chime');
       }
     } else if (CHAPTER_TWO_MODE && chapterTwoStage === 5 && !film.rec) chapterTwoFilmHold = 0;
@@ -1225,6 +1271,7 @@ window.__game = {
   viewMode: () => thirdPerson ? 'third-person' : 'first-person',
   setThirdPerson: (active: boolean) => { thirdPerson = active; },
   state: () => ({
+    entryKind, campaignPhase: campaignProgress?.phase ?? null,
     level: 'village', chapter: CHAPTER_THREE_MODE ? 3 : CHAPTER_TWO_MODE ? 2 : 1,
     chapterTwo: { stage: chapterTwoStage, recorder: chapterTwoRecorderFound, hallFilmed: chapterTwoHallFilmed, complete: chapterTwoComplete,
       routeGround: [V.terrainHeight(258, 40), V.terrainHeight(278, 40), V.terrainHeight(300, 40), V.terrainHeight(339, 42), V.terrainHeight(376, 42)] },

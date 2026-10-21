@@ -1,3 +1,9 @@
+# 2026-10-21 — Campaign progress slice and source audits
+
+- Rajaie added `src/campaignProgress.ts` and a bounded `src/villageMain.ts` integration. A versioned tab-scoped record now distinguishes earned Prologue → Day 1 → Day 2 → Chapter 2 → filmed Chapter 3 → successful ending from direct URL previews. The guarded medical beat is recorded only after Omar's cuffs come off. Failed storage writes warn and continue as preview. Typecheck, build and diff check passed; no tests or browser playthrough were run. Maryam's position and other mid-chapter state are not yet restored after refresh.
+- Firas confirmed by source review that the existing chalk arrow is built and pickable in Chapter 2, but mine progression can bypass its objective. `studio/reports/firas-ch2-clue-audit.md` records the gap; no route or objective gate was changed in this slice. Browser readability and natural-route checks remain open.
+- Aktham traced the empty cow/sheep/horse plinths in the offline preview to GLB materials with alpha-mask mode and base alpha zero, a likely discard cause. The dog appears elevated; its exact placement fault remains unproven without the preview script. `studio/reports/aktham-animal-preview-audit.md` contains the evidence. Runtime animal assets were not changed.
+
 # 2026-10-21 — Pending scene and progress reviews assessed
 
 - Reviewed the offline animal fit preview: incoming goat, deer and dog are visible, but the dog appears above its display base and cow/sheep/horse models are absent from this image. This is not an in-game Hall check. The incoming animals remain outside the runtime scene pending bounds, floor and performance review; see `studio/reports/aktham-hall-animal-fit.md`.
