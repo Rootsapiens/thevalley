@@ -1,3 +1,9 @@
+# 2026-10-21 — Maryam walk cue and Hall asset readiness
+
+- Khaled audited current sound calls and found Omar's cuff-release and Hall REC/chime already wired. `src/villageMain.ts` now emits quiet existing step synthesis only when Maryam actually walks toward the square, is close to the player, and is in active play; the cadence is capped and restart clears it. The gate's existing latch is not duplicated. See `studio/reports/khaled-story-sound-followup.md`.
+- Nidal verified local source notes and hashes for incoming goat, deer and dog; none is promoted into the shipping Hall yet. Deer scale, hoof contact and animation need a rendered calibration before integration. See `studio/reports/nidal-hall-assets-followup.md`.
+- Typecheck and production build passed. Audible balance, rendered animal fit, frame cost and natural gameplay remain unverified because browser use is disabled.
+
 # 2026-10-21 — Maryam square required for Day 2
 
 - The owner decided that Maryam must reach the square before Day 2. `src/villageMain.ts` now schedules the transition only when her square flag, Omar's completed guarded check, and Moreno's briefing are all present. Moreno may speak first; the objective returns to Maryam until her arrival. Reload of an earned Day 1 record resumes that wait. `src/campaignProgress.ts` requires a saved square state for Day 2 onward.

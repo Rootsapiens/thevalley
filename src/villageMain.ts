@@ -393,6 +393,7 @@ let target = -1, lastExamine = -1, zoomT = 0, useTarget = -1, buttonTarget = -1,
 const heard = new Set<string>(), talkLog: { npc: string; line: string; t: number }[] = [];
 let maryamQuestionedAt = -Infinity;
 let maryamSavedAt = 0;
+let maryamStepAt = -Infinity;
 let prologueAttackT = -1, prologueHallEntered = false;
 let dayTwoTransitionAt = -1, chapterTwoTransitionAt = -1, medicalCheckAt = -1;
 let chapterTwoStage = 0, chapterTwoRecorderFound = false, chapterTwoHallFilmed = false, chapterTwoFilmHold = 0, chapterTwoHazardClock = -1;
@@ -939,7 +940,14 @@ function tick(input: Input) {
   // NPC routes and attention use the same fixed clock as player movement so their speed
   // stays stable under low frame rates and simulation-driven route checks.
   for (const a of ACTORS) {
+    const previousStep = a === maryam ? Math.floor(a.walkPhase / Math.PI) : -1;
     tickActor(a, DT, player.pos.x, player.pos.y, player.pos.z, storyTime);
+    if (a === maryam && playing && endT < 0 && a.maryamMoving && a.walkWeight > 0.3
+        && Math.floor(a.walkPhase / Math.PI) !== previousStep && storyTime - maryamStepAt >= 0.28) {
+      const distance = Math.hypot(player.pos.x - a.x, player.pos.z - a.z);
+      if (distance < 12) audio.play('step', surfaceAt(a.x, a.z), 0.2 * (1 - distance / 12));
+      maryamStepAt = storyTime;
+    }
     if (a === maryam && entryKind === 'campaign' && campaignProgress && story.day === 1
         && a.maryamMoving && storyTime - maryamSavedAt >= 1) {
       campaignProgress.day1.maryam = maryamSnapshot(a, 'confirmed-moving');
@@ -997,7 +1005,7 @@ function restart() {
   fade.style.opacity = '0'; title.classList.remove('show'); rec.classList.remove('stopped');
   playing = false; overlay.style.display = 'flex';
   resetEnts();
-  heard.clear(); talkLog.length = 0; film = newFilm(); filmHeld = false; story.flags.clear(); maryamQuestionedAt = -Infinity; maryamSavedAt = 0;
+  heard.clear(); talkLog.length = 0; film = newFilm(); filmHeld = false; story.flags.clear(); maryamQuestionedAt = -Infinity; maryamSavedAt = 0; maryamStepAt = -Infinity;
   familyPhotoShown.clear(); ch1TestimonyKeys.clear(); familyPhotoAt = -1; updateEvidenceLedger();
   medicalCheckAt = dayTwoTransitionAt = -1; story.medicalCheckComplete = STORY_DAY >= 2;
   chapterThreeStage = 0; chapterThreeClimbing = false; chapterThreeSeized = false; chapterThreeUploadHold = 0; chapterThreeUploadAttempts = 0; chapterThreeDeadline = 300;
