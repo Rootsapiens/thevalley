@@ -1,3 +1,8 @@
+# 2026-10-21 — Farmer Prologue source audit
+
+- Issa confirmed the stable `npc_farmer` appears alone as a non-talkable `prologue-search` actor, with an existing trough-to-pasture walk, moving collision and walk-pose hooks. Chapter 1 switches him to `post-prologue` and permits Lorenzo's draft conversation. The source does not establish whether Joseph actually sees the search on the playable route; see `studio/reports/issa-farmer-prologue-audit.md`.
+- No runtime change, invented dialogue, `[ref]` assignment or guessed geometry. Browser sightline, model feet and route clearance remain unverified because browser use is disabled.
+
 # 2026-10-21 — Day 2 Elia and Omar resume
 
 - Firas found that saved Day 2 dialogue bits did not rebuild the live Elia cover flag, heard lines, objective, or pending Chapter 2 transition after reload. Earned Day 2 now restores these from the existing validated campaign record: after Elia, the objective returns to Omar; after Omar, the transition resumes. Direct URL previews remain separate. See `studio/reports/firas-day2-resume-audit.md`.
