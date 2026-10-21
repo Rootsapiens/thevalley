@@ -891,6 +891,11 @@ function tick(input: Input) {
   }
   turnbackCD -= DT;
   guideStoryWalk(input);
+  if (PROLOGUE_MODE && prologueAttackT >= 0 && endT < 0) {
+    // Joseph is caught. Keep the camera free while the roots close around him.
+    input.forward = input.strafe = 0; input.jump = false;
+    player.vel.x = player.vel.z = 0;
+  }
   // Entities first: props the player walks into move ahead of him (and set his pace), leaves swing and turn solid again
   // once he is clear, buttons recover.
   pushFrom(input.forward, input.strafe, input.yaw, input.walk, player.crouched, player.onGround && !flying, player.vel, push);
@@ -1045,6 +1050,7 @@ function tick(input: Input) {
     if (ev === 'end' && endT < 0) {
       if (PROLOGUE_MODE && prologueAttackT < 0) {
         prologueAttackT = 0;
+        setStoryObjective('الجذور تلتف حول جوزيف', 'Roots seize Joseph');
         audio.play('rootcreak');
       } else if (!PROLOGUE_MODE) startEnd();
     }
@@ -1053,7 +1059,7 @@ function tick(input: Input) {
   if (PROLOGUE_MODE && prologueAttackT >= 0 && endT < 0) {
     prologueAttackT += DT;
     prologueRoots?.grow(player.pos.x, player.pos.y, player.pos.z, yaw, prologueAttackT);
-    if (prologueAttackT >= 1.8) {
+    if (prologueAttackT >= 3.0) {
       audio.play('groan');
       startEnd();
     }

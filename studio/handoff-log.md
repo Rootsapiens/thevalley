@@ -391,3 +391,9 @@
 ## 2026-10-20 — NPC story logic checks
 **Proof:** `npm test -- tests/npcTalk.test.ts` passed: 1 file, 15 tests. The pure story/NPC rules remain green after the priest interaction fix and the Elia/Omar chronology gate. No new canon or proposed dialogue was added.
 
+# 2026-10-21 — Room screenshots and Joseph root staging
+
+- Captured all 11 enterable furnished rooms after the hollow-foundation repair; door-view screenshots show visible furniture and NPCs above the floor. See `studio/reports/room-and-root-visual-review.md` and `studio/stills/room-review/`.
+- Joseph's roots now rise ahead of his camera, reach toward him with thinner tendrils, stop his movement for a longer three-second attack, and show a bilingual capture objective. Forced-trigger screenshots are in `studio/stills/root-review/`.
+- Typecheck, build, and diff check pass. The existing natural Prologue route test hits an old fence blocker near `(28, -40)`; the full playable route and Hall handoff are not verified. Its start helper now clicks the Single Player button rather than the viewport center, which previously opened Multiplayer.
+

@@ -73,7 +73,7 @@ export async function clickCentre(page: Page): Promise<void> {
 }
 
 export async function startPlay(page: Page): Promise<void> {
-  await clickCentre(page);
+  await page.locator('#single-player').click();
   await expect(page.locator('#overlay')).toBeHidden();
 }
 
