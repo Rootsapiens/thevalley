@@ -174,8 +174,8 @@ const arena = ARENA_ON ? createArena({
 const START = arena ? { x: ARENA_START.x, y: ARENA_START.y, z: ARENA_START.z }
   : PROLOGUE_MODE ? { x: 0, y: 0, z: 1.8 }
   : CHAPTER_THREE_MODE ? { x: 9.5, y: 0.01, z: 37.2 } : SPAWN;
-// Chapter 2's opening objective sends Lorenzo east. The shared Chapter 1 opening yaw points
-// into the barn's south wall from SPAWN, so use an east-facing camera for this direct chapter entry.
+// The current Chapter 2 connector is east until the separate route work lands. The shared Chapter 1
+// opening yaw points into the barn's south wall from SPAWN, so keep this direct-entry camera facing east.
 const START_YAW = arena ? ARENA_START.yaw : CHAPTER_TWO_MODE ? -Math.PI / 2 : PROLOGUE_MODE || CHAPTER_THREE_MODE ? 0 : SPAWN_YAW;
 let prologueCowFound = false, prologueRespawns = 0, prologueSafeClock = 0;
 let prologueSafePoint = { x: START.x, y: START.y, z: START.z, yaw: START_YAW, pitch: -0.03, cow: 0 };
@@ -350,7 +350,8 @@ function setStoryObjective(ar: string, en: string) {
   $('objective-en').textContent = en;
 }
 function setChapterTwoStage(stage: number) {
-  if (!CHAPTER_TWO_MODE || stage <= chapterTwoStage) return;
+  // The approved barn arrow must be inspected before mine objectives can replace that lead.
+  if (!CHAPTER_TWO_MODE || !vs.examined.includes('chalk') || stage <= chapterTwoStage) return;
   chapterTwoStage = stage;
   if (film.battery <= 0 && !chapterTwoHallFilmed) {
     setStoryObjective('نفدت بطارية الكاميرا. اضغط R لإعادة الفصل', 'Camera battery empty. Press R to restart the chapter');

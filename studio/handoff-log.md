@@ -1,3 +1,7 @@
+# 2026-10-21 — Barn clue stage gate
+
+- `src/villageMain.ts` now keeps the Chapter 2 barn-arrow objective until the existing `chalk` examinable is inspected; mine stage advancement, Hall filming and cave exit cannot complete first. This changes no connector geometry or dialogue. The current connector and direct-entry camera are still east pending the separate approved southbound route work. Source/typecheck/build checks passed; real pickability and a continuous player route remain unverified.
+
 # 2026-10-21 — Campaign progress slice and source audits
 
 - Rajaie added `src/campaignProgress.ts` and a bounded `src/villageMain.ts` integration. A versioned tab-scoped record now distinguishes earned Prologue → Day 1 → Day 2 → Chapter 2 → filmed Chapter 3 → successful ending from direct URL previews. The guarded medical beat is recorded only after Omar's cuffs come off. Failed storage writes warn and continue as preview. Typecheck, build and diff check passed; no tests or browser playthrough were run. Maryam's position and other mid-chapter state are not yet restored after refresh.

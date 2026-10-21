@@ -1,5 +1,7 @@
 # Firas — Chapter 2 chalk-arrow source audit (2026-10-21)
 
+**Follow-up after this audit:** `setChapterTwoStage` now requires the existing `chalk` examination before advancing mine objectives. This keeps the arrow objective visible if Lorenzo walks toward the mine first and prevents the stage-5 Hall/exit route from completing without the clue. The physical road still awaits the separate southbound route change. This follow-up has only source/typecheck/build evidence, not browser proof.
+
 Scope: source review only. No browser playthrough, render check, or runtime test.
 
 ## Findings
