@@ -438,6 +438,16 @@ if (STORY_DAY === 1 && !PROLOGUE_MODE && entryKind === 'campaign' && campaignPro
   setStoryObjective('تحدّث إلى مورينو عن عمر', 'Speak to Moreno about Omar');
   if (campaignProgress.day1.morenoHeard) dayTwoTransitionAt = storyTime + 0.65;
 }
+if (STORY_DAY === 2 && entryKind === 'campaign' && campaignProgress?.day2.eliaPhotosHeard) {
+  heard.add('elia_rest'); heard.add('elia_photos');
+  story.flags.add('elia_cover_introduced');
+  setStoryObjective('اسأل عمر عن المرأة على الشرفة', 'Ask Omar about the woman on the balcony');
+  if (campaignProgress.day2.omarWatcherHeard) {
+    heard.add('omar_watcher');
+    $('story-objective').style.display = 'none';
+    chapterTwoTransitionAt = storyTime + 0.8;
+  }
+}
 
 /** Refresh the logical look ray. Also used by the test hook because headless software rendering may pause RAF. */
 function refreshLookTargets(eyeY = flying ? CARPET_EYE : eyeHeight(player)) {

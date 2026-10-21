@@ -1,3 +1,8 @@
+# 2026-10-21 — Day 2 Elia and Omar resume
+
+- Firas found that saved Day 2 dialogue bits did not rebuild the live Elia cover flag, heard lines, objective, or pending Chapter 2 transition after reload. Earned Day 2 now restores these from the existing validated campaign record: after Elia, the objective returns to Omar; after Omar, the transition resumes. Direct URL previews remain separate. See `studio/reports/firas-day2-resume-audit.md`.
+- Typecheck and production build passed; diff check and staged review are recorded with the commit. Browser reload and natural route remain unverified while browser use is disabled.
+
 # 2026-10-21 — Omar guarded-check resume
 
 - Earned Day 1 reloads after the guarded medical check now restore Omar uncuffed, the completed check flag, and the objective to speak to Moreno. Moreno's gate accepts the saved Omar conversation when the live talk log is empty; a saved Moreno briefing resumes the Day 2 transition. A reload before the check still replays Omar's interaction rather than inventing a partial examination scene. No arrival scene, route, dialogue, or off-screen assignment was changed.
