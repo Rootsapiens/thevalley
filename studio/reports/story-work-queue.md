@@ -2,6 +2,7 @@
 
 ## Owner decisions received 2026-10-21
 
+- Maryam's route is mandatory before Day 2: Lorenzo must confirm Joseph has not returned, and Maryam must reach the square. The Day 1 transition now waits for this saved square state alongside Omar's completed guarded check and Moreno's briefing; a source/build review is complete, but natural gameplay is unverified.
 - Lorenzo's Chapter 2 lead is the existing Ravens chalk arrow on the barn door. The arrow points south; the approved quarry route is southbound. Chapter 2 now asks the player to inspect that arrow before showing the quarry objective. Route/connector work remains with its owner; a continuous playthrough is unverified.
 - Moreno assigns Elia off-screen, after Omar is found and before her Day 2 appearance. The Day 2 objective no longer reveals this secret to Lorenzo. Existing Elia then Omar interactions carry the cover story; no new dialogue was approved.
 - Open-decision wording below is historical and superseded by these direct owner decisions. Omar's visible discovery/transport, room heights, farmer/wife references, and final Arabic dialogue review remain open.

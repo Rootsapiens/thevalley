@@ -407,6 +407,23 @@ const zoneOut: ('end' | 'turnback')[] = [];
 const pb: Box = { min: { x: 0, y: 0, z: 0 }, max: { x: 0, y: 0, z: 0 } };
 const eyeV = { x: 0, y: 0, z: 0 }, dirV = { x: 0, y: 0, z: 0 };
 const _cameraForward = new THREE.Vector3(), _toHall = new THREE.Vector3();
+function scheduleDayTwoIfReady(): boolean {
+  if (PROLOGUE_MODE || story.day !== 1 || dayTwoTransitionAt > 0 || !story.medicalCheckComplete
+      || !story.flags.has('maryam_reached_square') || story.events.length < 5) return false;
+  const omarHeard = talkLog.some(e => e.npc === 'npc_omar')
+    || (entryKind === 'campaign' && campaignProgress?.day1.omarHeard);
+  const morenoHeard = talkLog.some(e => e.npc === 'npc_moreno' && e.line === 'moreno_said')
+    || (entryKind === 'campaign' && campaignProgress?.day1.morenoHeard);
+  if (!omarHeard || !morenoHeard) return false;
+  dayTwoTransitionAt = storyTime + subTime + 0.65;
+  return true;
+}
+function setMaryamNextObjective() {
+  const stage = maryam?.spec.stage;
+  if (stage === 'maryam-going-square') setStoryObjective('تابع مريم إلى الساحة', 'Follow Maryam to the square');
+  else if (story.flags.has('maryam_waited_without_joseph')) setStoryObjective('اسأل مريم إن كان جوزيف قد عاد', 'Ask Maryam whether Joseph has returned');
+  else setStoryObjective('ابحث عن مريم في بيتها', 'Find Maryam at her home');
+}
 if (maryam && STORY_DAY === 1 && !PROLOGUE_MODE && entryKind === 'campaign' && campaignProgress) {
   const stage = campaignProgress.day1.maryam.stage;
   if (stage !== 'home') {
@@ -436,7 +453,7 @@ if (STORY_DAY === 1 && !PROLOGUE_MODE && entryKind === 'campaign' && campaignPro
   NPCF.setCuffed(ACTORS);
   heard.add('omar_mountain');
   setStoryObjective('تحدّث إلى مورينو عن عمر', 'Speak to Moreno about Omar');
-  if (campaignProgress.day1.morenoHeard) dayTwoTransitionAt = storyTime + 0.65;
+  if (campaignProgress.day1.morenoHeard && !scheduleDayTwoIfReady()) setMaryamNextObjective();
 }
 if (STORY_DAY === 2 && entryKind === 'campaign' && campaignProgress?.day2.eliaPhotosHeard) {
   heard.add('elia_rest'); heard.add('elia_photos');
@@ -671,7 +688,7 @@ function talk(a: Actor) {
     if (entryKind === 'campaign' && campaignProgress && campaignProgress.day1.medicalCheckComplete) {
       campaignProgress.day1.morenoHeard = true; saveCampaignProgress();
     }
-    dayTwoTransitionAt = storyTime + subTime + 0.65;
+    if (!scheduleDayTwoIfReady()) setMaryamNextObjective();
   }
 }
 function updateEvidenceLedger() {
@@ -726,7 +743,8 @@ function tick(input: Input) {
     fade.style.opacity = '1';
     if (storyTime >= dayTwoTransitionAt + 1.8) {
       dayTwoTransitionAt = -1;
-      if (entryKind === 'campaign' && campaignProgress && campaignProgress.day1.omarHeard && campaignProgress.day1.medicalCheckComplete && campaignProgress.day1.morenoHeard) {
+      if (entryKind === 'campaign' && campaignProgress && campaignProgress.day1.omarHeard && campaignProgress.day1.medicalCheckComplete
+          && campaignProgress.day1.morenoHeard && campaignProgress.day1.maryam.stage === 'square') {
         campaignProgress.phase = 'day2'; saveCampaignProgress();
       }
       location.search = '?day=2';
@@ -932,8 +950,9 @@ function tick(input: Input) {
       if (a === maryam && entryKind === 'campaign' && campaignProgress && story.day === 1) {
         campaignProgress.day1.maryam = maryamSnapshot(a, 'square'); saveCampaignProgress();
       }
-      if (story.day === 1 && !story.medicalCheckComplete && !talkLog.some(e => e.npc === 'npc_omar')) {
-        setStoryObjective('تحدّث إلى عمر في المركز', 'Talk to Omar at the police post');
+      if (story.day === 1 && !scheduleDayTwoIfReady()) {
+        if (story.medicalCheckComplete) setStoryObjective('تحدّث إلى مورينو عن عمر', 'Speak to Moreno about Omar');
+        else if (!talkLog.some(e => e.npc === 'npc_omar')) setStoryObjective('تحدّث إلى عمر في المركز', 'Talk to Omar at the police post');
       }
     }
   }

@@ -1,3 +1,8 @@
+# 2026-10-21 — Maryam square required for Day 2
+
+- The owner decided that Maryam must reach the square before Day 2. `src/villageMain.ts` now schedules the transition only when her square flag, Omar's completed guarded check, and Moreno's briefing are all present. Moreno may speak first; the objective returns to Maryam until her arrival. Reload of an earned Day 1 record resumes that wait. `src/campaignProgress.ts` requires a saved square state for Day 2 onward.
+- Older v1 session records that advanced without the square stage are kept but resume at Day 1, without inventing her arrival; their later beat bits remain in the record. The Episode One treatment and story queue record the decision. Typecheck and production build passed; diff check is part of staged review. No browser playthrough was run because browser use is disabled.
+
 # 2026-10-21 — Day 1 branch gate audit
 
 - Imad confirmed from source that earned Day 2 requires Omar heard, guarded medical check complete, and Moreno heard. Maryam's confirmation and square arrival are not part of that transition gate; Lorenzo can skip her branch despite the treatment's objective trail. Maryam's own confirm-before-walk sequence remains intact. See `studio/reports/imad-day1-gate-audit.md`.

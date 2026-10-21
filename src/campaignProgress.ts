@@ -43,6 +43,11 @@ export function readCampaignProgress(): CampaignProgress | null {
     if ((p.phase === 'day2' || p.phase === 'ch2' || p.phase === 'ch3' || p.phase === 'ended') && !p.day1.morenoHeard) return null;
     if ((p.phase === 'ch2' || p.phase === 'ch3' || p.phase === 'ended') && !p.day2.omarWatcherHeard) return null;
     if ((p.phase === 'ch3' || p.phase === 'ended') && !p.ch2.hallFootage) return null;
+    // Earlier v1 campaigns could advance without Maryam reaching the square. Keep a valid record,
+    // but resume Day 1 for the new mandatory visit instead of inventing a completed arrival.
+    if ((p.phase === 'day2' || p.phase === 'ch2' || p.phase === 'ch3' || p.phase === 'ended') && m.stage !== 'square') {
+      p.phase = 'day1';
+    }
     return p as CampaignProgress;
   } catch { return null; }
 }
