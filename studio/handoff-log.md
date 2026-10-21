@@ -1,3 +1,8 @@
+# 2026-10-21 — Omar guarded-check resume
+
+- Earned Day 1 reloads after the guarded medical check now restore Omar uncuffed, the completed check flag, and the objective to speak to Moreno. Moreno's gate accepts the saved Omar conversation when the live talk log is empty; a saved Moreno briefing resumes the Day 2 transition. A reload before the check still replays Omar's interaction rather than inventing a partial examination scene. No arrival scene, route, dialogue, or off-screen assignment was changed.
+- Typecheck, production build and diff check passed. Browser reload and the natural Day 1–2 path remain unverified because browser use is disabled.
+
 # 2026-10-21 — Omar arrival and staging audit
 
 - Imad confirmed by source that the current Day 1 slice starts after police discovery and cuffed transport: Omar is already at post [6], and no finding/escort scene is playable. His guarded check and off-screen Moreno assignment retain the approved order. `studio/reports/imad-omar-arrival-review.md` separates this current slice from a possible later visible staging choice.

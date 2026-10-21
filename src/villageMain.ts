@@ -416,7 +416,6 @@ if (maryam && STORY_DAY === 1 && !PROLOGUE_MODE && entryKind === 'campaign' && c
       heard.add('maryam_confirmed_missing'); story.flags.add('joseph_late_confirmed');
       if (stage === 'square') {
         story.flags.add('maryam_reached_square');
-        // Omar's live check is not yet restored after a reload, so guide the replay from his first interaction.
         setStoryObjective('تحدّث إلى عمر في المركز', 'Talk to Omar at the police post');
       } else setStoryObjective('تابع مريم إلى الساحة', 'Follow Maryam to the square');
       if (stage === 'confirmed-moving') {
@@ -428,6 +427,16 @@ if (maryam && STORY_DAY === 1 && !PROLOGUE_MODE && entryKind === 'campaign' && c
       }
     }
   }
+}
+if (STORY_DAY === 1 && !PROLOGUE_MODE && entryKind === 'campaign' && campaignProgress?.day1.medicalCheckComplete) {
+  // The earned check happened under guard before this reload. Restore its visible cuff state and Moreno gate together.
+  story.medicalCheckComplete = true;
+  const omar = ACTORS.find(a => a.id === 'npc_omar');
+  if (omar) omar.spec.cuffed = false;
+  NPCF.setCuffed(ACTORS);
+  heard.add('omar_mountain');
+  setStoryObjective('تحدّث إلى مورينو عن عمر', 'Speak to Moreno about Omar');
+  if (campaignProgress.day1.morenoHeard) dayTwoTransitionAt = storyTime + 0.65;
 }
 
 /** Refresh the logical look ray. Also used by the test hook because headless software rendering may pause RAF. */
@@ -648,7 +657,7 @@ function talk(a: Actor) {
   // Moreno's first briefing closes Day 1 only after Lorenzo has heard Omar. The ordered prefix advances to
   // assignment event 6; the Day 2 reload then places Elia on the built café balcony and removes Omar's cuffs.
   if (a.id === 'npc_moreno' && line.id === 'moreno_said' && story.day === 1 && story.medicalCheckComplete && story.events.length >= 5
-      && talkLog.some(e => e.npc === 'npc_omar')) {
+      && (talkLog.some(e => e.npc === 'npc_omar') || (entryKind === 'campaign' && campaignProgress?.day1.omarHeard))) {
     if (entryKind === 'campaign' && campaignProgress && campaignProgress.day1.medicalCheckComplete) {
       campaignProgress.day1.morenoHeard = true; saveCampaignProgress();
     }
