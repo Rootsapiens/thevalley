@@ -1,3 +1,8 @@
+# 2026-10-21 — Omar arrival and staging audit
+
+- Imad confirmed by source that the current Day 1 slice starts after police discovery and cuffed transport: Omar is already at post [6], and no finding/escort scene is playable. His guarded check and off-screen Moreno assignment retain the approved order. `studio/reports/imad-omar-arrival-review.md` separates this current slice from a possible later visible staging choice.
+- Issa found that the data-only café (event prefix 1) and mountain-found (prefix 4) Omar stages still inherit his police-post coordinates; his procedural figure is always seated while only the post actor collision is seated. Those intermediate stages are not used by normal Day 1 entry and must not be exposed as playable without stage-correct position, pose, pick and collision. See `studio/reports/issa-omar-event-staging-audit.md`. No runtime staging was changed; visible discovery/transport still needs a presentation and geometry decision.
+
 # 2026-10-21 — Hall cow and sheep material correction
 
 - `src/chapterTwo.ts` now corrects only the loaded cow/sheep materials with zero opacity and a positive alpha mask threshold before cloning them into the Hall. Aktham and Firas independently confirmed that the current cow (three materials) and sheep (two materials) GLBs all have MASK/cutoff 0.5/base alpha 0 with no textures; installed GLTFLoader maps those fields to the guarded material properties. Source GLBs and other animals were not edited.
