@@ -1,3 +1,8 @@
+# 2026-10-21 — Chapter 2 and 3 restart objectives
+
+- Firas confirmed the Hall-to-Chapter 3 earned path requires filmed footage and the Chapter 3 upload gate checks that record. He found a retry UI defect: Chapter 2's battery-empty `R` reset restored film and stage but left the stale battery objective. `src/villageMain.ts` now restores the barn chalk-arrow objective on Chapter 2 restart and the priest/deadline or missing-footage objective on Chapter 3 restart; the objective card is visible again. No quarry route or upload mechanics changed.
+- Typecheck and production build passed. The retry paths and continuous chapter transition remain unverified in a browser because browser use is disabled.
+
 # 2026-10-21 — Pause story routes behind the overlay
 
 - Firas confirmed that the fixed simulation kept advancing while the start or pause overlay was visible: a resumed Maryam walk could reach the square and save that result before Lorenzo entered. `src/villageMain.ts` now drains paused frame time without running gameplay ticks until play resumes. The chapter ending continues ticking so its detention/title sequence can finish. Maryam's route, arrival gate and existing snapshot format are unchanged.

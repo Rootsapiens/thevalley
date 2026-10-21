@@ -1023,9 +1023,14 @@ function restart() {
     a.yaw = a.rest; a.headYaw = a.headPitch = 0; a.talk = 0; a.line = null;
   }
   NPCF.setCuffed(ACTORS);
-  if (!PROLOGUE_MODE && !CHAPTER_TWO_MODE && !CHAPTER_THREE_MODE) {
+  if (!PROLOGUE_MODE) {
     $('story-objective').style.display = 'block';
-    if (STORY_DAY === 1) setStoryObjective('تحقّق من المزرعة وتحدّث إلى الفلاح', 'Investigate the farm and speak with the farmer');
+    if (CHAPTER_TWO_MODE) setStoryObjective('افحص سهم الغربان على باب الحظيرة', "Inspect the Ravens' chalk arrow on the barn door");
+    else if (CHAPTER_THREE_MODE) {
+      if (CHAPTER_THREE_CAMPAIGN && !CAMPAIGN_HALL_FOOTAGE) setStoryObjective('لقطات القاعة مفقودة. عُد إلى الفصل الثاني', 'Hall footage missing. Return to Chapter 2');
+      else setStoryObjective('تحدّث إلى القسيس. الموعد النهائي 05:10', CHAPTER_THREE_CAMPAIGN
+        ? 'Talk to the priest · deadline 05:10 · 05:00' : 'DEBUG PREVIEW · Talk to the priest · deadline 05:10');
+    } else if (STORY_DAY === 1) setStoryObjective('تحقّق من المزرعة وتحدّث إلى الفلاح', 'Investigate the farm and speak with the farmer');
     else setStoryObjective('تحدّث إلى إيليا في شرفة المقهى', 'Speak with Elia on the café balcony');
   }
   arena?.reset();
