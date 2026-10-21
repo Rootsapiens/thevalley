@@ -14,6 +14,9 @@
       background: rgba(7,9,12,.58); border-left: 2px solid #FFB000; text-shadow: 0 1px 4px #07090C; pointer-events: none; }
     #story-objective b { display: block; color: #FFB000; font: 11px "Consolas", monospace; letter-spacing: 2px; }
     #story-objective span { display: block; margin-top: 3px; font: 16px "Segoe UI", Tahoma, sans-serif; }
+    #story-walk-status { position: fixed; left: 24px; bottom: 72px; display: none; max-width: min(360px, calc(100vw - 48px));
+      padding: 8px 12px; color: #efe9da; background: rgba(7,9,12,.8); border-left: 2px solid #FFB000;
+      font: 12px "Consolas", monospace; line-height: 1.4; pointer-events: none; }
     #evidence-ledger { position: fixed; right: 24px; top: 72px; display: none; min-width: 220px; padding: 8px 10px;
       color: #efe9da; background: rgba(7,9,12,.58); border-right: 2px solid #FFB000; font: 12px "Consolas", monospace; pointer-events: none; }
     #evidence-ledger b { display: block; color: #FFB000; letter-spacing: 2px; margin-bottom: 4px; }
@@ -126,6 +129,7 @@
   <div id="focus"><i></i><i></i><i></i><i></i><span id="focus-status" role="status" aria-live="polite">إطار ثابت · FRAME LOCKED</span></div>
   <div id="prompt"><kbd>E</kbd><span id="prompt-ar" lang="ar" dir="rtl"></span><span id="prompt-en"></span></div>
   <div id="story-objective"><b>OBJECTIVE</b><span id="objective-ar" lang="ar" dir="rtl">اتبع آثار الحوافر نحو الجبل</span><span id="objective-en" lang="en">Follow the hoofprints to the mountain</span></div>
+  <div id="story-walk-status" role="status" aria-live="polite"></div>
   <div id="evidence-ledger"><b>أدلة اختيارية · OPTIONAL EVIDENCE</b><span id="evidence-photo">الصورة: 0/4 · Photo: 0/4</span><br><span id="evidence-testimonies">الإفادات: 0/3 · Statements: 0/3</span><br><span>P — اعرض صورة العائلة · show photo</span></div>
   <div id="family-photo-card"><span>صورة العائلة<br>FAMILY PHOTOGRAPH</span></div>
   <div id="hud"></div>
@@ -154,6 +158,7 @@
     </div>
     <p>Choose Single Player to begin the story, or Multiplayer to open the lobby.</p>
     <p>WASD walk · Mouse look · V third-person · Shift jog · E examine, talk · Hold RMB film · Esc release mouse</p>
+    <p>Type MADSINA during play to walk toward a reachable ground objective. Type it again or use WASD to stop.</p>
   </div>
   <script>
     document.getElementById('multiplayer').addEventListener('click', event => event.stopPropagation());

@@ -308,6 +308,10 @@ export function townSolids(s: Solid[], options: { eastValleyOpen?: boolean; sout
         for (const c of L.columns) s.push({ box: yb(c.x - COLUMN_R, c.z - COLUMN_R, c.x + COLUMN_R, c.z + COLUMN_R, b.floor, b.floor + b.eave) });
         s.push({ box: yb(L.altar.x0 - 0.06, L.altar.z0 - 0.1, L.altar.x1 + 0.06, L.altar.z1 + 0.1, b.floor, b.floor + 1.08) });   // with cloth and frontal
       }
+      if (b.kind === 'school') {
+        // Keep the holding cell behind its visible bars, with the same floor as the existing post.
+        s.push({ box: yb(b.x0 + 0.42, b.z1 - 3.18, b.x1 - 0.42, b.z1 - 3.02, b.floor, b.floor + 2.6) });
+      }
     }
     for (const d of b.doors) for (const st of doorSteps(b, d)) s.push({ box: yb(st.x0, st.z0, st.x1, st.z1, st.top - 1.5, st.top) });
   }

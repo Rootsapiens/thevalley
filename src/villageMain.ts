@@ -31,6 +31,7 @@ import { createArena } from './arena';
 import { LorenzoViewModel } from './lorenzoViewModel';
 import { LorenzoPlayerModel } from './lorenzoPlayerModel';
 import { ARENA_START, segmentBox } from './rootBots';
+import { planStoryWalk, type WalkPoint } from './storyAutoWalk';
 import palette from '../studio/art/palette.json';
 
 const DT = 1 / 120;
@@ -509,6 +510,7 @@ addEventListener('keydown', e => {
   if (e.key && e.key.length === 1) {
     typed = (typed + e.key.toLowerCase()).slice(-12);
     if (typed.endsWith('sinafly')) { typed = ''; if (endT < 0) setFlying(!flying); }
+    else if (typed.endsWith('madsina')) { typed = ''; keys.clear(); if (playing && endT < 0) toggleStoryWalk(); }
   }
   if (e.code === 'KeyP' && !PROLOGUE_MODE && STORY_DAY === 1 && !CHAPTER_TWO_MODE && !CHAPTER_THREE_MODE) {
     const witness = npcTarget >= 0 ? TALKABLE_ACTORS[npcTarget] : null;
@@ -551,7 +553,7 @@ addEventListener('keydown', e => {
   if (e.code === 'F3') { e.preventDefault(); devOn = !devOn; dev.style.display = devOn ? 'block' : 'none'; npcMarks.visible = devOn; }
 });
 addEventListener('keyup', e => keys.delete(e.code));
-addEventListener('blur', () => { keys.clear(); filmHeld = false; });
+addEventListener('blur', () => { keys.clear(); filmHeld = false; stopStoryWalk(); });
 // Lorenzo's camera: hold the right button to record. The page's context menu never opens over the game.
 addEventListener('mousedown', e => { if (e.button === 2 && playing) filmHeld = true; });
 addEventListener('mouseup', e => { if (e.button === 2) filmHeld = false; });
@@ -584,7 +586,7 @@ document.addEventListener('pointerlockchange', () => {
   if (!dragLook && endT < 0) { playing = false; overlay.style.display = 'flex'; }
 });
 document.addEventListener('pointerlockerror', fallBackToDragLook);
-addEventListener('keydown', e => { if (e.code === 'Escape' && dragLook) { playing = false; overlay.style.display = 'flex'; } });
+addEventListener('keydown', e => { if (e.code === 'Escape') { stopStoryWalk(); if (dragLook) { playing = false; overlay.style.display = 'flex'; } } });
 addEventListener('keydown', e => {
   if (e.code !== 'KeyV' || e.repeat || !playing || PROLOGUE_MODE) return;
   thirdPerson = !thirdPerson;
@@ -616,6 +618,117 @@ function readInput(): Input {
     walk: !keys.has('ShiftLeft') && !keys.has('ShiftRight'),   // Lorenzo walks; Shift jogs
     yaw,
   };
+}
+
+type StoryWalkGoal = WalkPoint & { id: string; radius: number; label: string };
+let storyWalk: { goal: StoryWalkGoal; route: WalkPoint[]; at: number; lastX: number; lastZ: number; stuck: number; replanAt: number } | null = null;
+const storyWalkStatus = $('story-walk-status');
+function stopStoryWalk(message?: string) {
+  storyWalk = null;
+  storyWalkStatus.style.display = 'none';
+  if (message) showToast(message);
+}
+function actorWalkGoal(id: Actor['id'], label: string): StoryWalkGoal | null {
+  const actor = ACTORS.find(a => a.id === id);
+  if (!actor) return null;
+  const doorId = id === 'npc_maryam' && actor.spec.stage === 'maryam-home' ? 'door-maryam'
+    : id === 'npc_omar' || id === 'npc_moreno' ? 'door-post'
+    : id === 'npc_priest' ? 'door-church' : null;
+  const doorIndex = doorId ? USABLES.findIndex(u => u.id === doorId) : -1;
+  if (doorIndex >= 0 && ENTS.doors[doorIndex].solid) {
+    const approach = USABLES[doorIndex].from;
+    return { id: doorId!, x: approach.x, z: approach.z, radius: 0.9, label: 'door — open with E' };
+  }
+  return { id, x: actor.x, z: actor.z, radius: 2.3, label };
+}
+function nextStoryWalkGoal(): StoryWalkGoal | null {
+  if (ARENA_ON || flying || endT >= 0) return null;
+  if (PROLOGUE_MODE && prologueCow && prologueCow.progress() < 1) {
+    const cow = prologueCow.position();
+    return { id: 'cow', ...cow, radius: 5.5, label: 'cow' };
+  }
+  if (CHAPTER_THREE_MODE) {
+    if (chapterThreeStage === 0) return actorWalkGoal('npc_priest', 'priest');
+    if (chapterThreeStage < 5 && !chapterThreeClimbing && CH3_WORLD)
+      return { id: 'bell-ladder', x: CH3_WORLD.ladderX, z: CH3_WORLD.ladderZ - 0.8, radius: 0.65, label: 'bell tower ladder' };
+    return null;
+  }
+  if (CHAPTER_TWO_MODE) {
+    if (chapterTwoStage !== 0 || vs.examined.includes('chalk')) return null;
+    const chalk = EXAMINABLES.find(e => e.id === 'chalk');
+    return chalk ? { id: 'chalk', x: chalk.from.x, z: chalk.from.z, radius: 0.8, label: 'barn chalk arrow' } : null;
+  }
+  if (story.day === 2) {
+    if (!story.flags.has('elia_cover_introduced')) {
+      const elia = ACTORS.find(a => a.id === 'npc_elia');
+      if (!elia) return null;
+      if (player.pos.y < elia.y - 1.2)
+        return { id: 'cafe-stairs', x: 9.9, z: 55.4, radius: 0.75, label: 'café stairs — climb to Elia' };
+      return null; // The balcony needs its own elevated route; keep this ground planner off it.
+    }
+    return actorWalkGoal('npc_omar', 'Omar');
+  }
+  if (!heard.has('farmer_light') && !story.flags.has('maryam_questioned') && !campaignProgress?.day1.omarHeard)
+    return actorWalkGoal('npc_farmer', 'farmer');
+  if (!story.flags.has('maryam_reached_square')) return actorWalkGoal('npc_maryam', 'Maryam');
+  const omarHeard = talkLog.some(e => e.npc === 'npc_omar') || campaignProgress?.day1.omarHeard;
+  if (!omarHeard) return actorWalkGoal('npc_omar', 'Omar');
+  if (!story.medicalCheckComplete) return null; // Wait for the guarded check; walking cannot complete it.
+  const morenoHeard = talkLog.some(e => e.npc === 'npc_moreno' && e.line === 'moreno_said') || campaignProgress?.day1.morenoHeard;
+  return morenoHeard ? null : actorWalkGoal('npc_moreno', 'Moreno');
+}
+function storyWalkClear(x: number, z: number): boolean {
+  if (x < -80 || x > 400 || z < -110 || z > 180) return false;
+  const y = V.terrainHeight(x, z), r = TUNING.radius + 0.12;
+  if (!Number.isFinite(y)) return false;
+  for (const b of nearWorld(x, z, false)) {
+    if (x + r > b.min.x && x - r < b.max.x && z + r > b.min.z && z - r < b.max.z
+        && y + 1.65 > b.min.y && y + 0.12 < b.max.y) return false;
+  }
+  return true;
+}
+function storyWalkRoute(goal: StoryWalkGoal): WalkPoint[] | null {
+  return planStoryWalk(player.pos, goal, goal.radius, storyWalkClear, V.terrainHeight);
+}
+function toggleStoryWalk() {
+  if (storyWalk) { stopStoryWalk('MADSINA WALK OFF'); return; }
+  const goal = nextStoryWalkGoal();
+  if (!goal) { showToast('MADSINA: WAIT OR CONTINUE THIS STEP MANUALLY'); return; }
+  const route = storyWalkRoute(goal);
+  if (!route) { showToast('MADSINA: NO SAFE GROUND ROUTE — OPEN A DOOR OR WALK MANUALLY'); return; }
+  storyWalk = { goal, route, at: 0, lastX: player.pos.x, lastZ: player.pos.z, stuck: 0, replanAt: storyTime + 1.5 };
+  storyWalkStatus.textContent = `MADSINA · ${goal.label} · type again or use WASD to stop`;
+  storyWalkStatus.style.display = 'block';
+  showToast(`MADSINA: WALKING TO ${goal.label.toUpperCase()}`);
+}
+function guideStoryWalk(input: Input) {
+  if (!storyWalk) return;
+  if (!playing || endT >= 0 || flying || keys.has('KeyW') || keys.has('KeyA') || keys.has('KeyS') || keys.has('KeyD')
+      || keys.has('ArrowUp') || keys.has('ArrowDown') || keys.has('Space')) {
+    stopStoryWalk(); return;
+  }
+  const goal = nextStoryWalkGoal();
+  if (!goal) { stopStoryWalk('MADSINA: THIS STEP NEEDS YOU'); return; }
+  if (goal.id !== storyWalk.goal.id || (storyTime >= storyWalk.replanAt && Math.hypot(goal.x - storyWalk.goal.x, goal.z - storyWalk.goal.z) > 2)) {
+    const route = storyWalkRoute(goal);
+    if (!route) { stopStoryWalk('MADSINA: PATH BLOCKED — WALK MANUALLY'); return; }
+    storyWalk.goal = goal; storyWalk.route = route; storyWalk.at = 0; storyWalk.replanAt = storyTime + 1.5;
+  }
+  const distance = Math.hypot(goal.x - player.pos.x, goal.z - player.pos.z);
+  if (distance <= goal.radius) {
+    if (goal.id !== 'cow') stopStoryWalk(`MADSINA: ${goal.label.toUpperCase()} — CONTINUE WITH E OR MANUALLY`);
+    input.forward = input.strafe = 0; return;
+  }
+  while (storyWalk.at < storyWalk.route.length - 1
+      && Math.hypot(storyWalk.route[storyWalk.at].x - player.pos.x, storyWalk.route[storyWalk.at].z - player.pos.z) < 0.6) storyWalk.at++;
+  const next = storyWalk.route[storyWalk.at];
+  if (!next) { stopStoryWalk('MADSINA: WALK MANUALLY FROM HERE'); return; }
+  input.yaw = yaw = Math.atan2(-(next.x - player.pos.x), -(next.z - player.pos.z));
+  input.forward = 1; input.strafe = 0; input.walk = true; input.jump = input.crouch = false;
+  const moved = Math.hypot(player.pos.x - storyWalk.lastX, player.pos.z - storyWalk.lastZ);
+  storyWalk.stuck = moved < 0.002 ? storyWalk.stuck + DT : 0;
+  storyWalk.lastX = player.pos.x; storyWalk.lastZ = player.pos.z;
+  if (storyWalk.stuck > 1.5) stopStoryWalk('MADSINA: OBSTACLE AHEAD — TAKE CONTROL');
 }
 
 // ---------- Examine / use ----------
@@ -777,10 +890,11 @@ function tick(input: Input) {
     if (story.day === 1) setStoryObjective('اسأل مريم إن كان جوزيف قد عاد', 'Ask Maryam whether Joseph has returned');
   }
   turnbackCD -= DT;
+  guideStoryWalk(input);
   // Entities first: props the player walks into move ahead of him (and set his pace), leaves swing and turn solid again
   // once he is clear, buttons recover.
   pushFrom(input.forward, input.strafe, input.yaw, input.walk, player.crouched, player.onGround && !flying, player.vel, push);
-  input.speedScale = pushScale(ENTS, pb, push);   // same contact as the push itself, so decided before the props move
+  input.speedScale = pushScale(ENTS, pb, push) * (ARENA_ON ? 1 : 1.1); // Slightly quicker story walk and jog.
   tickEnts(ENTS, DT, pb, push, nearWorld, groundY);
   if (ENTS.events.length) drainEvents();
   if (!flying && CHAPTER_THREE_MODE && !chapterThreeClimbing && chapterThreeStage >= 1 && player.pos.y < 0.2
@@ -990,6 +1104,7 @@ function startEnd() {
   if (document.pointerLockElement) document.exitPointerLock();
 }
 function restart() {
+  stopStoryWalk();
   if (entryKind === 'campaign' && campaignProgress) {
     if (STORY_DAY === 1 && !PROLOGUE_MODE) campaignProgress.day1 = newCampaignProgress().day1;
     else if (STORY_DAY === 2) campaignProgress.day2 = { eliaPhotosHeard: false, omarWatcherHeard: false };

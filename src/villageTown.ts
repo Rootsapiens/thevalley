@@ -313,6 +313,23 @@ export function buildTown(k: Kit, scene: THREE.Scene, leafMat: THREE.Material): 
     }
     if (b.kind === 'cafe') cafeExtras(b);
     if (b.id === 'maryam') maryamInterior(b);
+    if (b.kind === 'school') policePostInterior(b);
+  }
+  function policePostInterior(b: Building) {
+    const floor = b.floor, cellZ = b.z1 - 3.1;
+    // The expanded south bay is a barred holding cell; its collision is in townSolids.
+    put('lit', boxG((b.x0 + b.x1) / 2, floor + 2.45, cellZ, b.x1 - b.x0 - 0.9, 0.12, 0.14), COL.iron);
+    put('lit', boxG((b.x0 + b.x1) / 2, floor + 0.08, cellZ, b.x1 - b.x0 - 0.9, 0.12, 0.14), COL.iron);
+    for (let x = b.x0 + 0.48; x < b.x1 - 0.3; x += 0.52)
+      put('lit', cylG(x, floor + 0.1, cellZ, x, floor + 2.42, cellZ, 0.035, 0.035, 5), COL.iron);
+    // A notice board and pinned administrative sheets face the entrance. No story text is added.
+    const boardZ = b.doors[0].at + 3.45, boardX = b.x1 - WALL_T - 0.05;
+    put('lit', boxG(boardX, floor + 1.55, boardZ, 0.08, 1.05, 2.25), COL.timberDark);
+    for (const z of [boardZ - 0.63, boardZ, boardZ + 0.63]) {
+      put('lit', boxG(boardX - 0.05, floor + 1.58, z, 0.012, 0.73, 0.47), cS(COL.chalk, 0.88));
+      for (let line = 0; line < 3; line++)
+        put('lit', boxG(boardX - 0.06, floor + 1.78 - line * 0.12, z, 0.012, 0.025, 0.32), cS(COL.iron, 0.75));
+    }
   }
   /** Hollow stone shell (enterable): four walls with door gaps, a floor and a ceiling at 2.7 m. */
   function shell(b: Building, tone: number, top = b.floor + b.eave, ceil = 2.7) {

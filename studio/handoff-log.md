@@ -1,3 +1,9 @@
+# 2026-10-21 — Enterable homes, larger police post, and MADSINA walk aid
+
+- Eight village homes now have open doors and varied furniture using existing licensed models. The former school police post extends north and south, with a two-desk office bay, notice board, medical cot, waiting bench, and a barred holding cell with collision and basic furnishings. Existing NPC positions and the measured building floor source remain unchanged.
+- Typing `MADSINA` during play starts a bounded ground walk toward the next available story location; typing it again or moving manually stops it. It never performs dialogue or examination, and it declines routes it cannot safely plan. Single-player movement speed increased by 10%; arena speed is unchanged.
+- Typecheck, production build, and diff check passed. The new rooms, furniture clearance, and guided routes still need browser playthrough verification; browser use is disabled in this Work session.
+
 # 2026-10-21 — Team assignments refreshed
 
 - `studio/team.md` now gives every named role a bounded next task and records that only `/root` is running in this task. `studio/reports/story-work-queue.md` distinguishes completed Firas/Aktham reviews from queued roles. Cyrex and Subzero share one coordinator process; no independent worker was claimed active or started by this documentation update.

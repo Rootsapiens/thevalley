@@ -1,5 +1,5 @@
 // Furnished interiors (build step 2, from Aktham's studio/art/furniture-manifest.md): Maryam's kitchen [7], the police
-// post in the old school [6] and the café [5]. Pure data, no Three.js: where each CC0 model of public/models stands
+// post in the old school [6], the café [5], and the eight smaller village homes. Pure data, no Three.js: where each CC0 model of public/models stands
 // (bottom centre on the floor, or `y` above it; yaw is three's rotation.y and the model's front is +Z, so 0 faces south,
 // pi/2 east, pi north, -pi/2 west), which pieces are solid, and the lamps that light each room in the bake.
 // src/furniture.ts draws them; village.ts makes the solid ones collide; villageTown.ts bakes the lamps.
@@ -33,10 +33,14 @@ export const MODELS = {
   barrel_wine: [0.742, 0.756, 0.872],
   clock_wall: [0.321, 0.047, 0.322],
   rug_rect: [2.512, 1.472, 0.016],
+  nightstand: [0.505, 0.509, 0.616],
+  wardrobe: [0.776, 0.562, 2.0],
+  stool_wood: [0.385, 0.406, 0.579],
+  rug_round: [1.472, 1.472, 0.016],
 } as const satisfies Record<string, readonly [number, number, number]>;
 export type Model = keyof typeof MODELS;
 /** Pieces the player walks over or that sit on something (never solid). */
-const LOOSE: ReadonlySet<Model> = new Set<Model>(['jug', 'bowl_wood', 'cutting_board', 'pot_brass', 'jar_ceramic', 'basket_wicker', 'clock_wall', 'rug_rect']);
+const LOOSE: ReadonlySet<Model> = new Set<Model>(['jug', 'bowl_wood', 'cutting_board', 'pot_brass', 'jar_ceramic', 'basket_wicker', 'clock_wall', 'rug_rect', 'rug_round']);
 
 export interface Item { model: Model; x: number; z: number; yaw: number; /** Height above the floor (on a table, on a wall). */ y?: number }
 /** A lamp: its glass at (x, floor + dy, z); `hang` draws a cord to the ceiling. Its baked pool: strength k, falloff r m. */
@@ -45,6 +49,31 @@ export interface Lamp { x: number; dy: number; z: number; hang: boolean; k?: num
 export interface Interior { building: string; items: Item[]; lamps: Lamp[]; fill?: number }
 
 const E = Math.PI / 2, W = -Math.PI / 2, N = Math.PI, S = 0;
+/** Local depth starts at the existing doorway. The first 2 m and centre lane stay free for entry. */
+function villageHome(id: string, variant: number): Interior {
+  const b = BUILDINGS.find(v => v.id === id)!;
+  const d = b.doors[0];
+  const p = (u: number, v: number): Pick<Item, 'x' | 'z'> => d.face === 'w' ? { x: b.x0 + u, z: d.at + v }
+    : d.face === 'e' ? { x: b.x1 - u, z: d.at + v }
+      : d.face === 'n' ? { x: d.at + v, z: b.z0 + u } : { x: d.at + v, z: b.z1 - u };
+  const place = (model: Model, u: number, v: number, yaw = S, y?: number): Item => ({ model, ...p(u, v), yaw, ...(y === undefined ? {} : { y }) });
+  const far = Math.min(6.1, (d.face === 'w' || d.face === 'e' ? b.x1 - b.x0 : b.z1 - b.z0) - 1.5);
+  const table = variant % 3 === 0 ? 'table_kitchen_long' : 'table_plain';
+  const tableYaw = d.face === 'n' || d.face === 's' ? E : S;
+  const items: Item[] = [
+    place('rug_round', far - 1, -1.7),
+    place(table, far - 1, -1.7, tableYaw),
+    place('chair_wood_a', far - 2.15, -1.7, d.face === 'w' ? E : d.face === 'e' ? W : N),
+    place('daybed', far - 0.3, 1.7, tableYaw),
+    place('nightstand', far - 1.9, 2.8),
+    place(variant % 2 ? 'wardrobe' : 'cupboard', far + 0.85, -2.8, tableYaw),
+    place(variant % 2 ? 'stove_barrel' : 'chest_wood', 2.1, 2.6),
+    place(variant % 2 ? 'shelf_small' : 'stool_wood', 2.2, -2.6),
+    place('jug', far - 1, -1.7, S, table === 'table_plain' ? 0.8 : 0.959),
+    place('basket_wicker', 3.3, 2.8),
+  ];
+  return { building: id, items, lamps: [{ ...p(4.4, 0), dy: 2.15, hang: true, k: 1.6, r: 3.3 }], fill: 0.22 };
+}
 export const INTERIORS: Interior[] = [
   {
     // Maryam's kitchen: the long table under the lamp she keeps lit, the cupboard on the west wall, a shelf by the window.
@@ -77,12 +106,20 @@ export const INTERIORS: Interior[] = [
       { model: 'chest_wood', x: -12.7, z: 41.25, yaw: S },
       { model: 'crate_small', x: -12.75, z: 41.95, yaw: S },
       { model: 'stove_barrel', x: -18.6, z: 41.5, yaw: E },
+      // Northern office bay: two desks and filing storage, clear of Moreno's conversation spot.
+      { model: 'table_plain', x: -17.1, z: 39.1, yaw: E },
+      { model: 'chair_wood_a', x: -18.1, z: 39.1, yaw: E },
+      { model: 'table_plain', x: -12.7, z: 39.1, yaw: W },
+      { model: 'chair_wood_b', x: -11.75, z: 39.1, yaw: W },
       { model: 'cupboard', x: -18.72, z: 49.6, yaw: E },
       { model: 'bench_church', x: -15.0, z: 53.78, yaw: N },
       { model: 'daybed', x: -12.55, z: 50.35, yaw: E }, // medical cot for the guarded check after Omar is brought in
+      // The barred southern bay is a holding cell, visible from the public room.
+      { model: 'daybed', x: -17.7, z: 56.85, yaw: N },
+      { model: 'bucket_wood', x: -11.9, z: 57.4, yaw: 0 },
       { model: 'jar_ceramic', x: -16.85, z: 45.35, yaw: 0, y: 0.8 },
     ],
-    lamps: [{ x: -16.6, dy: 2.0, z: 45.0, hang: true, k: 2.0, r: 3.0 }, { x: -14.2, dy: 2.1, z: 50.5, hang: true, k: 1.6, r: 3.0 }],
+    lamps: [{ x: -15.0, dy: 2.1, z: 39.3, hang: true, k: 1.6, r: 3.0 }, { x: -16.6, dy: 2.0, z: 45.0, hang: true, k: 2.0, r: 3.0 }, { x: -14.2, dy: 2.1, z: 50.5, hang: true, k: 1.6, r: 3.0 }, { x: -15.0, dy: 2.1, z: 56.8, hang: true, k: 1.2, r: 2.5 }],
     fill: 0.3,
   },
   {
@@ -109,6 +146,8 @@ export const INTERIORS: Interior[] = [
     lamps: [{ x: 4.0, dy: 2.15, z: 65.2, hang: true, k: 2.2, r: 3.4 }, { x: 10.0, dy: 2.15, z: 64.6, hang: true, k: 2.2, r: 3.4 }, { x: 16.2, dy: 2.15, z: 65.2, hang: true, k: 2.2, r: 3.4 }],
     fill: 0.55,
   },
+  ...(['priest', 'house-e1', 'house-sw1', 'house-se1', 'house-s1', 'house-s2', 'house-sw2', 'house-s3'] as const)
+    .map((id, i) => villageHome(id, i)),
 ];
 
 /** The building of an interior. */
