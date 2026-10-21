@@ -92,7 +92,7 @@
 
 ### الإكمال وحالات الرجوع
 
-- بعد إفادة عمر والفحص المحروس، يعرض الكود سطر مورينو الذي يشكك بذاكرة عمر ثم ينقل إلى اليوم الثاني. يحمل يوم 2 حدث التكليف مسبقاً، وتذكر بطاقة الهدف أن مورينو كلّف إيليا؛ لا توجد لحظة لعب/مشهد تكليف منفصل. لا تصف الانتقال الحالي على أنه مشهد تكليف.
+- بعد إفادة عمر والفحص المحروس، يعرض الكود سطر مورينو الذي يشكك بذاكرة عمر ثم ينقل إلى اليوم الثاني. يحمل يوم 2 حدث التكليف مسبقاً؛ التكليف خارج الشاشة ولا تذكره بطاقة الهدف للورينزو. لا تصف الانتقال الحالي على أنه مشهد تكليف.
 - إذا استنفد اللاعب بطارية الكاميرا، يظل يستطيع إكمال القصة. موضع الشحن غير محدد، ولا يوجد دليل على استمرار البطارية أو سجل التسجيل بعد إعادة تحميل صفحة فصل.
 - يمنع الشرطي الاقتراب من سيارة النقل أو باب المركز حين تكون المنطقة مغلقة. لا توجد خسارة أو اشتباك؛ يعود اللاعب خطوة إلى الساحة.
 - العثور والنقل خارج المشهد في البناء الحالي. لا تعرض هدفاً يوحي بأن اللاعب فوّت مشهداً لم يحدث. في تنفيذ القصة الكامل: لا تفتح حالة المركز إلا بعد حدث العثور والنقل.
@@ -109,17 +109,17 @@
 ### بداية التحقيق
 
 - بعد نهاية يوم 1، ينتقل اللعب إلى اليوم 2 بهدف فعلي: التحدث إلى إيليا في شرفة المقهى. يجب أن يسمع لورينزو سطرها عن صورة الرجل المفقود، ثم يعود إلى عمر ويسمع سطره عن غطاء الحبيبة قبل انتقال الفصل 2. تظهر إيليا بعد تكليف مورينو فقط؛ لا يخترع اللاعب اسماً لغطائها.
-- الكود الحالي لا يعرض لحظة التكليف: سطر مورينو الموجود يشكك بذاكرة عمر، ثم يحمل يوم 2 علامة التكليف مسبقاً. أضف beat واضحاً للتكليف بعد العثور على عمر؛ لا تضف نصاً حوارياً جديداً معتمداً، والحوار المقترح يبقى مسودة.
-- عمر غير مكبل في اللقاء. موضعه الحالي بالمركز حالة مؤقتة في الكود؛ هدف العالم أن يقيم مع إيليا فوق المقهى، لكن هندسة/ارتفاع الغرفة العلوية لم يحسما. كما أن ترتيب التفاعل قابل للتخطي حالياً: حديث عمر أولاً قد ينقل إلى الفصل 2 قبل سماع إيليا. يلزم ربط انتقال Ch2 بسماع سطر إيليا أولاً مع بقاء الرجوع إليها متاحاً.
+- يكلف مورينو إيليا خارج الشاشة بعد العثور على عمر؛ لا يشهد لورينزو التكليف. سطر مورينو الموجود يشكك بذاكرة عمر، ثم يحمل يوم 2 علامة التكليف مسبقاً. لا تضف مشهد تكليف ظاهراً أو حواراً جديداً معتمداً؛ الحوار المقترح يبقى مسودة.
+- عمر غير مكبل في اللقاء. موضعه الحالي بالمركز حالة مؤقتة في الكود؛ هدف العالم أن يقيم مع إيليا فوق المقهى، لكن هندسة/ارتفاع الغرفة العلوية لم يحسما. الكود الحالي يربط انتقال Ch2 بسماع سطر إيليا أولاً، مع بقاء الرجوع إليها متاحاً.
 - هذا خيط موازٍ؛ لا يحول إيليا إلى رفيقة أو شاهدة تعرف ما حصل داخل الجبل.
 
 ### خطوة اللعب التالية القابلة للتنفيذ
 
-يمكن إكمال ترتيب اليوم الثاني دون قرار قصصي من المالك أو كتابة حوار جديد. بطاقة الهدف الموجودة تذكر أن مورينو كلّف إيليا، ثم يتبع اللاعب: **قابل إيليا في الشرفة ← اسمع سطر `elia_photos` الموجود ← ارجع إلى عمر واسمع `omar_watcher` الموجود ← ابدأ الفصل الثاني**. اجعل سماع إيليا شرطاً لتفعيل انتقال عمر؛ إذا وصل اللاعب إلى عمر أولاً، أبقِ الهدف عند إيليا ولا تستهلك سطر عمر أو تنقل المرحلة. بعد سماع إيليا، يبقى الرجوع إلى عمر متاحاً. هذا يصلح فجوة ترتيب التفاعل فقط؛ لا يضيف مشهد تكليف مرئياً أو معلومة أو حواراً. أي تعديل للنص العربي المقترح يظل مسودة حتى اعتماد Noor.
+ترتيب اليوم الثاني المنفذ هو: **قابل إيليا في الشرفة ← اسمع سطر `elia_photos` الموجود ← ارجع إلى عمر واسمع `omar_watcher` الموجود ← ابدأ الفصل الثاني**. سماع إيليا شرط لتفعيل انتقال عمر؛ إذا وصل اللاعب إلى عمر أولاً، يبقى الهدف عند إيليا ولا يستهلك سطر عمر أو ينقل المرحلة. بعد سماع إيليا، يبقى الرجوع إلى عمر متاحاً. التكليف حدث خارج الشاشة، ولا تكشفه بطاقة الهدف للورينزو. أي تعديل للنص العربي المقترح يظل مسودة حتى اعتماد Noor.
 
 ### الاستكشاف داخل الجبل
 
-1. هدف: **اتبع الطريق إلى المحجر**. يتبع لورينزو الطريق الموثق إلى المحجر وآثار الاستخدام البشري المذكورة في تخطيط المناطق؛ لا تضف اعترافاً أو خريطة أو مفتاحاً قصصياً جديداً. نقطة بدء الدليل التفصيلية من القرية ما زالت قراراً تصميمياً مفتوحاً، ويجب ربطها بعلامة موجودة في المشهد قبل التنفيذ.
+1. هدف: **افحص سهم الغربان بالطباشير على باب الحظيرة، ثم اتبع الطريق الجنوبي إلى المحجر**. السهم هو الدليل الذي اختاره المالك، ولا تضف اعترافاً أو خريطة أو مفتاحاً قصصياً جديداً. هندسة الرابط الجنوبي عند مالك المسار ولم تثبتها هذه المعالجة النصية.
 2. هدف: **اعثر على مدخل ممرات الغربان**. يدخل من بوابة المنجم إلى ممرات مضاءة بخيط إنارة متعطل؛ لا وقود للمولد. يستخدم ضوء الكاميرا، مع بطارية الكاميرا المحدودة، لقراءة المكان.
 3. يتعلم اللاعب قراءة التحذير: صرير الجذر وغبار يسقط قبل الاندفاع بـ0.6 ثانية. يختبئ أو يتراجع أو يمرّ بعد انتهاء الاندفاع. لا يملك سلاحاً ولا يستطيع قتل الجذور.
 4. هدف: **اتبع أثر التمديدات إلى المستوى السفلي**. يتجاوز خشب التدعيم وممر زحف منخفض بالانحناء، ويستخدم إضاءة الكاميرا لتحديد الطريق.
@@ -190,16 +190,16 @@
 
 - فصلت حدث المقهى السابق للهجوم عن بداية لعب لورينزو؛ لا استرجاع أو شهادة غير موثقة. العثور على عمر ونقله خارج الشاشة في البناء الحالي.
 - ثبتت أصفاد عمر حتى الفحص تحت الحراسة ثم إزالتها. تكليف إيليا بعد العثور ثابت؛ شرط الكود أن يسبق التكليف اكتمال الفحص اعتماد تنفيذي لا canon.
-- أبقيت مسار Ch2 عبر القاعة وتصوير جوزيف والحيوانات ثم فم الكهف. طريق المحجر قابل للمشي، لكن دافعه القصصي ما زال مفتوحاً.
+- أبقيت مسار Ch2 عبر القاعة وتصوير جوزيف والحيوانات ثم فم الكهف. قرار 2026-10-21 حسم الدافع القصصي بسهم الغربان على باب الحظيرة؛ هندسة الرابط الجنوبي والتحقق من لعبه ما زالا مفتوحين.
 - وضحت أن عداد الإفادات يقيس أزواج NPC+سطر وقد تتكرر الجملة، وأن أهداف التصوير اختيارية.
-- أضفت فجوة يوم 2: التكليف غير ظاهر صراحة، والكود يسمح بإكمال حوار عمر والانتقال قبل سماع إيليا. الترتيب المقصود يحتاج إصلاحاً.
+- رصدت المراجعة القديمة فجوة يوم 2؛ أُغلق تجاوز حوار عمر في الكود لاحقاً. وقرار 2026-10-21 أبقى التكليف خارج الشاشة، فلا يلزم مشهد ظاهر.
 - أظهرت فجوات استعادة البقرة، الحفظ بين الصفحات، ومهلة/فشل Ch3 وانتشار التسجيل. المسبارات المحدودة لا تثبت جولة كاملة.
 - لا توجد موافقة Noor على الحوار العربي المقترح. أسطر `proposed` ومراجع `[ref]` تبقى مفتوحة.
 
 ## أسئلة/بوابات مفتوحة قبل اعتماد نصوص التنفيذ
 
 1. مراجعة Noor واعتماد العربية لكل حوار مسودة، وتحديد من يقول أسطر `[ref]` بعد فتح المراجع الأصلية.
-2. تحديد الدليل المشهدي الموجود الذي يقود لورينزو من القرية إلى طريق المحجر؛ لا يوجد مصدر قصصي محدد بعد.
+2. تنفيذ ومراجعة اتجاه الرابط الجنوبي إلى المحجر بعد فحص سهم الغربان على باب الحظيرة؛ الدليل القصصي حُسم في 2026-10-21.
 3. حسم تقديم وصول عمر: بناء مشهد مرئي للنقل من الجبل بعد العثور عليه، أو الإبقاء عليه حدثاً خارج المشهد مع ظهوره في المركز بعد ذلك.
 4. اختيار نقطة شحن للكاميرا إن ظلت البطارية محدودة في Ch1–3؛ لا تضف محطة غير موجودة في هندسة القرية.
 5. قياس وقت صعود البرج وتعديل مساحة فصل 6 دقائق قبل تثبيت مؤقت 05:10.
@@ -290,12 +290,12 @@ Lorenzo arrives to look for Sal's kidnapped father after Sal's family hired him.
 
 ### Completion and recovery
 
-- After Omar's line and guarded check, current code plays Moreno's skepticism line and transitions to Day 2; it does not show the assignment. Day 2 starts with assignment event 6 pre-seeded. The medical-check prerequisite is a runtime choice, not a story rule.
+- After Omar's line and guarded check, current code plays Moreno's skepticism line and transitions to Day 2; Moreno's assignment happens off-screen. Day 2 starts with assignment event 6 pre-seeded. The medical-check prerequisite is a runtime choice, not a story rule.
 - If the camera battery runs out, the story remains completable. A recharge point is unresolved, and there is no evidence that camera battery or film log persists across page-based chapter transitions.
 - An officer redirects the player from the police car or post door while that area is closed. No penalty or fight; the player returns to the square.
 - Discovery and transport are off-screen in the current build. Do not show an objective implying the player missed an event that did not play. In the full game, unlock the post state only after both story events.
 
-**Build status:** NPC, camera, and optional evidence-ledger code is present. A browser probe verified the photo card, four distinct roles, and three distinct NPC+line pairs at 3/3 with duplicate suppression; different NPCs may have repeated the same line. See `studio/reports/ch1-testimony-proof.png` and the handoff log. Omar's sequence is in a pre-seeded slice; there is no explicit assignment beat, and the Day 2 route can currently skip Elia. The full ordered Day 1 run and discovery/transport scene are not verified or shown.
+**Build status:** NPC, camera, and optional evidence-ledger code is present. A browser probe verified the photo card, four distinct roles, and three distinct NPC+line pairs at 3/3 with duplicate suppression; different NPCs may have repeated the same line. See `studio/reports/ch1-testimony-proof.png` and the handoff log. Omar's sequence is in a pre-seeded slice; the assignment is off-screen by owner decision, and the current Day 2 gate requires Elia before Omar. The full ordered Day 1 run and discovery/transport scene are not verified or shown.
 
 ## Chapter 2 — The Ravens' Road
 
@@ -304,18 +304,18 @@ Lorenzo arrives to look for Sal's kidnapped father after Sal's family hired him.
 
 ### Investigation begins
 
-- After Omar is found, Moreno assigns Elia; this is a required story beat after the existing Day 1 sequence. In current code, Moreno's `moreno_said` line only questions Omar's memory, then Day 2 loads with assignment event 6 seeded and an objective card stating that he assigned her. There is no separate playable assignment moment. Do not describe the existing transition as that scene; no new dialogue is needed for the next beat.
+- After Omar is found, Moreno assigns Elia off-screen. Lorenzo does not witness the assignment. In current code, Moreno's `moreno_said` line only questions Omar's memory, then Day 2 loads with assignment event 6 seeded. The objective card does not disclose the secret assignment to Lorenzo. No playable assignment scene or new dialogue is needed.
 - Day 2 should begin the cover task with Elia. Current objective points Lorenzo to her café balcony; after her missing-man-photo line, the intended order is return to Omar for his existing cover line, then transition to Chapter 2 on Day 3. Omar is uncuffed at the meeting. His temporary post placement in current code conflicts with the world plan placing him with Elia upstairs at the café; room geometry/height remains unresolved.
-- Current code allows talking to Omar first and transitioning to Chapter 2 before hearing Elia's `elia_photos` line. This is a confirmed skip path. Proposed progression: require Elia's line before Omar's watcher line can complete, while keeping Elia available on return. Elia is not a companion and does not know what happened in the mountain.
+- The current code requires Elia's `elia_photos` line before Omar's watcher line can complete or Chapter 2 begins. Elia remains available on return. She is not a companion and does not know what happened in the mountain.
 - This remains a parallel story thread; Elia is not a companion and does not know what happened in the mountain.
 
 ### Next playable beat with no new canon decision
 
-The existing Day 2 objective card already states that Moreno assigned Elia. Complete the playable order using existing interactions and lines only: **meet Elia on the balcony → hear `elia_photos` → return to Omar and hear `omar_watcher` → enter Chapter 2**. Gate Omar's transition on Elia's line. If Lorenzo reaches Omar first, keep the objective on Elia and do not consume Omar's line or advance the chapter; after Elia's line, leave the return interaction available. This closes the current skip path without adding a visible assignment scene, story fact, or dialogue. Any Arabic dialogue change remains a draft pending Noor's approval.
+The implemented Day 2 order uses existing interactions and lines only: **meet Elia on the balcony → hear `elia_photos` → return to Omar and hear `omar_watcher` → enter Chapter 2**. Omar's transition requires Elia's line. If Lorenzo reaches Omar first, the objective remains with Elia; Omar's line is not consumed and the chapter does not advance. The secret assignment stays off-screen and out of Lorenzo's objective card. Any Arabic dialogue change remains a draft pending Noor's approval.
 
 ### Mountain exploration
 
-1. Objective: **Follow the road east toward the quarry.** The current build has a walkable east road, but no established story clue yet explains why Lorenzo follows it to the mine. Tie the objective to a visible existing clue before treating his motivation as complete; add no confession, map, or key.
+1. Objective: **Inspect the Ravens' chalk arrow on the barn door, then follow the southbound route toward the quarry.** The owner selected this existing clue on 2026-10-21. The southbound route geometry and a continuous playthrough still need confirmation; add no confession, map, or key.
 2. Objective: **Find the Ravens' mine entrance.** The gate is open and string lights are dead; the inspectable description says the cable runs inward. The camera light works only while recording and consumes the same battery. A fresh chapter load starts with a full battery, but film/battery do not persist across chapter page loads.
 3. Learn the warning sign: a root creak and falling dust precede a lash by 0.6 seconds. Hide, retreat, or cross after the lash. Lorenzo has no weapon and cannot kill roots.
 4. Objective: **Follow the wiring to the lower level.** Pass timber supports and a low crawlway by crouching; use camera light to locate the way forward.
@@ -383,14 +383,14 @@ The existing Day 2 objective card already states that Moreno assigned Elia. Comp
 - **Layla — scriptwriting:** drafted the initial Episode One gameplay treatment; proposed dialogue remains draft.
 - **Imad — narrative/gameplay review:** found that Chapter 2 skipped the Hall, Lorenzo's opening was mixed with Omar's Night 0 café events, cuff/transport staging was inconsistent, and some claims exceeded the current build.
 - **Canon cross-check:** the treatment follows the cited owner decisions and world plan: Omar is at the café on Night 0 before the attack; Lorenzo starts on Day 1 afterward and cannot witness the past without an established source; Omar is cuffed for first transport and uncuffed during a guarded medical check; Elia follows Moreno's assignment on Day 2; Chapter 2 reaches the Hall, films Joseph and the animals, then exits through the cave mouth. This is not a claim that Noor reviewed or approved this revision.
-- **Imad review:** previously flagged Chapter 2 Hall sequencing, Lorenzo's opening being mixed with Omar's Night 0 events, cuff/transport staging, and overclaims about build coverage; those are corrected or explicitly labeled. Latest runtime audit found the Day 2 assignment is seeded and stated on the objective card, but has no separate playable moment; Omar's watcher interaction can also skip Elia's photo line. This treatment distinguishes the card from a scene and proposes the existing-line progression gate; runtime is unchanged.
-- **Authoring gaps:** choose the established on-screen clue that leads Lorenzo from the village to the quarry road; decide whether to stage Omar's discovery/transport visibly while retaining the locked chronology; implement the existing-line gate so Elia's photo line precedes Omar's cover line; resolve Omar's post/café placement and room geometry. Day 2 already seeds and states Moreno's assignment on the objective card, but has no separate playable assignment moment; any added scene/dialogue is optional proposed authoring and not needed for the next sequencing fix. Do not add a Night 0 flashback/recording without an established source. `[ref]` speakers, `proposed` dialogue, and unresolved building elevations remain open under the existing decisions.
+- **Imad review (historical):** previously flagged Chapter 2 Hall sequencing, Lorenzo's opening being mixed with Omar's Night 0 events, cuff/transport staging, and overclaims about build coverage. A later audit found a Day 2 skip path and an objective card disclosing Moreno's assignment; subsequent runtime changes gated Omar behind Elia and removed that disclosure. The owner then chose an off-screen assignment on 2026-10-21.
+- **Authoring gaps:** the owner selected the barn's Ravens chalk arrow as Lorenzo's quarry clue on 2026-10-21. Confirm the approved southbound connector in a continuous playthrough; decide whether to stage Omar's discovery/transport visibly while retaining the locked chronology; resolve Omar's post/café placement and room geometry. Moreno's assignment stays off-screen. Do not add a Night 0 flashback/recording without an established source. `[ref]` speakers, `proposed` dialogue, and unresolved building elevations remain open under the existing decisions.
 - **Build status:** the treatment is design, not proof of episode completion. Current code contains routes for P and Chapters 1–3, with bounded runtime proof for Prologue recovery, photo display/counting, three distinct Chapter 1 testimony recordings at 3/3 with duplicate suppression, Ch2 depot-to-exit progress, and Ch3 priest-to-seizure/end-card. Omar's find/transport scene is absent, and no full-episode visual playthrough is evidenced. Do not label the episode complete from build success or bounded probes alone.
 
 ## Open approvals and implementation gates
 
 1. Noor reviews/approves every proposed Arabic line before any dialogue is treated as recording-ready and resolves original `[ref]` speakers after source references are available.
-2. Decide which existing scene clue leads Lorenzo from the village to the quarry road; no specific story source is established yet.
+2. Confirm the southbound quarry connector and barn chalk arrow objective in a continuous playthrough; the clue itself was settled on 2026-10-21.
 3. Decide whether to build a visible arrival/transport from the mountain or keep the police discovery/transport off-screen before Omar appears at the post.
 4. Choose a camera recharge point if battery remains limited in Chapters 1–3; do not add a station absent from the village layout.
 5. Measure the tower climb and adjust the six-minute chapter before fixing the 05:10 timer.

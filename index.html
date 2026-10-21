@@ -201,14 +201,22 @@
       document.querySelector('#end h2').textContent = 'CHAPTER 3';
     } else if (dayTwo) {
       document.querySelector('#overlay .ar').textContent = 'الفصل الأول — اليوم الثاني · إيليا';
-      document.querySelector('#overlay > p:nth-of-type(2)').textContent = 'Chapter 1 — Day 2 · Moreno assigns Elia her cover';
+      document.querySelector('#overlay > p:nth-of-type(2)').textContent = 'Chapter 1 — Day 2 · Elia at the café';
       document.querySelector('#overlay > p:nth-of-type(3)').textContent = 'Find Elia on the café balcony.';
       document.querySelector('#title .ar').textContent = 'الفصل الأول — اليوم الثاني';
-      document.querySelector('#title h2').textContent = 'مهمة إيليا السرية';
-      document.querySelector('#title-stats').textContent = 'MORENO ASSIGNS ELIA · DAY 2';
+      document.querySelector('#title h2').textContent = 'إيليا في المقهى';
+      document.querySelector('#title-stats').textContent = 'DAY 2 · ELIA AT THE CAFÉ';
     }
     singlePlayer.addEventListener('click', event => {
-      if (!arenaMode && !prologueMode && !chapterTwo && !chapterThree && sessionStorage.getItem('ov-prologue-complete') !== '1') {
+      let prologueEarned = false;
+      try {
+        const saved = JSON.parse(sessionStorage.getItem('ov-campaign-v1') || 'null');
+        prologueEarned = saved?.version === 1 && saved?.prologueComplete === true
+          && ['day1', 'day2', 'ch2', 'ch3', 'ended'].includes(saved.phase);
+      } catch { /* invalid progress cannot skip the prologue */ }
+      let legacyComplete = false;
+      try { legacyComplete = sessionStorage.getItem('ov-prologue-complete') === '1'; } catch { /* storage unavailable */ }
+      if (!arenaMode && !prologueMode && !chapterTwo && !chapterThree && !legacyComplete && !prologueEarned) {
         event.preventDefault();
         event.stopImmediatePropagation();
         location.search = '?prologue=1';

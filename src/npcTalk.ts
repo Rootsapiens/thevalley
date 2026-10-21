@@ -127,6 +127,38 @@ const MARYAM_SEARCH_ROUTE = [
   { x: 49.0, z: 37.5 },
   { x: 43.5, z: 43.0 },   // square, clear of fountain, bench and villagers
 ];
+export type MaryamResume = {
+  stage: 'home' | 'waited' | 'confirmed-moving' | 'square';
+  waypoint: number; x: number; z: number;
+};
+/** Route progress is a target waypoint plus a position on the preceding segment. */
+export function maryamSnapshot(a: Actor, stage: MaryamResume['stage']): MaryamResume {
+  return { stage, waypoint: stage === 'square' ? MARYAM_SEARCH_ROUTE.length : a.searchWaypoint, x: a.x, z: a.z };
+}
+/** Restore a confirmed walk only on a known route segment; a corrupt point falls back to its last safe waypoint. */
+export function restoreMaryamSearch(a: Actor, saved: MaryamResume): MaryamResume {
+  if (a.id !== 'npc_maryam') return saved;
+  if (saved.stage === 'home' || saved.stage === 'waited') return maryamSnapshot(a, saved.stage);
+  const route = MARYAM_SEARCH_ROUTE;
+  if (saved.stage === 'square') {
+    const end = route[route.length - 1];
+    a.x = end.x; a.z = end.z; a.y = groundY(a.x, a.z);
+    a.searchWaypoint = route.length; a.spec.stage = 'maryam-square'; a.indoors = false;
+    return maryamSnapshot(a, 'square');
+  }
+  const waypoint = Number.isInteger(saved.waypoint) && saved.waypoint >= 0 && saved.waypoint < route.length ? saved.waypoint : 0;
+  const start = waypoint ? route[waypoint - 1] : { x: a.x, z: a.z };
+  const end = route[waypoint], dx = end.x - start.x, dz = end.z - start.z;
+  const t = ((saved.x - start.x) * dx + (saved.z - start.z) * dz) / (dx * dx + dz * dz);
+  const nearSegment = Number.isFinite(saved.x) && Number.isFinite(saved.z) && Number.isFinite(t)
+    && t >= -0.04 && t <= 1.04
+    && Math.hypot(saved.x - (start.x + Math.min(1, Math.max(0, t)) * dx), saved.z - (start.z + Math.min(1, Math.max(0, t)) * dz)) <= 0.35;
+  a.x = nearSegment ? saved.x : start.x; a.z = nearSegment ? saved.z : start.z;
+  a.y = groundY(a.x, a.z); a.searchWaypoint = waypoint;
+  a.spec.stage = 'maryam-going-square'; a.maryamMoving = true; a.indoors = false;
+  a.rest = yawTo(end.x - a.x, end.z - a.z); a.yaw = a.rest;
+  return maryamSnapshot(a, 'confirmed-moving');
+}
 
 /** The NPCs of a story state, standing where npcPlacement resolves them (floor y, room). NPCs whose spot still has an
  *  open placement issue (no interior, floor undecided, inside a solid) are left out rather than guessed. */

@@ -15,7 +15,7 @@ import { buildVillage, FOG_COLOR } from './villageScene';
 import { villageAudio, measureVillagePeaks } from './villageAudio';
 import { setAnisotropy } from './materials';
 import { placeNpcs } from './npcPlacement';
-import { CH1_DAY1, CAST, FRAME_HOLD, makeActors, actorBox, actorChest, tickActor, nextLine, talkedOut, startMaryamSearch, newFilm, filmTick, pickFramed, testimonies, type Story, type Actor } from './npcTalk';
+import { CH1_DAY1, CAST, FRAME_HOLD, makeActors, actorBox, actorChest, tickActor, nextLine, talkedOut, startMaryamSearch, restoreMaryamSearch, maryamSnapshot, newFilm, filmTick, pickFramed, testimonies, type Story, type Actor } from './npcTalk';
 import { buildNpcFigures } from './npcFigures';
 import { buildFurniture } from './furniture';
 import { buildPrologueRoots } from './prologueRoots';
@@ -140,6 +140,10 @@ const story: Story & { flags: Set<string> } = {
 };
 const ACTORS = ARENA_ON ? [] : makeActors(story);
 const ACTOR_STARTS = ACTORS.map(a => ({ x: a.x, y: a.y, z: a.z, stage: a.spec.stage, rest: a.rest, indoors: a.indoors, cuffed: a.spec.cuffed }));
+const maryam = ACTORS.find(a => a.id === 'npc_maryam');
+if (maryam && STORY_DAY === 1 && !PROLOGUE_MODE && entryKind === 'campaign' && campaignProgress) {
+  campaignProgress.day1.maryam = restoreMaryamSearch(maryam, campaignProgress.day1.maryam);
+}
 const MOVING_ACTORS = ACTORS.filter(a => a.spec.stage === 'prologue-search' || a.id === 'npc_maryam');
 const MOVING_BOXES = MOVING_ACTORS.map(actorBox);
 if (prologueCow) MOVING_BOXES.push(prologueCow.box);
@@ -388,6 +392,7 @@ let target = -1, lastExamine = -1, zoomT = 0, useTarget = -1, buttonTarget = -1,
 // Talk: the lines heard so far (the order cursor, src/npcTalk.ts nextLine) and a log for the tests. Film: hold RMB.
 const heard = new Set<string>(), talkLog: { npc: string; line: string; t: number }[] = [];
 let maryamQuestionedAt = -Infinity;
+let maryamSavedAt = 0;
 let prologueAttackT = -1, prologueHallEntered = false;
 let dayTwoTransitionAt = -1, chapterTwoTransitionAt = -1, medicalCheckAt = -1;
 let chapterTwoStage = 0, chapterTwoRecorderFound = false, chapterTwoHallFilmed = false, chapterTwoFilmHold = 0, chapterTwoHazardClock = -1;
@@ -402,6 +407,28 @@ const zoneOut: ('end' | 'turnback')[] = [];
 const pb: Box = { min: { x: 0, y: 0, z: 0 }, max: { x: 0, y: 0, z: 0 } };
 const eyeV = { x: 0, y: 0, z: 0 }, dirV = { x: 0, y: 0, z: 0 };
 const _cameraForward = new THREE.Vector3(), _toHall = new THREE.Vector3();
+if (maryam && STORY_DAY === 1 && !PROLOGUE_MODE && entryKind === 'campaign' && campaignProgress) {
+  const stage = campaignProgress.day1.maryam.stage;
+  if (stage !== 'home') {
+    heard.add('maryam_door'); story.flags.add('maryam_questioned'); story.flags.add('maryam_waited_without_joseph');
+    if (stage === 'waited') setStoryObjective('اسأل مريم إن كان جوزيف قد عاد', 'Ask Maryam whether Joseph has returned');
+    else {
+      heard.add('maryam_confirmed_missing'); story.flags.add('joseph_late_confirmed');
+      if (stage === 'square') {
+        story.flags.add('maryam_reached_square');
+        // Omar's live check is not yet restored after a reload, so guide the replay from his first interaction.
+        setStoryObjective('تحدّث إلى عمر في المركز', 'Talk to Omar at the police post');
+      } else setStoryObjective('تابع مريم إلى الساحة', 'Follow Maryam to the square');
+      if (stage === 'confirmed-moving') {
+        const gateIndex = USABLES.findIndex(u => u.id === 'gate-maryam');
+        if (gateIndex >= 0 && ENTS.doors[gateIndex].goal === 0) {
+          useDoor(ENTS, ENTS.doors[gateIndex], pb);
+          ENTS.events.length = 0; // Restore the open leaf without replaying its arrival sound.
+        }
+      }
+    }
+  }
+}
 
 /** Refresh the logical look ray. Also used by the test hook because headless software rendering may pause RAF. */
 function refreshLookTargets(eyeY = flying ? CARPET_EYE : eyeHeight(player)) {
@@ -465,8 +492,13 @@ addEventListener('keydown', e => {
   }
   if (e.code === 'KeyR' && endT > 9) {
     if (PROLOGUE_MODE) {
-      if (!writeCampaignProgress(newCampaignProgress())) { entryKind = 'preview'; showToast('PROGRESS COULD NOT BE SAVED — PREVIEW ONLY'); }
-      try { sessionStorage.setItem('ov-prologue-complete', '1'); } catch { /* progress warning shown above */ }
+      if (writeCampaignProgress(newCampaignProgress())) {
+        try { sessionStorage.setItem('ov-prologue-complete', '1'); } catch { /* earned campaign record remains authoritative */ }
+      } else {
+        entryKind = 'preview';
+        try { sessionStorage.removeItem('ov-prologue-complete'); } catch { /* storage is unavailable */ }
+        showToast('PROGRESS COULD NOT BE SAVED — PREVIEW ONLY');
+      }
       location.search = '';
     } else if (CHAPTER_TWO_MODE) location.search = '?chapter=3&from=hall';
     else restart();
@@ -588,6 +620,9 @@ function talk(a: Actor) {
   }
   if (a.id === 'npc_maryam' && line.id === 'maryam_confirmed_missing' && startMaryamSearch(a)) {
     story.flags.add('joseph_late_confirmed');
+    if (entryKind === 'campaign' && campaignProgress) {
+      campaignProgress.day1.maryam = maryamSnapshot(a, 'confirmed-moving'); saveCampaignProgress();
+    }
     if (story.day === 1) setStoryObjective('تابع مريم إلى الساحة', 'Follow Maryam to the square');
     const gateIndex = USABLES.findIndex(u => u.id === 'gate-maryam');
     const gate = gateIndex >= 0 ? ENTS.doors[gateIndex] : null;
@@ -691,6 +726,9 @@ function tick(input: Input) {
   if (!introDone && storyTime > 1.4) { introDone = true; if (subTime <= 0 && !CHAPTER_TWO_MODE && !CHAPTER_THREE_MODE) subtitle(OPENING_LINE, 6.5); }   // never cut off a line
   if (maryamQuestionedAt > -Infinity && storyTime - maryamQuestionedAt >= 8 && !story.flags.has('maryam_waited_without_joseph')) {
     story.flags.add('maryam_waited_without_joseph');
+    if (entryKind === 'campaign' && campaignProgress && maryam) {
+      campaignProgress.day1.maryam = maryamSnapshot(maryam, 'waited'); saveCampaignProgress();
+    }
     if (story.day === 1) setStoryObjective('اسأل مريم إن كان جوزيف قد عاد', 'Ask Maryam whether Joseph has returned');
   }
   turnbackCD -= DT;
@@ -865,8 +903,16 @@ function tick(input: Input) {
   // stays stable under low frame rates and simulation-driven route checks.
   for (const a of ACTORS) {
     tickActor(a, DT, player.pos.x, player.pos.y, player.pos.z, storyTime);
+    if (a === maryam && entryKind === 'campaign' && campaignProgress && story.day === 1
+        && a.maryamMoving && storyTime - maryamSavedAt >= 1) {
+      campaignProgress.day1.maryam = maryamSnapshot(a, 'confirmed-moving');
+      maryamSavedAt = storyTime; saveCampaignProgress();
+    }
     if (a.spec.stage === 'maryam-square' && !story.flags.has('maryam_reached_square')) {
       story.flags.add('maryam_reached_square');
+      if (a === maryam && entryKind === 'campaign' && campaignProgress && story.day === 1) {
+        campaignProgress.day1.maryam = maryamSnapshot(a, 'square'); saveCampaignProgress();
+      }
       if (story.day === 1 && !story.medicalCheckComplete && !talkLog.some(e => e.npc === 'npc_omar')) {
         setStoryObjective('تحدّث إلى عمر في المركز', 'Talk to Omar at the police post');
       }
@@ -892,7 +938,7 @@ function startEnd() {
 }
 function restart() {
   if (entryKind === 'campaign' && campaignProgress) {
-    if (STORY_DAY === 1 && !PROLOGUE_MODE) campaignProgress.day1 = { omarHeard: false, medicalCheckComplete: false, morenoHeard: false };
+    if (STORY_DAY === 1 && !PROLOGUE_MODE) campaignProgress.day1 = newCampaignProgress().day1;
     else if (STORY_DAY === 2) campaignProgress.day2 = { eliaPhotosHeard: false, omarWatcherHeard: false };
     else if (CHAPTER_TWO_MODE) {
       campaignProgress.ch2.hallFootage = false;
@@ -913,7 +959,7 @@ function restart() {
   fade.style.opacity = '0'; title.classList.remove('show'); rec.classList.remove('stopped');
   playing = false; overlay.style.display = 'flex';
   resetEnts();
-  heard.clear(); talkLog.length = 0; film = newFilm(); filmHeld = false; story.flags.clear(); maryamQuestionedAt = -Infinity;
+  heard.clear(); talkLog.length = 0; film = newFilm(); filmHeld = false; story.flags.clear(); maryamQuestionedAt = -Infinity; maryamSavedAt = 0;
   familyPhotoShown.clear(); ch1TestimonyKeys.clear(); familyPhotoAt = -1; updateEvidenceLedger();
   medicalCheckAt = dayTwoTransitionAt = -1; story.medicalCheckComplete = STORY_DAY >= 2; NPCF.setCuffed(ACTORS);
   chapterThreeStage = 0; chapterThreeClimbing = false; chapterThreeSeized = false; chapterThreeUploadHold = 0; chapterThreeUploadAttempts = 0; chapterThreeDeadline = 300;

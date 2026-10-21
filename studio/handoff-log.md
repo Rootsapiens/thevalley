@@ -1,3 +1,9 @@
+# 2026-10-21 — Maryam resume and Day 2 secrecy cleanup
+
+- Rajaie added a bounded Maryam route snapshot to the earned Day 1 campaign record. After refresh, her confirmed walk or square arrival is restored from a validated waypoint, existing terrain supplies Y, the yard gate reopens for an in-progress walk, and her objective/dialogue flags are restored. Day 1 restart clears the snapshot. The last saved position may be up to about one second behind her last movement; a natural browser reload check remains open.
+- Firas found that a failed Prologue campaign save could still set the legacy menu marker. The Prologue R path now sets that marker only after a successful campaign write; the menu also recognizes the earned campaign record if the legacy marker is unavailable. `index.html` no longer reveals Moreno's secret assignment in the Day 2 intro/title text. These are source-reviewed changes; TypeScript/build checks are recorded separately, not a playable-route claim.
+- Layla reconciled stale Arabic/English treatment wording for the approved barn arrow, southbound quarry route, off-screen assignment, and already-implemented Elia-before-Omar gate. Proposed dialogue, `[ref]` speakers, room heights, and the physical southbound connector remain unresolved or separately owned.
+
 # 2026-10-21 — Barn clue stage gate
 
 - `src/villageMain.ts` now keeps the Chapter 2 barn-arrow objective until the existing `chalk` examinable is inspected; mine stage advancement, Hall filming and cave exit cannot complete first. This changes no connector geometry or dialogue. The current connector and direct-entry camera are still east pending the separate approved southbound route work. Source/typecheck/build checks passed; real pickability and a continuous player route remain unverified.
