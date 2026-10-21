@@ -228,6 +228,12 @@ export function buildTown(k: Kit, scene: THREE.Scene, leafMat: THREE.Material): 
   }
 
   function plinth(b: Building, tone: number, top = b.floor + 0.4) {
+    if (b.hollow) {
+      // An enterable room already has a floor in shell(). Keep the foundation below it;
+      // the old solid block rose 40 cm into the room and hid feet and furniture legs.
+      put('stone', boxMM(b.x0 - 0.06, b.base, b.z0 - 0.06, b.x1 + 0.06, b.floor - 0.02, b.z1 + 0.06, 0.8), cS(COL.stone, tone * 0.78));
+      return;
+    }
     put('stone', boxMM(b.x0 - 0.06, b.base, b.z0 - 0.06, b.x1 + 0.06, top, b.z1 + 0.06, 0.8), cS(COL.stone, tone * 0.78));
     put('lit', boxMM(b.x0 - 0.1, top - 0.02, b.z0 - 0.1, b.x1 + 0.1, top + 0.06, b.z1 + 0.1, 2), COL.stoneDry);
   }
@@ -339,7 +345,7 @@ export function buildTown(k: Kit, scene: THREE.Scene, leafMat: THREE.Material): 
       let parts: Rect[] = [r];
       for (const { r: g } of gaps) parts = parts.flatMap(p => (g.x1 <= p.x0 || g.x0 >= p.x1 || g.z1 <= p.z0 || g.z0 >= p.z1) ? [p]
         : (alongX ? [{ ...p, x1: g.x0 }, { ...p, x0: g.x1 }] : [{ ...p, z1: g.z0 }, { ...p, z0: g.z1 }]).filter(q => q.x1 - q.x0 > 0.02 && q.z1 - q.z0 > 0.02));
-      for (const p of parts) put('stone', boxMM(p.x0, b.floor + 0.4, p.z0, p.x1, top, p.z1, 0.8), cS(COL.stone, tone));
+      for (const p of parts) put('stone', boxMM(p.x0, b.floor, p.z0, p.x1, top, p.z1, 0.8), cS(COL.stone, tone));
     };
     slab({ x0: b.x0, x1: b.x1, z0: b.z0, z1: b.z0 + t }); slab({ x0: b.x0, x1: b.x1, z0: b.z1 - t, z1: b.z1 });
     slab({ x0: b.x0, x1: b.x0 + t, z0: b.z0 + t, z1: b.z1 - t }); slab({ x0: b.x1 - t, x1: b.x1, z0: b.z0 + t, z1: b.z1 - t });

@@ -1,3 +1,8 @@
+# 2026-10-21 — Enterable room floor occlusion repair
+
+- The owner screenshot showed furniture legs disappearing into the room surface. `src/villageTown.ts` still rendered every hollow building's solid foundation and top cap up to 0.4 m above the actual interior floor. Hollow foundations now end below the floor, and their wall shells extend down to meet it. This applies to the furnished homes and police post without changing measured floors, NPC positions, or collision boxes.
+- Typecheck, production build, and diff check passed. The corrected room view and character feet still need a browser visual check; browser use is disabled in this Work session.
+
 # 2026-10-21 — Enterable homes, larger police post, and MADSINA walk aid
 
 - Eight village homes now have open doors and varied furniture using existing licensed models. The former school police post extends north and south, with a two-desk office bay, notice board, medical cot, waiting bench, and a barred holding cell with collision and basic furnishings. Existing NPC positions and the measured building floor source remain unchanged.
