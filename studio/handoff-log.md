@@ -1,3 +1,8 @@
+# 2026-10-21 — Deer offline scale calibration
+
+- Aktham rendered one incoming Quaternius deer in Blender against a 1 m ruler and saved a reproducible script, image and measured report in `studio/reports/aktham-deer-calibration.*` / `deer_calibration_preview.py`. Trial scale `0.3149539229` gives a 1.65 m evaluated height with the lowest hoof at the flat floor; other hooves are slightly raised in its default pose.
+- This is an isolated Z-up offline preview, not a Three.js Hall capture. The deer remains in `art-incoming/`; no runtime asset, placement, animation or performance claim changed. A GLTFLoader render and animation frame check are still needed before promotion.
+
 # 2026-10-21 — Chapter 2 and 3 restart objectives
 
 - Firas confirmed the Hall-to-Chapter 3 earned path requires filmed footage and the Chapter 3 upload gate checks that record. He found a retry UI defect: Chapter 2's battery-empty `R` reset restored film and stage but left the stale battery objective. `src/villageMain.ts` now restores the barn chalk-arrow objective on Chapter 2 restart and the priest/deadline or missing-footage objective on Chapter 3 restart; the objective card is visible again. No quarry route or upload mechanics changed.
