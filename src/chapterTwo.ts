@@ -207,6 +207,20 @@ export function buildChapterTwo(scene: THREE.Scene, ground: Ground): ChapterTwoW
     animalLoader.loadAsync(`${import.meta.env.BASE_URL}models/animals/cow.glb`).catch(() => null),
     animalLoader.loadAsync(`${import.meta.env.BASE_URL}models/animals/sheep.glb`).catch(() => null),
   ]).then(([cowAsset, sheepAsset]) => {
+    // These converted GLBs mark every surface MASK with base alpha 0, which discards the animals.
+    // Correct only that broken import state before cloning; the source files and other assets stay untouched.
+    for (const asset of [cowAsset, sheepAsset]) asset?.scene.traverse(o => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      for (const material of materials) {
+        const m = material as THREE.MeshStandardMaterial;
+        if (m.opacity !== 0 || m.alphaTest <= 0) continue;
+        m.opacity = 1;
+        m.alphaTest = 0;
+        m.needsUpdate = true;
+      }
+    });
     const cows = [[340, 38], [342.5, 35.8], [338, 34.4], [346, 37.2], [349, 40.5], [341, 45.5], [348, 47.5]];
     for (let i = 0; i < cows.length; i++) {
       const [x, z] = cows[i], animal = cowAsset ? cloneSkeleton(cowAsset.scene) : new THREE.Mesh(new THREE.SphereGeometry(0.7, 8, 6), new THREE.MeshStandardMaterial({ color: i % 3 ? '#d8d1c1' : '#343330', roughness: 1 }));

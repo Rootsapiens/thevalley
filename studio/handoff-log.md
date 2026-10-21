@@ -1,3 +1,8 @@
+# 2026-10-21 — Hall cow and sheep material correction
+
+- `src/chapterTwo.ts` now corrects only the loaded cow/sheep materials with zero opacity and a positive alpha mask threshold before cloning them into the Hall. Aktham and Firas independently confirmed that the current cow (three materials) and sheep (two materials) GLBs all have MASK/cutoff 0.5/base alpha 0 with no textures; installed GLTFLoader maps those fields to the guarded material properties. Source GLBs and other animals were not edited.
+- Typecheck, build and diff check passed. Rendered visibility, scale, feet placement and frame cost remain unverified because browser use is disabled. If sheep loading fails, there is still no sheep fallback; the existing cow fallback is unaffected. See `studio/reports/aktham-hall-material-review.md` and `studio/reports/firas-hall-material-audit.md`.
+
 # 2026-10-21 — Maryam resume and Day 2 secrecy cleanup
 
 - Rajaie added a bounded Maryam route snapshot to the earned Day 1 campaign record. After refresh, her confirmed walk or square arrival is restored from a validated waypoint, existing terrain supplies Y, the yard gate reopens for an in-progress walk, and her objective/dialogue flags are restored. Day 1 restart clears the snapshot. The last saved position may be up to about one second behind her last movement; a natural browser reload check remains open.
