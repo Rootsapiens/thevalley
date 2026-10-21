@@ -456,6 +456,13 @@ if (STORY_DAY === 1 && !PROLOGUE_MODE && entryKind === 'campaign' && campaignPro
   setStoryObjective('تحدّث إلى مورينو عن عمر', 'Speak to Moreno about Omar');
   if (campaignProgress.day1.morenoHeard && !scheduleDayTwoIfReady()) setMaryamNextObjective();
 }
+if (STORY_DAY === 1 && !PROLOGUE_MODE && entryKind === 'campaign' && campaignProgress?.day1.omarHeard
+    && !campaignProgress.day1.medicalCheckComplete) {
+  // The guarded check was started before reload; resume its short delay without replaying Omar's line.
+  heard.add('omar_mountain');
+  medicalCheckAt = storyTime + 2.5;
+  setStoryObjective('انتظر اكتمال الفحص الطبي تحت الحراسة', 'Wait for the guarded medical check to finish');
+}
 if (STORY_DAY === 2 && entryKind === 'campaign' && campaignProgress?.day2.eliaPhotosHeard) {
   heard.add('elia_rest'); heard.add('elia_photos');
   story.flags.add('elia_cover_introduced');
@@ -960,7 +967,7 @@ function tick(input: Input) {
       }
       if (story.day === 1 && !scheduleDayTwoIfReady()) {
         if (story.medicalCheckComplete) setStoryObjective('تحدّث إلى مورينو عن عمر', 'Speak to Moreno about Omar');
-        else if (!talkLog.some(e => e.npc === 'npc_omar')) setStoryObjective('تحدّث إلى عمر في المركز', 'Talk to Omar at the police post');
+        else if (!talkLog.some(e => e.npc === 'npc_omar') && !campaignProgress?.day1.omarHeard) setStoryObjective('تحدّث إلى عمر في المركز', 'Talk to Omar at the police post');
       }
     }
   }

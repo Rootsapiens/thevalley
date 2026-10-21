@@ -1,3 +1,8 @@
+# 2026-10-21 — Resume Omar's guarded medical check
+
+- Firas found that a campaign reload after Omar's Day 1 line but before the guarded check finished discarded its in-memory timer. `src/villageMain.ts` now resumes the short pending check from the saved `omarHeard` beat, keeps his line heard, and shows the wait objective. Maryam reaching the square during that wait no longer tells Lorenzo to repeat Omar's line.
+- Typecheck, production build and diff check passed. The mid-check reload and natural Day 1 route remain unverified in a browser because browser use is disabled.
+
 # 2026-10-21 — Deer idle animation offline review
 
 - Aktham isolated the incoming Quaternius deer's `Idle` clip in Blender at the earlier trial scale. Five sampled poses have no measured root drift or floor penetration; one front hoof stays about 3.6 cm raised. The animated height is about 1.35 m versus 1.65 m in the earlier default pose. See `studio/reports/aktham-deer-animation.md`, its frame-40 still and reproducible script.
